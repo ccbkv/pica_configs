@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.1.3"
+    version = "1.1.4"
 
     minAppVersion = "3.1.0"
 
@@ -42,7 +42,7 @@ class CopyManga extends ComicSource {
             let salt = randomInt(1000, 9999)
             let base64 = Convert.encodeBase64(`${pwd}-${salt}`)
             let res = await Network.post(
-                "https://api.copymanga.tv/api/v3/login?platform=3",
+                "https://api.2025copy.com/api/v3/login?platform=3",
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
@@ -73,7 +73,7 @@ class CopyManga extends ComicSource {
         logout: () => {
             this.deleteData('token')
         },
-        registerWebsite: "https://www.copymanga.site/web/login/loginByAccount"
+        registerWebsite: "https://www.copymanga.com/web/login/loginByAccount"
     }
 
     /// explore pages
@@ -83,7 +83,7 @@ class CopyManga extends ComicSource {
             type: "singlePageWithMultiPart",
             load: async () => {
                 let dataStr = await Network.get(
-                    "https://api.copymanga.tv/api/v3/h5/homeIndex?platform=3",
+                    "https://api.2025copy.com/api/v3/h5/homeIndex?platform=3",
                     this.headers
                 )
 
@@ -149,7 +149,7 @@ class CopyManga extends ComicSource {
         load: async (category, param, options, page) => {
             options = options.map(e => e.replace("*", "-"))
             let res = await Network.get(
-                `https://api.copymanga.tv/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=${options[1]}&theme=${param}&top=${options[0]}&platform=3`,
+                `https://api.2025copy.com/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=${options[1]}&theme=${param}&top=${options[0]}&platform=3`,
                 this.headers
             )
             if (res.status !== 200) {
@@ -216,7 +216,7 @@ class CopyManga extends ComicSource {
         load: async (keyword, options, page) => {
             keyword = encodeURIComponent(keyword)
             var res = await Network.get(
-                `https://api.copymanga.tv/api/v3/search/comic?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=&platform=3`,
+                `https://api.2025copy.com/api/v3/search/comic?limit=21&offset=${(page - 1) * 21}&q=${keyword}&q_type=&platform=3`,
                 this.headers
             )
             if (res.status !== 200) {
@@ -274,7 +274,7 @@ class CopyManga extends ComicSource {
             let is_collect = isAdding ? 1 : 0
             let token = this.loadData("token");
             let comicData = await Network.get(
-                `https://api.copymanga.tv/api/v3/comic2/${comicId}?platform=3`,
+                `https://api.2025copy.com/api/v3/comic2/${comicId}?platform=3`,
                 this.headers
             )
             if (comicData.status !== 200) {
@@ -282,7 +282,7 @@ class CopyManga extends ComicSource {
             }
             let comic_id = JSON.parse(comicData.body).results.comic.uuid
             let res = await Network.post(
-                "https://api.copymanga.tv/api/v3/member/collect/comic?platform=3",
+                "https://api.2025copy.com/api/v3/member/collect/comic?platform=3",
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
@@ -299,7 +299,7 @@ class CopyManga extends ComicSource {
         },
         loadComics: async (page, folder) => {
             var res = await Network.get(
-                `https://api.copymanga.tv/api/v3/member/collect/comics?limit=21&offset=${(page - 1) * 21}&free_type=1&ordering=-datetime_updated&platform=3`,
+                `https://api.2025copy.com/api/v3/member/collect/comics?limit=21&offset=${(page - 1) * 21}&free_type=1&ordering=-datetime_updated&platform=3`,
                 this.headers
             )
 
@@ -348,7 +348,7 @@ class CopyManga extends ComicSource {
         loadInfo: async (id) => {
             async function getChapters(id) {
                 var res = await Network.get(
-                    `https://api.copymanga.tv/api/v3/comic/${id}/group/default/chapters?limit=500&offset=0&platform=3`,
+                    `https://api.2025copy.com/api/v3/comic/${id}/group/default/chapters?limit=500&offset=0&platform=3`,
                     this.headers
                 );
                 if (res.status !== 200) {
@@ -366,7 +366,7 @@ class CopyManga extends ComicSource {
                     let offset = 500;
                     while (offset < maxChapter) {
                         res = await Network.get(
-                            `https://api.copymanga.tv/api/v3/comic/chongjingchengweimofashaonv/group/default/chapters?limit=500&offset=${offset}&platform=3`,
+                            `https://api.2025copy.com/api/v3/comic/chongjingchengweimofashaonv/group/default/chapters?limit=500&offset=${offset}&platform=3`,
                             this.headers
                         );
                         if (res.status !== 200) {
@@ -385,7 +385,7 @@ class CopyManga extends ComicSource {
             }
 
             async function getFavoriteStatus(id) {
-                let res = await Network.get(`https://api.copymanga.tv/api/v3/comic2/${id}/query?platform=3`, this.headers);
+                let res = await Network.get(`https://api.2025copy.com/api/v3/comic2/${id}/query?platform=3`, this.headers);
                 if (res.status !== 200) {
                     throw `Invalid status code: ${res.status}`;
                 }
@@ -394,7 +394,7 @@ class CopyManga extends ComicSource {
 
             let results = await Promise.all([
                 Network.get(
-                    `https://api.copymanga.tv/api/v3/comic2/${id}?platform=3`,
+                    `https://api.2025copy.com/api/v3/comic2/${id}?platform=3`,
                     this.headers
                 ),
                 getChapters.bind(this)(id),
@@ -431,7 +431,7 @@ class CopyManga extends ComicSource {
         },
         loadEp: async (comicId, epId) => {
             let res = await Network.get(
-                `https://api.copymanga.tv/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
+                `https://api.2025copy.com/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
                 this.headers
             );
 
@@ -456,7 +456,7 @@ class CopyManga extends ComicSource {
             }
         },
         loadComments: async (comicId, subId, page, replyTo) => {
-            let url = `https://api.copymanga.tv/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page-1)*20}`;
+            let url = `https://api.2025copy.com/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page-1)*20}`;
             if(replyTo){
                 url = url + `&reply_id=${replyTo}&_update=true`;
             }
@@ -496,7 +496,7 @@ class CopyManga extends ComicSource {
                 replyTo = '';
             }
             let res = await Network.post(
-                `https://api.copymanga.tv/api/v3/member/comment`,
+                `https://api.2025copy.com/api/v3/member/comment`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
