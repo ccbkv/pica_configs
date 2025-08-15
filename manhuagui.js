@@ -974,11 +974,6 @@ class ManHuaGui extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      // 验证epId
-      if (!epId || epId === '0' || isNaN(epId)) {
-        throw new Error('无效的章节ID');
-      }
-      
       // 构建包含epId的完整URL
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
@@ -987,20 +982,22 @@ class ManHuaGui extends ComicSource {
       let scripts = document.querySelectorAll("script");
       let scriptContent = null;
       
-      // 方法1: 查找包含特定字符串的脚本
-      for (let script of scripts) {
-        if (script.innerHTML && script.innerHTML.includes('window\['+'"\_\$MANGA\_"'+'\]')) {
-          scriptContent = script.innerHTML;
-          break;
-        }
-      }
-      
-      // 方法2: 如果方法1失败，尝试获取特定位置的脚本
-      if (!scriptContent && scripts.length >= 5) {
+      // 优先尝试获取特定位置的脚本
+      if (scripts.length >= 5) {
         scriptContent = scripts[4].innerHTML;
       }
       
-      if (!scriptContent) {
+      // 如果特定位置脚本为空或不存在，查找包含特定字符串的脚本
+      if (!scriptContent || scriptContent.trim() === '') {
+        for (let script of scripts) {
+          if (script.innerHTML && script.innerHTML.includes('window\['+'"\_\$MANGA\_"'+'\]')) {
+            scriptContent = script.innerHTML;
+            break;
+          }
+        }
+      }
+      
+      if (!scriptContent || scriptContent.trim() === '') {
         throw new Error("未找到包含漫画图片信息的脚本标签");
       }
       
@@ -1016,19 +1013,31 @@ class ManHuaGui extends ComicSource {
         infos.files = [];
       }
 
-      // 检查sl对象
-      if (!infos.sl) {
-        infos.sl = {};
-      }
+      // 初始化sl对象默认值
+      infos.sl = infos.sl || {};
+      // 确保e和m参数存在
+      infos.sl.e = infos.sl.e || '';
+      infos.sl.m = infos.sl.m || '';
 
       // 确保path存在
       if (!infos.path) {
         infos.path = '';
       }
 
-      // 设置默认的imgDomain
-      let imgDomain = `https://us.hamreus.com`;
+      // 构建图片URL，使用固定域名
+      const imgDomain = 'https://us.hamreus.com';
       let images = [];
+      for (let fileName of infos.files) {
+        // 确保fileName是字符串
+        fileName = String(fileName);
+        // 构建完整图片URL
+        let imgUrl = `${imgDomain}${infos.path}${fileName}?e=${infos.sl.e}&m=${infos.sl.m}`;
+        images.push(imgUrl);
+      }
+
+      return {
+        images
+      };
 
       // 安全获取e和m参数
       let eParam = infos.sl.e !== undefined ? String(infos.sl.e) : '';
