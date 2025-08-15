@@ -70,42 +70,30 @@ class ManHuaGui extends ComicSource {
 
   // 获取HTML内容并处理响应
   async getHtml(url) {
-    // 简化headers配置，参考ikmmh.js和copy_manga.js
+    // 简化headers配置，与ikmmh.js保持一致
     let headers = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-      cookie: "country=US",
-      Referer: "https://www.manhuagui.com/",
+      "Referer": "https://www.manhuagui.com/",
     };
     let res = await Network.get(url, headers);
     
-    // 处理响应状态
-    if (res.status !== 200) {
-      throw `Invalid status code: ${res.status}`;
-    }
-    
-    // 状态码正常但res.ok为false的情况
-    if (!res.ok) {
-      console.warn(`Response ok is false but status code is ${res.status}`);
-      // 简化响应头处理，避免JSON序列化可能导致的类型问题
-      console.log(`Response headers status: ${res.status}`);
+    // 同时检查status和ok状态
+    if (res.status !== 200 || !res.ok) {
+      throw `Network error: Status code ${res.status}, ok: ${res.ok}`;
     }
     
     // 确保body不为null或空
     let body = res.body || '';
     if (!body.trim()) {
       console.warn('Response body is empty');
-      // 返回一个包含基本结构的HTML，避免后续处理出错
       body = '<!DOCTYPE html><html><head><title>Empty Response</title></head><body></body></html>';
     }
     
     try {
-      let document = new HtmlDocument(body);
-      return document;
+      return new HtmlDocument(body);
     } catch (e) {
       console.error('Failed to parse HTML:', e);
-      // 解析失败时返回一个空文档
-      return new HtmlDocument('<!DOCTYPE html><html><head><title>Parse Error</title></head><body></body></html>');
+      throw "Failed to parse HTML content";
     }
   }
   parseSimpleComic(e) {
@@ -879,49 +867,39 @@ class ManHuaGui extends ComicSource {
       //   let lastChapter = parseDetail(6);
       let status = detail_list[7].text.trim();
 
-      // 确保tags对象中的所有值都是字符串数组，避免类型转换问题
-      // 直接使用数组值，不使用toString()
+      // 确保tags对象中的所有值都是字符串数组，与ikmmh.js保持一致
       let tags = {
-        年代: createYear.length > 0 ? createYear : ['未知'],
-        状态: [status],
-        作者: author.length > 0 ? author : ['未知'],
-        地区: area.length > 0 ? area : ['未知'],
-        类型: genre.length > 0 ? genre : ['未知'],
+        "作者": author.length > 0 ? author.map(item => item.toString()) : ['未知'],
+        "状态": [status.toString()],
+        "地区": area.length > 0 ? area.map(item => item.toString()) : ['未知'],
+        "类型": genre.length > 0 ? genre.map(item => item.toString()) : ['未知'],
+        "年代": createYear.length > 0 ? createYear.map(item => item.toString()) : ['未知'],
       };
       let updateTime = detail_list[8].text.trim();
 
       // ANCHOR 章节信息
-      // 直接使用对象而非Map，避免Flutter环境中的类型转换问题
+      // 使用与ikmmh.js相同的简单对象结构
       let chapters = {};
       
-      // 查找所有章节分组标题
-      let chapterGroups = document.querySelectorAll(".chapter h4 span");
-      
-      // 处理每个分组
-      chapterGroups.forEach((group, i) => {
-        let groupName = group.text.trim();
-        let groupObj = {};
-        let chapterList = document.querySelectorAll('.chapter-list')[i];
-        if (chapterList) {
-          let lis = chapterList.querySelectorAll('li');
-          for (let li of lis) {
-            let a = li.querySelector('a');
-            let id = a.attributes['href'].split('/').pop().replace('.html', '');
-            let title = a.querySelector('span').text.trim();
-            groupObj[id] = title;
+      // 查找章节列表
+      let chapterList = document.querySelector('.chapter-list');
+      if (chapterList) {
+        let lis = chapterList.querySelectorAll('li');
+        for (let li of lis) {
+          let a = li.querySelector('a');
+          if (a) {
+            let href = a.attributes['href'] ? a.attributes['href'].value : '';
+            let id = href.split('/').pop().replace('.html', '');
+            let title = a.querySelector('span') ? a.querySelector('span').text.trim() : '';
+            // 确保id和title都是字符串
+            chapters[id.toString()] = title.toString();
           }
-          // 章节升序排列
-          let sortedGroupObj = {};
-          Object.keys(groupObj).sort((a, b) => a - b).forEach(key => {
-            sortedGroupObj[key] = groupObj[key];
-          });
-          chapters[groupName] = sortedGroupObj;
         }
-      });
+      }
 
-      // 如果chapters为空，则创建一个空对象
+      // 如果没有找到章节，创建一个有意义的默认值
       if (Object.keys(chapters).length === 0) {
-        chapters = {};
+        chapters = { "暂无章节": { "0": "暂无章节内容" } };
       }
 
       //ANCHOR - 推荐
