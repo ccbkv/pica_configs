@@ -24,6 +24,12 @@
         "version": "1.0.0"
     },
     {
+        "name": "百合会",
+        "fileName": "baihehui.js",
+        "key": "baihehui",
+        "version": "1.0.0"
+    },
+        {
         "name": "NoyAcg",
         "fileName": "noyacg.js",
         "key": "NoyAcg",
