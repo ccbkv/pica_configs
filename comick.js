@@ -766,9 +766,18 @@ class Comick extends ComicSource {
             // 确保 cId 不为 null，使用 comicData.slug 作为备用值
             const safeCId = cId || comicData.slug || 'unknown';
             // 使用validChapters而不是firstChapters，避免传递null值
-            let temp = await load_chapter(validChapters, comicData, buildId, safeCId);
-            let chapters = temp[0];
-            let updateTime = temp[1];
+            let temp = null;
+            let chapters = new Map();
+            let updateTime = comicData?.last_chapter ? `第${comicData.last_chapter}话` : "暂无更新";
+            try {
+                temp = await load_chapter(validChapters, comicData, buildId, safeCId);
+                if (temp && Array.isArray(temp) && temp.length >= 2) {
+                    chapters = temp[0] || new Map();
+                    updateTime = temp[1] || updateTime;
+                }
+            } catch (error) {
+                console.error("Error loading chapters:", error);
+            }
 
             return {
                 title: title,
