@@ -934,20 +934,40 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      let script = document.querySelectorAll("script")[4].innerHTML;
-      let infos = this.getImgInfos(script);
+      
+      // 查找包含图片信息的脚本标签
+      let scripts = document.querySelectorAll("script");
+      let scriptContent = null;
+      for (let script of scripts) {
+        if (script.innerHTML && script.innerHTML.includes('window\['+'"\_\$MANGA\_"'+'\]')) {
+          scriptContent = script.innerHTML;
+          break;
+        }
+      }
+      
+      if (!scriptContent) {
+        throw new Error("未找到包含漫画图片信息的脚本标签");
+      }
+      
+      let infos = this.getImgInfos(scriptContent);
 
-      // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
+      // 确保infos和所需属性存在
+      if (!infos || !infos.files || !Array.isArray(infos.files) || !infos.sl || typeof infos.sl.e !== 'number' || typeof infos.sl.m !== 'string') {
+        throw new Error("解析图片信息失败");
+      }
+
       let imgDomain = `https://us.hamreus.com`;
       let images = [];
       for (let f of infos.files) {
-        // 确保e和m参数被正确转换为字符串
+        // 确保f是字符串
+        if (typeof f !== 'string') continue;
+        
         let eParam = String(infos.sl.e);
         let mParam = String(infos.sl.m);
         let imgUrl = imgDomain + infos.path + f + `?e=${eParam}&m=${mParam}`;
         images.push(imgUrl);
       }
-      // log("warning", this.name, images);
+      
       return {
         images,
       };
