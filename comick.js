@@ -7,7 +7,7 @@ class Comick extends ComicSource {
     name = "comick"
     key = "comick"
     version = "1.1.1"
-    minAppVersion = "3.1.0"
+    minAppVersion = "1.4.0"
     // update url
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/comick.js"
 
@@ -637,7 +637,9 @@ class Comick extends ComicSource {
             //填充文章id：
             this.comic.id = id;
             let document = new HtmlDocument(res.body)
-            let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text);
+            let nextDataElement = document.getElementById('__NEXT_DATA__');
+            if (!nextDataElement) throw "__NEXT_DATA__ element not found";
+            let jsonData = JSON.parse(nextDataElement.text);
             let comicData = jsonData.props?.pageProps?.comic;
             let authorData = jsonData.props?.pageProps?.authors || [];
             let title = cTitle || comicData?.title || "未知标题";
