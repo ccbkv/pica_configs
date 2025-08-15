@@ -103,7 +103,12 @@ class ManHuaGui extends ComicSource {
     if (!res.ok) {
       console.warn(`Response ok is false but status code is ${res.status}`);
       // 使用console.log替代console.debug，确保在所有环境中可用
-      console.log('Response headers:', JSON.stringify(res.headers));
+      // 安全地处理响应头输出，避免Flutter环境中的类型转换问题
+      try {
+        console.log('Response headers:', JSON.stringify(res.headers));
+      } catch (e) {
+        console.log('Response headers (stringified):', String(res.headers));
+      }
     }
     
     // 确保body不为null或空
