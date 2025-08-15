@@ -26,13 +26,13 @@
     {
         "name": "百合会",
         "fileName": "baihehui.js",
-        "key": "NoyAcg",
+        "key": "baihehui",
         "version": "1.0.0"
     },
     {
         "name": "NoyAcg",
         "fileName": "noyacg.js",
-        "key": "baihehui",
+        "key": "NoyAcg",
         "version": "1.0.0"
     },
     {
