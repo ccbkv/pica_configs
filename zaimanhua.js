@@ -1,5 +1,9 @@
 /** @type {import('./_venera_.js')} */
 class ZaiManHua extends ComicSource {
+  constructor() {
+    super();
+    this.init();
+  }
   // Note: The fields which are marked as [Optional] should be removed if not used
 
   // name of the source
@@ -13,7 +17,7 @@ class ZaiManHua extends ComicSource {
   minAppVersion = "1.4.0";
 
   // update url
-  url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/zaimanhua.js"";
+  url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/zaimanhua.js";
 
   /**
    * fetch html content
@@ -22,11 +26,15 @@ class ZaiManHua extends ComicSource {
    * @returns {Promise<{document:HtmlDocument}>}
    */
   async fetchHtml(url, headers = {}) {
-    let res = await Network.get(url, headers);
-    if (res.status !== 200) {
+    let res = await fetch(url, {
+      method: 'GET',
+      headers: headers
+    });
+    if (!res.ok) {
       throw "Invalid status code: " + res.status;
     }
-    let document = new HtmlDocument(res.body);
+    let html = await res.text();
+    let document = new HtmlDocument(html);
 
     return document;
   }
@@ -38,8 +46,15 @@ class ZaiManHua extends ComicSource {
    * @returns {Promise<{data:object}>}
    */
   async fetchJson(url, headers = {}) {
-    let res = await Network.get(url, headers);
-    return JSON.parse(res.body).data;
+    let res = await fetch(url, {
+      method: 'GET',
+      headers: headers
+    });
+    if (!res.ok) {
+      throw "Invalid status code: " + res.status;
+    }
+    let json = await res.json();
+    return json.data;
   }
 
   /**
@@ -218,7 +233,7 @@ class ZaiManHua extends ComicSource {
         .map((key) => `${key}=${params[key]}`)
         .join("&");
       //   log("error", "再漫画", params_str);
-      let url = `${fil}?${params_str}&firstLetter`;
+      let url = `${fil}?${params_str}&firstLetter=`;
       //   log("error", "再漫画", url);
 
       const json = await this.fetchJson(url);
