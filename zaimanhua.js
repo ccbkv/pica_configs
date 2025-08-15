@@ -14,7 +14,7 @@ class ZaiManHua extends ComicSource {
 
   version = "1.0.0";
 
-  minAppVersion = "1.4.0";
+  minAppVersion = "3.1.0";
 
   // update url
   url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/zaimanhua.js";
