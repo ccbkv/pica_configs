@@ -732,9 +732,11 @@ class Comick extends ComicSource {
             }
             
             // 处理无标卷和无标话的情况
+            // 获取第一个有效章节
+            let firstChapter = validChapters[0];
             if(firstChapter.vol == null && firstChapter.chap == null){
                 for(let i = 0; i < validChapters.length; i++) {
-                    if(firstChapters[i].vol != null || firstChapters[i].chap != null){
+                    if(validChapters[i].vol != null || validChapters[i].chap != null){
                         firstChapter = validChapters[i];
                         break;
                     }
@@ -743,7 +745,7 @@ class Comick extends ComicSource {
                 if(firstChapter.vol == null && firstChapter.chap == null){
                     let chapters = new Map()
                     let updateTime = comicData?.last_chapter ? "第" + comicData.last_chapter + "话" : "暂无更新";
-                    chapters.set((firstChapter.hid || 'unknown') + "//no//-1//" + (firstChapter.lang || 'unknown'), "无标卷")
+                    chapters.set((firstChapter.hid || 'unknown') + "//no//-1//" + (firstChapter?.lang || 'unknown'), "无标卷")
                     return {
                         title: title,
                         cover: cover,
@@ -763,7 +765,8 @@ class Comick extends ComicSource {
             //获取章节
             // 确保 cId 不为 null，使用 comicData.slug 作为备用值
             const safeCId = cId || comicData.slug || 'unknown';
-            let temp = await load_chapter(firstChapters, comicData, buildId, safeCId);
+            // 使用validChapters而不是firstChapters，避免传递null值
+            let temp = await load_chapter(validChapters, comicData, buildId, safeCId);
             let chapters = temp[0];
             let updateTime = temp[1];
 
