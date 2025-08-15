@@ -7,7 +7,7 @@ class Comick extends ComicSource {
     name = "comick"
     key = "comick"
     version = "1.1.1"
-    minAppVersion = "1.4.0"
+    minAppVersion = "3.1.0"
     // update url
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/comick.js"
 
@@ -415,15 +415,15 @@ class Comick extends ComicSource {
             let nextDataText = nextDataElement.text;
             if (!nextDataText) throw "__NEXT_DATA__ text is empty";
             let jsonData = JSON.parse(nextDataText);
-            let mangaData = jsonData.props.pageProps.data;
+            let mangaData = jsonData.props.pageProps.data || {};
 
             // 使用统一函数转换数据
             const result = {
-                "最近更新": this.transformBookList(mangaData.extendedNews),
-                "最近上传": this.transformBookList(mangaData.news),
-                "最近热门": this.transformBookList(mangaData.recentRank),
-                "总热门": this.transformBookList(mangaData.rank),
-                "完结": this.transformBookList(mangaData.completions),
+                "最近更新": this.transformBookList(mangaData.extendedNews || []),
+                "最近上传": this.transformBookList(mangaData.news || []),
+                "最近热门": this.transformBookList(mangaData.recentRank || []),
+                "总热门": this.transformBookList(mangaData.rank || []),
+                "完结": this.transformBookList(mangaData.completions || []),
             };
 
             return result;
@@ -469,8 +469,8 @@ class Comick extends ComicSource {
             let res = await Network.get(url, Comick.getRandomHeaders());
             if (!res.ok) throw "Request Error: " + res.status;
 
-            let mangaList = JSON.parse(res.body);
-            if (!Array.isArray(mangaList)) throw "Invalid data format";
+            let mangaList = JSON.parse(res.body) || [];
+            if (!Array.isArray(mangaList)) mangaList = [];
 
             return {
                 comics: mangaList.map(this.getFormattedManga),
@@ -508,8 +508,8 @@ class Comick extends ComicSource {
             let res = await Network.get(url, Comick.getRandomHeaders());
             if (!res.ok) throw "Request Error: " + res.status;
 
-            let mangaList = JSON.parse(res.body);
-            if (!Array.isArray(mangaList)) throw "Invalid data format";
+            let mangaList = JSON.parse(res.body) || [];
+            if (!Array.isArray(mangaList)) mangaList = [];
 
             return {
                 comics: mangaList.map(this.getFormattedManga),
