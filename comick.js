@@ -7,9 +7,9 @@ class Comick extends ComicSource {
     name = "comick"
     key = "comick"
     version = "1.1.1"
-    minAppVersion = "1.4.0"
+    minAppVersion = "3.1.0"
     // update url
-    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/comick.js"
+    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/comick.js"
 
     settings = {
         domains: {
