@@ -13,7 +13,7 @@ class ZaiManHua extends ComicSource {
   minAppVersion = "1.4.0";
 
   // update url
-  url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/zaimanhua.js";
+  url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/zaimanhua.js"";
 
   /**
    * fetch html content
