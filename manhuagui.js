@@ -939,9 +939,9 @@ class ManHuaGui extends ComicSource {
         }
       }
 
-      // 如果没有找到章节，创建一个有意义的默认值
+      // 确保不会添加ID为0的无效章节
       if (Object.keys(chapters).length === 0) {
-        chapters = { "0": "暂无章节内容" };
+        chapters = {};
       }
 
       //ANCHOR - 推荐
@@ -974,6 +974,10 @@ class ManHuaGui extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
+      // 验证epId，排除无效的0和非数字ID
+      if (!epId || epId === '0' || isNaN(epId)) {
+        throw new Error('无效的章节ID');
+      }
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
       
