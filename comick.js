@@ -7,7 +7,7 @@ class Comick extends ComicSource {
     name = "comick"
     key = "comick"
     version = "1.1.1"
-    minAppVersion = "3.1.0"
+    minAppVersion = "1.4.0"
     // update url
     url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/comick.js"
 
@@ -448,8 +448,20 @@ class Comick extends ComicSource {
                 `page=${encodeURIComponent(page)}`
             ];
 
+            // 确保排序值是 API 允许的
             if (options[0]) {
-                params.push(`sort=${encodeURIComponent(options[0].split("-")[0])}`);
+                const sortValue = options[0].split("-")[0];
+                // 检查排序值是否在允许的列表中
+                const allowedSorts = ['view', 'created_at', 'uploaded', 'rating', 'follow', 'user_follow_count', ''];
+                if (allowedSorts.includes(sortValue)) {
+                    params.push(`sort=${encodeURIComponent(sortValue)}`);
+                } else {
+                    // 使用默认排序值
+                    params.push('sort=uploaded');
+                }
+            } else {
+                // 如果没有提供排序选项，使用默认值
+                params.push('sort=uploaded');
             }
 
             if (options[1] && options[1] !== "-全部") {
