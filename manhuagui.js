@@ -891,64 +891,38 @@ class ManHuaGui extends ComicSource {
       let updateTime = detail_list[8].text.trim();
 
       // ANCHOR 章节信息
-      // 支持多分组
-      let chaptersMap = new Map();
+      // 直接使用对象而非Map，避免Flutter环境中的类型转换问题
+      let chapters = {};
       
       // 查找所有章节分组标题
       let chapterGroups = document.querySelectorAll(".chapter h4 span");
       
       // 处理每个分组
-      for (let i = 0; i < chapterGroups.length; i++) {
-        let groupName = chapterGroups[i].text.trim();
-        let groupChapters = new Map();
-        
-        // 获取对应的章节列表
-        let chapterList = document.querySelectorAll(".chapter-list")[i];
+      chapterGroups.forEach((group, i) => {
+        let groupName = group.text.trim();
+        let groupObj = {};
+        let chapterList = document.querySelectorAll('.chapter-list')[i];
         if (chapterList) {
-          let lis = chapterList.querySelectorAll("li");
+          let lis = chapterList.querySelectorAll('li');
           for (let li of lis) {
-            let a = li.querySelector("a");
-            let id = a.attributes["href"].split("/").pop().replace(".html", "");
-            let title = a.querySelector("span").text.trim();
-            groupChapters.set(id, title);
+            let a = li.querySelector('a');
+            let id = a.attributes['href'].split('/').pop().replace('.html', '');
+            let title = a.querySelector('span').text.trim();
+            groupObj[id] = title;
           }
-          
           // 章节升序排列
-          groupChapters = new Map([...groupChapters].sort((a, b) => a[0] - b[0]));
-          
-          // 将分组添加到总的章节映射中
-          chaptersMap.set(groupName, groupChapters);
+          let sortedGroupObj = {};
+          Object.keys(groupObj).sort((a, b) => a - b).forEach(key => {
+            sortedGroupObj[key] = groupObj[key];
+          });
+          chapters[groupName] = sortedGroupObj;
         }
-      }
-      
-      // 处理章节分组
-        // 直接使用对象而非Map，避免Flutter环境中的类型转换问题
-        let chapters = {};
-        chapterGroups.forEach((group, i) => {
-          let groupName = group.text.trim();
-          let groupObj = {};
-          let chapterList = document.querySelectorAll('.chapter-list')[i];
-          if (chapterList) {
-            let lis = chapterList.querySelectorAll('li');
-            for (let li of lis) {
-              let a = li.querySelector('a');
-              let id = a.attributes['href'].split('/').pop().replace('.html', '');
-              let title = a.querySelector('span').text.trim();
-              groupObj[id] = title;
-            }
-            // 章节升序排列
-            let sortedGroupObj = {};
-            Object.keys(groupObj).sort((a, b) => a - b).forEach(key => {
-              sortedGroupObj[key] = groupObj[key];
-            });
-            chapters[groupName] = sortedGroupObj;
-          }
-        });
+      });
 
-        // 如果chapters为空，则创建一个空对象
-        if (Object.keys(chapters).length === 0) {
-          chapters = {};
-        }
+      // 如果chapters为空，则创建一个空对象
+      if (Object.keys(chapters).length === 0) {
+        chapters = {};
+      }
 
       //ANCHOR - 推荐
       let recommend = [];
