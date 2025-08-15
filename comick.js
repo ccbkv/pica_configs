@@ -584,6 +584,7 @@ class Comick extends ComicSource {
                     }
 
                     // 3. 构造章节请求 URL
+                    if (!buildId) throw "buildId is null"; // Add null check for buildId
                     const url =
                     `${this.baseUrl}/_next/data/${buildId}/comic/${id}/${first.hid || 'unknown'}` +
                     (first.chap != null
@@ -647,11 +648,12 @@ class Comick extends ComicSource {
             if (!nextDataText) throw "__NEXT_DATA__ text is empty";
             let jsonData = JSON.parse(nextDataText);
             let comicData = jsonData.props?.pageProps?.comic;
+            if (!comicData) throw "comicData is null"; // Add null check for comicData
             let authorData = jsonData.props?.pageProps?.authors || [];
-            let title = cTitle || comicData?.title || "未知标题";
+            let title = cTitle || comicData.title || "未知标题";
             let status = comicData?.status || "1"; // 默认连载
             let cover = comicData?.md_covers?.[0]?.b2key ? `https://meo.comick.pictures/${comicData.md_covers[0].b2key}` : 'w7xqzd.jpg';
-            let author = authorData[0]?.name || "未知作者";
+            let author = authorData.length > 0 ? authorData[0]?.name || "未知作者" : "未知作者";
 
             // 提取标签的slug数组的代码
             let extractSlugs = (comicData) => {
