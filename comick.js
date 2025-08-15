@@ -608,7 +608,7 @@ class Comick extends ComicSource {
                     if(i==1){
                         //获得更新时间：
                         updateTime = raw.pageProps?.chapter?.updated_at
-                            ? raw.pageProps.chapter.updated_at.split('T')[0] : comicData?.last_chapter
+                            ? raw.pageProps.chapter.updated_at.split('T')[0] : comicData.last_chapter
                                 ? `第${comicData.last_chapter}话`: " ";
                     }
                     i++;
@@ -651,8 +651,9 @@ class Comick extends ComicSource {
             if (!comicData) throw "comicData is null"; // Add null check for comicData
             let authorData = jsonData.props?.pageProps?.authors || [];
             let title = cTitle || comicData.title || "未知标题";
-            let status = comicData?.status || "1"; // 默认连载
-            let cover = comicData?.md_covers?.[0]?.b2key ? `https://meo.comick.pictures/${comicData.md_covers[0].b2key}` : 'w7xqzd.jpg';
+            let status = comicData.status || "1"; // 默认连载 (comicData is not null here)
+            const b2key = comicData.md_covers?.[0]?.b2key;
+            let cover = b2key ? `https://meo.comick.pictures/${b2key}` : 'w7xqzd.jpg';
             let author = authorData.length > 0 ? authorData[0]?.name || "未知作者" : "未知作者";
 
             // 提取标签的slug数组的代码
