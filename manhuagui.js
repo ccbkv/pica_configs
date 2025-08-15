@@ -361,12 +361,35 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
-      let splitResult = str.split("}(");
-      let params_part = splitResult[1].split("))")[0];
-      let params = splitParams(params_part);
-      params[5] = {};
-      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split("|");
-      return params;
+      try {
+        let splitResult = str.split("}(");
+        if (splitResult.length < 2) {
+          console.error("Invalid script content: cannot find '}('");
+          return [];
+        }
+        
+        let params_part = splitResult[1].split("))")[0];
+        let params = splitParams(params_part);
+        params[5] = {};
+        
+        if (params.length > 3 && params[3]) {
+          let encodedData = params[3].split("'")[1];
+          if (encodedData) {
+            params[3] = LZString.decompressFromBase64(encodedData).split("|");
+          } else {
+            console.error("Invalid encoded data in params[3]");
+            params[3] = [];
+          }
+        } else {
+          console.error("params[3] is undefined or invalid");
+          params[3] = [];
+        }
+        
+        return params;
+      } catch (e) {
+        console.error("Error in extractParams:", e);
+        return [];
+      }
     }
 
     function formatData(p, a, c, k, e, d) {
@@ -971,17 +994,41 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      let script = document.querySelectorAll("script")[4].innerHTML;
-      let infos = this.getImgInfos(script);
+      
+      // 查找包含'window["\x63\x6F\x6E\x66\x69\x67"]'的script标签
+      let scripts = document.querySelectorAll("script");
+      let targetScript = null;
+      for (let i = 0; i < scripts.length; i++) {
+        let scriptContent = scripts[i].innerHTML;
+        if (scriptContent.includes('window["\x63\x6F\x6E\x66\x69\x67"]')) {
+          targetScript = scriptContent;
+          break;
+        }
+      }
+      
+      if (!targetScript) {
+        console.error("无法找到包含配置的script标签");
+        // 尝试使用备用方法获取图片
+        return { images: [] };
+      }
+      
+      let infos = this.getImgInfos(targetScript);
 
       // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
       let imgDomain = `https://us.hamreus.com`;
       let images = [];
-      for (let f of infos.files) {
-        let imgUrl =
-          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
-        images.push(imgUrl);
+      
+      // 检查infos和infos.files是否存在且有效
+      if (infos && infos.files && Array.isArray(infos.files) && infos.files.length > 0 && infos.path && infos.sl && infos.sl.e && infos.sl.m) {
+        for (let f of infos.files) {
+          let imgUrl = 
+            imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
+          images.push(imgUrl);
+        }
+      } else {
+        console.error("infos数据无效或不完整");
       }
+      
       // log("warning", this.name, images);
       return {
         images,
