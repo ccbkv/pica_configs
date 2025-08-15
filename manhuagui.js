@@ -94,15 +94,16 @@ class ManHuaGui extends ComicSource {
     let res = await Network.get(url, headers);
     
     // 处理响应状态
+    // 优先检查状态码，避免依赖res.ok
+    if (res.status < 200 || res.status >= 300) {
+      throw `Invalid status code: ${res.status}`;
+    }
+    
+    // 状态码正常但res.ok为false的情况
     if (!res.ok) {
-      if (res.status >= 200 && res.status < 300) {
-        // 状态码正常但res.ok为false的情况
-        console.warn(`Response ok is false but status code is ${res.status}`);
-        // 记录响应头和内容，便于调试
-        console.debug('Response headers:', res.headers);
-      } else {
-        throw `Invalid status code: ${res.status}`;
-      }
+      console.warn(`Response ok is false but status code is ${res.status}`);
+      // 使用console.log替代console.debug，确保在所有环境中可用
+      console.log('Response headers:', res.headers);
     }
     
     // 确保body不为null或空
