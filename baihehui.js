@@ -563,7 +563,10 @@ explore = [
             let chapters = new Map();
             document.querySelectorAll("div[data-key]").forEach(chapter => {
                 let chapterKey = chapter.attributes['data-key']; // 获取 data-key 值
-                let chapterTitle = chapter.querySelector("a").text.trim(); // 获取章节标题
+                if (!chapterKey) return; // 如果没有 data-key 属性，跳过当前项
+                let chapterTitleElement = chapter.querySelector("a");
+                if (!chapterTitleElement) return; // 如果没有找到 a 标签，跳过当前项
+                let chapterTitle = chapterTitleElement.text.trim(); // 获取章节标题
                 chapters.set(chapterKey, chapterTitle); // 将 data-key 和章节标题存入 Map
             });
 
