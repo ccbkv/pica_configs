@@ -359,14 +359,9 @@ class ManHuaGui extends ComicSource {
       let params_part = str.split("}(")[1].split("))")[0];
       let params = splitParams(params_part);
       params[5] = {};
-      try {
-        params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
-          "|"
-        );
-      } catch (e) {
-        console.error("解压params[3]失败:", e);
-        params[3] = [];
-      }
+      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
+        "|"
+      );
       return params;
     }
 
