@@ -1,4 +1,3 @@
-/** @type {import('./_venera_.js')} */
 class ZaiManHua extends ComicSource {
   constructor() {
     super();
@@ -233,7 +232,7 @@ class ZaiManHua extends ComicSource {
         .map((key) => `${key}=${params[key]}`)
         .join("&");
       //   log("error", "再漫画", params_str);
-      let url = `${fil}?${params_str}&firstLetter=`;
+      let url = `${fil}?${params_str}`;
       //   log("error", "再漫画", url);
 
       const json = await this.fetchJson(url);
@@ -312,7 +311,7 @@ class ZaiManHua extends ComicSource {
       let author = info.authorInfo.authorName;
 
       // 修复时间戳转换问题
-      let lastUpdateTime = new Date(info.lastUpdateTime * 1000);
+      let lastUpdateTime = info.lastUpdateTime > 1e12 ? new Date(info.lastUpdateTime) : new Date(info.lastUpdateTime * 1000);
       let updateTime = `${lastUpdateTime.getFullYear()}-${
         lastUpdateTime.getMonth() + 1
       }-${lastUpdateTime.getDate()}`;
@@ -369,7 +368,7 @@ class ZaiManHua extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      const api_ = `${this.domain}/api/v1/comic1/comic/detail`;
+      const api_ = `${this.baseUrl}/api/v1/comic1/comic/detail`;
       //   log("error", "再漫画", id);
       let params_ = {
         channel: "pc",
@@ -387,7 +386,7 @@ class ZaiManHua extends ComicSource {
       const info_ = json_.comicInfo;
       const comic_id = info_.id;
 
-      const api = `${this.baseUrl}/api/v1/comic1/chapter/detail`;
+      const api = `${this.domain}/api/v1/comic1/chapter/detail`;
       // comic_id=18114&chapter_id=36227
       let params = {
         channel: "pc",
