@@ -17,10 +17,6 @@ class ManHuaGui extends ComicSource {
     }
     this.init();
   }
-  constructor() {
-    super();
-    this.init();
-  }
 
   // 此漫画源的名称
   name = "漫画柜";
