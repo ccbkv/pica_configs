@@ -13,7 +13,7 @@ class ZaiManHua extends ComicSource {
   minAppVersion = "1.4.0";
 
   // update url
-  url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/zaimanhua.js";
+  url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/zaimanhua.js";
 
   /**
    * fetch html content
@@ -257,7 +257,7 @@ class ZaiManHua extends ComicSource {
       let url = `${this.baseUrl}/app/v1/search/index?keyword=${keyword}&source=0&page=${page}&size=20`;
       const json = await this.fetchJson(url);
       let comics = json.comicList.map((e) => this.parseJsonComic(e));
-      let maxPage = Math.ceil(json.totalNum / params.size);
+      let maxPage = Math.ceil(json.totalNum / 20);
       //   log("error", "再漫画", comics);
       return {
         comics,
