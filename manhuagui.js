@@ -940,9 +940,9 @@ class ManHuaGui extends ComicSource {
       }
 
       // 如果没有找到章节，创建一个有意义的默认值
-     // if (Object.keys(chapters).length === 0) {
-       // chapters = { "0": "暂无章节内容" };
-    //  }
+      if (Object.keys(chapters).length === 0) {
+        chapters = { "0": "暂无章节内容" };
+      }
 
       //ANCHOR - 推荐
       let recommend = [];
