@@ -1024,20 +1024,22 @@ class ManHuaGui extends ComicSource {
         infos.path = '';
       }
 
-      // 构建图片URL，使用固定域名
+      // 使用固定域名构建图片URL
       const imgDomain = 'https://us.hamreus.com';
-      let images = [];
+      const images = [];
+
+      // 确保path存在
+      const path = infos.path || '';
+
       for (let fileName of infos.files) {
         // 确保fileName是字符串
         fileName = String(fileName);
         // 构建完整图片URL
-        let imgUrl = `${imgDomain}${infos.path}${fileName}?e=${infos.sl.e}&m=${infos.sl.m}`;
+        const imgUrl = `${imgDomain}${path}${fileName}?e=${infos.sl.e}&m=${infos.sl.m}`;
         images.push(imgUrl);
       }
 
-      return {
-        images
-      };
+      return { images };
 
       // 安全获取e和m参数
       let eParam = infos.sl.e !== undefined ? String(infos.sl.e) : '';
