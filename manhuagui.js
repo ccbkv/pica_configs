@@ -949,21 +949,21 @@ class ManHuaGui extends ComicSource {
       if (similar) {
         let similar_list = similar.querySelectorAll("li");
         for (let li of similar_list) {
-          let comic = this.parseSimpleComic(li);
-          recommend.push(comic);
+            let comic = this.parseSimpleComic(li);
+            recommend.push(comic);
         }
       }
 
-      return new ComicDetails({
-        title,
-        subtitle,
-        cover,
-        description,
-        tags,
-        updateTime,
-        chapters,
-        recommend,
-      });
+      // 创建并返回ComicDetails对象
+      return {
+        title: title,
+        cover: cover,
+        description: description,
+        tags: tags,
+        chapters: chapters,
+        suggestions: recommend,
+        updateTime: updateTime
+      };
     },
 
     /**
@@ -979,11 +979,9 @@ class ManHuaGui extends ComicSource {
       let infos = this.getImgInfos(script);
 
       // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
-      let imgDomain = `https://us.hamreus.com`;
       let images = [];
       for (let f of infos.files) {
-        let imgUrl =
-          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
+        let imgUrl = imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
         images.push(imgUrl);
       }
       // log("warning", this.name, images);
