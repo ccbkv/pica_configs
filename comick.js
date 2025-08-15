@@ -797,8 +797,9 @@ class Comick extends ComicSource {
                 if (res.status !== 200) break;
 
                 let document = new HtmlDocument(res.body)
-
-                let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text); //json解析方式
+                let nextDataElement = document.getElementById('__NEXT_DATA__');
+                if (!nextDataElement) throw "__NEXT_DATA__ element not found";
+                let jsonData = JSON.parse(nextDataElement.text); //json解析方式
                 let imagesData = jsonData.props?.pageProps?.chapter?.md_images;
 
                 // 检查图片数据是否存在
