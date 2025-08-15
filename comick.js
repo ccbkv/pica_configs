@@ -585,12 +585,14 @@ class Comick extends ComicSource {
 
                     // 3. 构造章节请求 URL
                     if (!buildId) throw "buildId is null"; // Add null check for buildId
+                    // 确保 id 不为 null，使用 first.hid 作为备用值
+                    const safeId = id || first.hid || 'unknown';
                     const url =
-                    `${this.baseUrl}/_next/data/${buildId}/comic/${id}/${first.hid || 'unknown'}` +
+                    `${this.baseUrl}/_next/data/${buildId}/comic/${safeId}/${first.hid || 'unknown'}` +
                     (first.chap != null
                         ? `-chapter-${first.chap}`
                         : `-volume-${first.vol}`) +
-                    `-${lang}.json?slug=${id}&` +
+                    `-${lang}.json?slug=${safeId}&` +
                     (first.chap != null
                         ? `chapter=${first.hid || 'unknown'}`
                         : `volume=${first.hid || 'unknown'}`) 
