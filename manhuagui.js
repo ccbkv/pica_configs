@@ -33,19 +33,6 @@ class ManHuaGui extends ComicSource {
 
   baseUrl = "https://www.manhuagui.com";
 
-  // unique id of the source
-  key = "ManHuaGui";
-
-  version = "1.0.1";
-
-  minAppVersion = "1.4.0";
-
-  // update url
-  url =
-    "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
-
-  baseUrl = "https://www.manhuagui.com";
-
   isAppVersionAfter(target) {
     if (!APP || !APP.version) return false;
     let current = APP.version;
