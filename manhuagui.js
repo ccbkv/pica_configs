@@ -906,12 +906,13 @@ class ManHuaGui extends ComicSource {
       //   let lastChapter = parseDetail(6);
       let status = detail_list[7].text.trim();
 
+      // 确保tags对象中的所有值都是字符串数组，避免类型转换问题
       let tags = {
-        年代: createYear,
+        年代: [createYear.toString()],
         状态: [status],
-        作者: author,
-        地区: area,
-        类型: genre,
+        作者: [author.toString()],
+        地区: [area.toString()],
+        类型: [genre.toString()],
       };
       let updateTime = detail_list[8].text.trim();
 
