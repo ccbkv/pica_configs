@@ -979,6 +979,7 @@ class ManHuaGui extends ComicSource {
       let infos = this.getImgInfos(script);
 
       // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
+      let imgDomain = `https://us.hamreus.com`;
       let images = [];
       for (let f of infos.files) {
         let imgUrl = imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
@@ -1043,12 +1044,12 @@ class ManHuaGui extends ComicSource {
         "sec-fetch-site": "none",
         "sec-fetch-user": "?1",
         "upgrade-insecure-requests": "1",
-        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Referrer-Policy": "strict-origin-when-cross-origin"
       };
 
       return {
-        headers,
+        headers
       };
-    },
+    }
   };
 }
