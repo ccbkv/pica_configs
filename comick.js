@@ -760,7 +760,9 @@ class Comick extends ComicSource {
             }
 
             //获取章节
-            let temp = await load_chapter(firstChapters, comicData, buildId, cId);
+            // 确保 cId 不为 null，使用 comicData.slug 作为备用值
+            const safeCId = cId || comicData.slug || 'unknown';
+            let temp = await load_chapter(firstChapters, comicData, buildId, safeCId);
             let chapters = temp[0];
             let updateTime = temp[1];
 
@@ -793,12 +795,15 @@ class Comick extends ComicSource {
                 return {images};  // 返回空数组
             }
 
+            // 确保 cId 和 hid 不为 null
+            const safeCId = cId || 'unknown';
+            const safeHid = hid || 'unknown';
             let url = " ";
             if(type=="no"){
                 // 如果是无标卷, 只看第一个
-                url = `${this.baseUrl}/comic/${cId}/${hid}`;
+                url = `${this.baseUrl}/comic/${safeCId}/${safeHid}`;
             }else{
-                url = `${this.baseUrl}/comic/${cId}/${hid}-${type}-${chapter}-${lang}`;
+                url = `${this.baseUrl}/comic/${safeCId}/${safeHid}-${type}-${chapter}-${lang}`;
             }
 
             let maxAttempts = 100;
