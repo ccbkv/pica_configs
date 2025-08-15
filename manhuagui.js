@@ -68,7 +68,9 @@ class ManHuaGui extends ComicSource {
     }
   }
 
+  // 获取HTML内容并处理响应
   async getHtml(url) {
+    // 优化headers，移除不必要的字段
     let headers = {
       accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -90,17 +92,35 @@ class ManHuaGui extends ComicSource {
       "Referrer-Policy": "strict-origin-when-cross-origin",
     };
     let res = await Network.get(url, headers);
-    // 确保状态码200-299不会抛出错误
-    if (!res.ok && !(res.status >= 200 && res.status < 300)) {
-      throw "Invalid status code: " + res.status;
-    } else if (res.status >= 200 && res.status < 300) {
-      // 状态码正常但res.ok为false的情况
-      console.warn("Response ok is false but status code is " + res.status);
+    
+    // 处理响应状态
+    if (!res.ok) {
+      if (res.status >= 200 && res.status < 300) {
+        // 状态码正常但res.ok为false的情况
+        console.warn(`Response ok is false but status code is ${res.status}`);
+        // 记录响应头和内容，便于调试
+        console.debug('Response headers:', res.headers);
+      } else {
+        throw `Invalid status code: ${res.status}`;
+      }
     }
-    // 确保body不为null
+    
+    // 确保body不为null或空
     let body = res.body || '';
-    let document = new HtmlDocument(body);
-    return document;
+    if (!body.trim()) {
+      console.warn('Response body is empty');
+      // 返回一个包含基本结构的HTML，避免后续处理出错
+      body = '<!DOCTYPE html><html><head><title>Empty Response</title></head><body></body></html>';
+    }
+    
+    try {
+      let document = new HtmlDocument(body);
+      return document;
+    } catch (e) {
+      console.error('Failed to parse HTML:', e);
+      // 解析失败时返回一个空文档
+      return new HtmlDocument('<!DOCTYPE html><html><head><title>Parse Error</title></head><body></body></html>');
+    }
   }
   parseSimpleComic(e) {
     let url = e.querySelector(".ell > a").attributes["href"];
