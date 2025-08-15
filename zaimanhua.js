@@ -1,4 +1,4 @@
-//** @type {import('./_venera_.js')} */
+/** @type {import('./_venera_.js')} */
 class ZaiManHua extends ComicSource {
   // Note: The fields which are marked as [Optional] should be removed if not used
 
@@ -223,7 +223,7 @@ class ZaiManHua extends ComicSource {
 
       const json = await this.fetchJson(url);
       let comics = json.comicList.map((e) => this.parseJsonComic(e));
-      let maxPage = Math.ceil(json.totalNum / params.size);
+      let maxPage = Math.ceil(json.totalNum / 20);
       //   log("error", "再漫画", comics);
       return {
         comics,
