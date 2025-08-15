@@ -940,9 +940,9 @@ class ManHuaGui extends ComicSource {
       }
 
       // 如果没有找到章节，创建一个有意义的默认值
-      if (Object.keys(chapters).length === 0) {
-        chapters = { "0": "暂无章节内容" };
-      }
+     // if (Object.keys(chapters).length === 0) {
+       // chapters = { "0": "暂无章节内容" };
+    //  }
 
       //ANCHOR - 推荐
       let recommend = [];
@@ -974,56 +974,24 @@ class ManHuaGui extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      // 构建正确的URL，移除.html后缀
-      let url = `${this.baseUrl}/comic/${comicId}/${epId}`;
+      let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
+      let document = await this.getHtml(url);
       
-      // 添加try-catch块处理404错误
-      try {
-        let document = await this.getHtml(url);
-        
-        // 查找包含图片信息的脚本标签
-        let scripts = document.querySelectorAll("script");
-        let scriptContent = null;
-        for (let script of scripts) {
-          if (script.innerHTML && script.innerHTML.includes('window\['+'"\_\$MANGA\_"'+'\]')) {
-            scriptContent = script.innerHTML;
-            break;
-          }
-        }
-      
-      if (!scriptContent) {
-          throw new Error("未找到包含漫画图片信息的脚本标签");
-        }
-        
-        let infos = this.getImgInfos(scriptContent);
-      } catch (error) {
-        console.error("加载章节失败:", error);
-        // 尝试使用备用URL格式
-        if (error.message.includes("Network error: Status code 404")) {
-          // 添加.html后缀重试
-          let fallbackUrl = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
-          console.log(`尝试使用备用URL: ${fallbackUrl}`);
-          let document = await this.getHtml(fallbackUrl);
-          
-          // 查找包含图片信息的脚本标签
-          let scripts = document.querySelectorAll("script");
-          let scriptContent = null;
-          for (let script of scripts) {
-            if (script.innerHTML && script.innerHTML.includes('window\['+'"\_\$MANGA\_"'+'\]')) {
-              scriptContent = script.innerHTML;
-              break;
-            }
-          }
-          
-          if (!scriptContent) {
-            throw new Error("未找到包含漫画图片信息的脚本标签");
-          }
-          
-          infos = this.getImgInfos(scriptContent);
-        } else {
-          throw error;
+      // 查找包含图片信息的脚本标签
+      let scripts = document.querySelectorAll("script");
+      let scriptContent = null;
+      for (let script of scripts) {
+        if (script.innerHTML && script.innerHTML.includes('window\['+'"\_\$MANGA\_"'+'\]')) {
+          scriptContent = script.innerHTML;
+          break;
         }
       }
+      
+      if (!scriptContent) {
+        throw new Error("未找到包含漫画图片信息的脚本标签");
+      }
+      
+      let infos = this.getImgInfos(scriptContent);
 
       // 确保infos和所需属性存在
       if (!infos) {
