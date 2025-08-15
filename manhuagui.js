@@ -983,7 +983,10 @@ class ManHuaGui extends ComicSource {
       let imgDomain = `https://us.hamreus.com`;
       let images = [];
       for (let f of infos.files) {
-        let imgUrl = imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
+        // 确保e和m参数被正确转换为字符串
+        let eParam = String(infos.sl.e);
+        let mParam = String(infos.sl.m);
+        let imgUrl = imgDomain + infos.path + f + `?e=${eParam}&m=${mParam}`;
         images.push(imgUrl);
       }
       // log("warning", this.name, images);
