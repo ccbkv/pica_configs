@@ -791,7 +791,7 @@ class Comick extends ComicSource {
             let maxAttempts = 100;
 
             while (maxAttempts > 0) {
-                const res = await Network.get(url);
+                const res = await Network.get(url, Comick.getRandomHeaders());
                 if (res.status !== 200) break;
 
                 let document = new HtmlDocument(res.body)
