@@ -410,7 +410,11 @@ class Comick extends ComicSource {
             if (!res.ok) throw "Request Error: " + res.status;
 
             let document = new HtmlDocument(res.body);
-            let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text);
+            let nextDataElement = document.getElementById('__NEXT_DATA__');
+            if (!nextDataElement) throw "__NEXT_DATA__ element not found";
+            let nextDataText = nextDataElement.text;
+            if (!nextDataText) throw "__NEXT_DATA__ text is empty";
+            let jsonData = JSON.parse(nextDataText);
             let mangaData = jsonData.props.pageProps.data;
 
             // 使用统一函数转换数据
@@ -639,7 +643,9 @@ class Comick extends ComicSource {
             let document = new HtmlDocument(res.body)
             let nextDataElement = document.getElementById('__NEXT_DATA__');
             if (!nextDataElement) throw "__NEXT_DATA__ element not found";
-            let jsonData = JSON.parse(nextDataElement.text);
+            let nextDataText = nextDataElement.text;
+            if (!nextDataText) throw "__NEXT_DATA__ text is empty";
+            let jsonData = JSON.parse(nextDataText);
             let comicData = jsonData.props?.pageProps?.comic;
             let authorData = jsonData.props?.pageProps?.authors || [];
             let title = cTitle || comicData?.title || "未知标题";
@@ -799,7 +805,9 @@ class Comick extends ComicSource {
                 let document = new HtmlDocument(res.body)
                 let nextDataElement = document.getElementById('__NEXT_DATA__');
                 if (!nextDataElement) throw "__NEXT_DATA__ element not found";
-                let jsonData = JSON.parse(nextDataElement.text); //json解析方式
+                let nextDataText = nextDataElement.text;
+                if (!nextDataText) throw "__NEXT_DATA__ text is empty";
+                let jsonData = JSON.parse(nextDataText); //json解析方式
                 let imagesData = jsonData.props?.pageProps?.chapter?.md_images;
 
                 // 检查图片数据是否存在
