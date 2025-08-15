@@ -908,16 +908,23 @@ class ManHuaGui extends ComicSource {
       let updateTime = detail_list[8].text.trim();
 
       // ANCHOR 章节信息
-      // 使用与ikmmh.js相同的简单对象结构
-      let chapters = {};
+      // 支持多分组
+      let chaptersMap = new Map();
       
-      // 查找章节列表
-      let chapterList = document.querySelector('.chapter-list');
-      if (chapterList) {
-        let lis = chapterList.querySelectorAll('li');
-        for (let li of lis) {
-          try {
-            let a = li.querySelector('a');
+      // 查找所有章节分组标题
+      let chapterGroups = document.querySelectorAll(".chapter h4 span");
+      
+      // 处理每个分组
+      for (let i = 0; i < chapterGroups.length; i++) {
+        let groupName = chapterGroups[i].text.trim();
+        let groupChapters = new Map();
+        
+        // 获取对应的章节列表
+        let chapterList = document.querySelectorAll(".chapter-list")[i];
+        if (chapterList) {
+          let lis = chapterList.querySelectorAll("li");
+          for (let li of lis) {
+            let a = li.querySelector("a");
             // 增强验证，确保a标签、attributes和href属性都存在
             if (a && a.attributes && a.attributes['href'] && a.attributes['href'].value) {
               let href = a.attributes['href'].value.trim();
@@ -928,21 +935,31 @@ class ManHuaGui extends ComicSource {
                   let id = idParts.pop().replace('.html', '');
                   let title = a.querySelector('span') ? a.querySelector('span').text.trim() : '';
                   // 确保id和title都是字符串
-                  chapters[id.toString()] = title.toString() || '未知章节';
+                  groupChapters.set(id.toString(), title.toString() || '未知章节');
                 }
               }
             }
-          } catch (e) {
-            console.error('处理章节时出错:', e);
-            // 忽略错误，继续处理下一个章节
           }
+          
+          // 章节升序排列
+          groupChapters = new Map([...groupChapters].sort((a, b) => a[0] - b[0]));
+          
+          // 将分组添加到总的章节映射中
+          chaptersMap.set(groupName, groupChapters);
         }
       }
-
-      // 确保不会添加ID为0的无效章节
-      if (Object.keys(chapters).length === 0) {
-        chapters = {};
+      
+      // 兼容旧版本，如果app版本不支持多分组，则合并所有分组
+      let chapters;
+      // 简化处理，直接合并所有分组
+      chapters = new Map();
+      for (let [_, groupChapters] of chaptersMap) {
+        for (let [id, title] of groupChapters) {
+          chapters.set(id, title);
+        }
       }
+      // 章节升序
+      chapters = new Map([...chapters].sort((a, b) => a[0] - b[0]));
 
       //ANCHOR - 推荐
       let recommend = [];
@@ -974,7 +991,19 @@ class ManHuaGui extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      // 构建包含epId的完整URL
+      // 如果epId无效或与comicId相同，则尝试获取第一个章节ID
+      if (!epId || epId === comicId) {
+        // 获取漫画信息以获得章节列表
+        let comicInfo = await this.comic.loadInfo(comicId);
+        // 从章节列表中获取第一个有效的章节ID
+        if (comicInfo.chapters && comicInfo.chapters.size > 0) {
+          // 获取第一个章节ID
+          epId = Array.from(comicInfo.chapters.keys())[0];
+        } else {
+          throw new Error("无法获取有效的章节ID");
+        }
+      }
+      
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
       
@@ -982,7 +1011,7 @@ class ManHuaGui extends ComicSource {
       let scripts = document.querySelectorAll("script");
       let scriptContent = null;
       
-      // 优先尝试获取特定位置的脚本
+      // 优先尝试获取特定位置的脚本（通常是第5个脚本标签）
       if (scripts.length >= 5) {
         scriptContent = scripts[4].innerHTML;
       }
@@ -992,6 +1021,10 @@ class ManHuaGui extends ComicSource {
         for (let script of scripts) {
           if (script.innerHTML && script.innerHTML.includes('window\['+'"\_\$MANGA\_"'+'\]')) {
             scriptContent = script.innerHTML;
+            // 添加空内容检查
+            if (!scriptContent || scriptContent.trim() === '') {
+              continue;
+            }
             break;
           }
         }
@@ -1026,21 +1059,11 @@ class ManHuaGui extends ComicSource {
 
       // 使用固定域名构建图片URL
       const imgDomain = 'https://us.hamreus.com';
-      const images = [];
+      let images = [];
 
-      // 确保path存在
+      // 确保path存在并处理
       const path = infos.path || '';
-
-      for (let fileName of infos.files) {
-        // 确保fileName是字符串
-        fileName = String(fileName);
-        // 构建完整图片URL
-        const imgUrl = `${imgDomain}${path}${fileName}?e=${infos.sl.e}&m=${infos.sl.m}`;
-        images.push(imgUrl);
-      }
-
-      return { images };
-
+      
       // 安全获取e和m参数
       let eParam = infos.sl.e !== undefined ? String(infos.sl.e) : '';
       let mParam = infos.sl.m !== undefined ? String(infos.sl.m) : '';
@@ -1049,7 +1072,8 @@ class ManHuaGui extends ComicSource {
         // 确保f是字符串
         if (typeof f !== 'string') continue;
         
-        let imgUrl = imgDomain + infos.path + f;
+        // 构建完整图片URL
+        let imgUrl = imgDomain + path + f;
         // 只有当e和m参数都存在时才添加查询字符串
         if (eParam && mParam) {
           imgUrl += `?e=${eParam}&m=${mParam}`;
