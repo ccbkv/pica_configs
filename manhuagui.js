@@ -2,19 +2,44 @@ class ManHuaGui extends ComicSource {
   // 确保Comic构造函数可用
   constructor() {
     super();
-    // 获取全局对象，兼容浏览器、Node.js和Web Worker环境
-    const globalObj = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : (typeof self !== 'undefined' ? self : {}));
+    
+    // 添加调试信息
+    console.log('运行环境检测:');
+    console.log('window对象存在吗?', typeof window !== 'undefined');
+    console.log('global对象存在吗?', typeof global !== 'undefined');
+    console.log('self对象存在吗?', typeof self !== 'undefined');
+    
+    // 更健壮的全局对象检测逻辑
+    let globalObj;
+    if (typeof window !== 'undefined') {
+      globalObj = window;
+      console.log('使用window作为全局对象');
+    } else if (typeof global !== 'undefined') {
+      globalObj = global;
+      console.log('使用global作为全局对象');
+    } else if (typeof self !== 'undefined') {
+      globalObj = self;
+      console.log('使用self作为全局对象');
+    } else {
+      // 创建一个空对象作为最后的备选
+      globalObj = {};
+      console.log('无法找到全局对象，使用空对象代替');
+    }
     
     // 检查Comic是否已定义
     if (typeof Comic === 'undefined') {
       // 尝试从全局对象获取
       if (globalObj && globalObj.Comic) {
         this.Comic = globalObj.Comic;
+        console.log('从全局对象获取到Comic构造函数');
       } else {
         console.error('Comic构造函数未找到');
+        // 创建一个空函数作为备选，避免后续调用失败
+        this.Comic = function() { console.error('Comic构造函数未定义'); };
       }
     } else {
       this.Comic = Comic;
+      console.log('直接使用已定义的Comic构造函数');
     }
     this.init();
   }
