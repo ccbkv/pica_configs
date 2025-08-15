@@ -2,13 +2,14 @@ class ManHuaGui extends ComicSource {
   // 确保Comic构造函数可用
   constructor() {
     super();
+    // 获取全局对象，兼容浏览器、Node.js和Web Worker环境
+    const globalObj = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : (typeof self !== 'undefined' ? self : {}));
+    
     // 检查Comic是否已定义
     if (typeof Comic === 'undefined') {
       // 尝试从全局对象获取
-      if (window && window.Comic) {
-        this.Comic = window.Comic;
-      } else if (global && global.Comic) {
-        this.Comic = global.Comic;
+      if (globalObj && globalObj.Comic) {
+        this.Comic = globalObj.Comic;
       } else {
         console.error('Comic构造函数未找到');
       }
