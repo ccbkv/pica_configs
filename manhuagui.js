@@ -917,19 +917,21 @@ class ManHuaGui extends ComicSource {
         let lis = chapterList.querySelectorAll('li');
         for (let li of lis) {
           let a = li.querySelector('a');
-          if (a) {
-            let href = a.attributes['href'] ? a.attributes['href'].value : '';
-            let id = href.split('/').pop().replace('.html', '');
-            let title = a.querySelector('span') ? a.querySelector('span').text.trim() : '';
-            // 确保id和title都是字符串
-            chapters[id.toString()] = title.toString();
+          if (a && a.attributes && a.attributes['href']) {
+            let href = a.attributes['href'].value || '';
+            if (href) {
+              let id = href.split('/').pop().replace('.html', '');
+              let title = a.querySelector('span') ? a.querySelector('span').text.trim() : '';
+              // 确保id和title都是字符串
+              chapters[id.toString()] = title.toString();
+            }
           }
         }
       }
 
       // 如果没有找到章节，创建一个有意义的默认值
       if (Object.keys(chapters).length === 0) {
-        chapters = { "暂无章节": { "0": "暂无章节内容" } };
+        chapters = { "0": "暂无章节内容" };
       }
 
       //ANCHOR - 推荐
