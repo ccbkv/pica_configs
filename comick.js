@@ -7,7 +7,7 @@ class Comick extends ComicSource {
     name = "comick"
     key = "comick"
     version = "1.1.1"
-    minAppVersion = "3.1.0"
+    minAppVersion = "1.4.0"
     // update url
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/comick.js"
 
@@ -617,16 +617,18 @@ class Comick extends ComicSource {
 
                     // 4. 构建章节 Map
                     const chapters = new Map();
+                    // 确保first不为null且有lang属性
+                    const chapterLang = first?.lang || 'unknown';
                     list.forEach(ch => {
                         let key, label;
                         if (ch.chap == null && ch.vol == null) {
-                            key = `${ch.hid || 'unknown'}//no//-1//${first?.lang || 'unknown'}`;
+                            key = `${ch.hid || 'unknown'}//no//-1//${chapterLang}`;
                             label = '无标卷';
                         } else if (ch.chap != null) {
-                            key = `${ch.hid || 'unknown'}//chapter//${ch.chap}//${first?.lang || 'unknown'}`;
+                            key = `${ch.hid || 'unknown'}//chapter//${ch.chap}//${chapterLang}`;
                             label = `第${ch.chap}话`;
                         } else {
-                            key = `${ch.hid || 'unknown'}//volume//${ch.vol}//${first?.lang || 'unknown'}`;
+                            key = `${ch.hid || 'unknown'}//volume//${ch.vol}//${chapterLang}`;
                             label = `第${ch.vol}卷`;
                         }
                         chapters.set(key, label);
@@ -792,7 +794,10 @@ class Comick extends ComicSource {
             const [hid, type, chapter, lang] = epId.split("//");
 
             // 检查分割结果是否有效
-            if (!hid || !type || !chapter || !lang) {
+            if (!hid || typeof hid !== 'string' ||
+                !type || typeof type !== 'string' ||
+                !chapter || typeof chapter !== 'string' ||
+                !lang || typeof lang !== 'string') {
                 console.error("Invalid epId format. Expected 'hid//chapter'");
                 return {images};  // 返回空数组
             }
@@ -828,13 +833,14 @@ class Comick extends ComicSource {
                 }
 
                 // 解析当前页图片
-                imagesData.forEach(image => {
-                    if (image?.b2key) {
-                        // 处理图片链接
-                        let imageUrl = `https://meo.comick.pictures/${image.b2key}`;
-                        images.push(imageUrl);
-                    }
-                });
+            imagesData.forEach(image => {
+                // 确保b2key是字符串类型
+                if (image?.b2key && typeof image.b2key === 'string') {
+                    // 处理图片链接
+                    let imageUrl = `https://meo.comick.pictures/${image.b2key}`;
+                    images.push(imageUrl);
+                }
+            });
 
                 // 查找下一页链接
                 const nextLink = document.querySelector("a#next-chapter");
