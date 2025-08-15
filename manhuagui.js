@@ -361,56 +361,11 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
-      // 检查参数是否为undefined或空字符串
-      if (!str) {
-        console.error("extractParams输入字符串为空或undefined");
-        return [];
-      }
       let splitResult = str.split("}(");
-      if (splitResult.length < 2) {
-        console.error("无法正确分割字符串");
-        return [];
-      }
       let params_part = splitResult[1].split("))")[0];
-      if (!params_part) {
-        console.error("无法提取参数部分");
-        return [];
-      }
       let params = splitParams(params_part);
-      if (!params || params.length === 0) {
-        console.error("splitParams返回空数组");
-        return [];
-      }
       params[5] = {};
-      try {
-        if (params.length > 3 && params[3]) {
-          // 确保params[3]是字符串类型
-          if (typeof params[3] !== 'string') {
-            console.error("params[3]不是字符串类型:", typeof params[3]);
-            params[3] = [];
-          } else {
-            let compressedData = params[3].split("'");
-            if (compressedData.length < 2) {
-              console.error("无法提取压缩数据");
-              params[3] = [];
-            } else {
-              let decompressed = LZString.decompressFromBase64(compressedData[1]);
-              // 确保解压后的数据是字符串类型
-              if (typeof decompressed !== 'string') {
-                console.error("解压后的数据不是字符串类型:", typeof decompressed);
-                params[3] = [];
-              } else {
-                params[3] = decompressed.split("|");
-              }
-            }
-          }
-        } else {
-          params[3] = [];
-        }
-      } catch (e) {
-        console.error("解压params[3]失败:", e);
-        params[3] = [];
-      }
+      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split("|");
       return params;
     }
 
@@ -487,30 +442,8 @@ class ManHuaGui extends ComicSource {
       return result;
     }
     this.getImgInfos = function (script) {
-      // 检查script参数是否为undefined或空字符串
-      if (!script) {
-        console.error("getImgInfos输入字符串为空或undefined");
-        return {};
-      }
       let params = extractParams(script);
-      // 检查params是否为空或长度不足
-      if (!params || params.length < 6) {
-        console.error("extractParams返回的参数不足:", params);
-        return {};
-      }
-      // 检查params中的每个元素是否为undefined
-      for (let i = 0; i < params.length; i++) {
-        if (params[i] === undefined) {
-          console.error(`params[${i}] is undefined`);
-          return {};
-        }
-      }
       let imgData = formatData(...params);
-      // 检查imgData是否为undefined或空字符串
-      if (!imgData) {
-        console.error("formatData返回的数据为空或undefined");
-        return {};
-      }
       let imgInfos = extractFields(imgData);
       return imgInfos;
     };
