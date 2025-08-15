@@ -587,19 +587,17 @@ class Comick extends ComicSource {
                     if (!buildId) throw "buildId is null"; // Add null check for buildId
                     // 确保 id 不为 null，使用 first.hid 作为备用值
                     const safeId = id || first.hid || 'unknown';
+                    // 确保 lang 不为 null
+                    const safeLang = lang || 'unknown';
                     const url =
                     `${this.baseUrl}/_next/data/${buildId}/comic/${safeId}/${first.hid || 'unknown'}` +
                     (first.chap != null
                         ? `-chapter-${first.chap}`
                         : `-volume-${first.vol}`) +
-                    `-${lang}.json?slug=${safeId}&` +
+                    `-${safeLang}.json?slug=${safeId}&` +
                     (first.chap != null
                         ? `chapter=${first.hid || 'unknown'}`
-                        : `volume=${first.hid || 'unknown'}`) 
-                    +
-                    (first.chap != null
-                        ? `-chapter-${first.chap}`
-                        : `-volume-${first.vol}`) + `-${lang}`
+                        : `volume=${first.hid || 'unknown'}`)
                     ;
 
                     const res = await Network.get(url, { headers });
@@ -610,8 +608,8 @@ class Comick extends ComicSource {
                     if(i==1){
                         //获得更新时间：
                         updateTime = raw.pageProps?.chapter?.updated_at
-                            ? raw.pageProps.chapter.updated_at.split('T')[0] : comicData.last_chapter
-                                ? `第${comicData.last_chapter}话`: " ";
+                            ? raw.pageProps.chapter.updated_at.split('T')[0] : comicData?.last_chapter
+                                ? `第${comicData.last_chapter}话` : "暂无更新";
                     }
                     i++;
                     const list = (raw.pageProps.chapters || []).reverse();
@@ -681,8 +679,8 @@ class Comick extends ComicSource {
             });
             let description = comicData?.desc || "暂无描述";
 
-            //处理推荐列表
-            let recommends = this.transReformBookList(comicData?.recommendations || []);
+            //处理推荐列表，确保传递的是数组
+            let recommends = this.transReformBookList(Array.isArray(comicData?.recommendations) ? comicData.recommendations : []);
             //只要recommends数组前面十个，不够十个则就是recommends的长度
             recommends = recommends.slice(0, Math.min(recommends.length, 10));
 
