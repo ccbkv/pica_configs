@@ -333,8 +333,7 @@ class ManHuaGui extends ComicSource {
       for (let i = 0; i < str.length; i++) {
         const char = str[i];
 
-        if (char === "(" || char === "[" || char === "{"
-        ) {
+        if (char === "(" || char === "[" || char === "{") {
           stack.push(char);
           currentParam += char;
         } else if (char === ")" && stack[stack.length - 1] === "(") {
