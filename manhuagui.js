@@ -1,5 +1,8 @@
-/** @type {import('./_venera_.js')} */
 class ManHuaGui extends ComicSource {
+    constructor() {
+        super();
+        this.init();
+    }
   // Note: The fields which are marked as [Optional] should be removed if not used
 
   // name of the source
@@ -52,8 +55,12 @@ class ManHuaGui extends ComicSource {
       Referer: "https://www.manhuagui.com/",
       "Referrer-Policy": "strict-origin-when-cross-origin",
     };
-    let res = await Network.get(url, headers);
-    if (res.status !== 200) {
+    let res = await fetch(url, {
+        method: 'GET',
+        headers: headers,
+        credentials: 'include'
+    });
+    if (!res.ok) {
       throw "Invalid status code: " + res.status;
     }
     let document = new HtmlDocument(res.body);
