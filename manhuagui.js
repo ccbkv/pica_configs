@@ -1,7 +1,22 @@
-// 引用Comic构造函数
-const Comic = require('comic');
-
 class ManHuaGui extends ComicSource {
+  // 确保Comic构造函数可用
+  constructor() {
+    super();
+    // 检查Comic是否已定义
+    if (typeof Comic === 'undefined') {
+      // 尝试从全局对象获取
+      if (window && window.Comic) {
+        this.Comic = window.Comic;
+      } else if (global && global.Comic) {
+        this.Comic = global.Comic;
+      } else {
+        console.error('Comic构造函数未找到');
+      }
+    } else {
+      this.Comic = Comic;
+    }
+    this.init();
+  }
   constructor() {
     super();
     this.init();
@@ -90,7 +105,7 @@ class ManHuaGui extends ComicSource {
     }
     cover = `https:${cover}`;
     let description = e.querySelector(".tt").text.trim();
-    return new Comic({
+    return new this.Comic({
       id,
       title,
       cover,
@@ -110,7 +125,7 @@ class ManHuaGui extends ComicSource {
     let authorElement = e.querySelector(".author");
     let author = authorElement ? authorElement.text.trim() : "";
 
-    return new Comic({
+    return new this.Comic({
       id: simple.id,
       title: simple.title,
       cover: simple.cover,
