@@ -974,11 +974,12 @@ class ManHuaGui extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      // 验证epId，排除无效的0和非数字ID
+      // 注意：虽然我们验证epId，但实际URL中不使用它
+      // 这是为了保持函数接口一致性并过滤无效请求
       if (!epId || epId === '0' || isNaN(epId)) {
         throw new Error('无效的章节ID');
       }
-      let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
+      let url = `${this.baseUrl}/comic/${comicId}/`;
       let document = await this.getHtml(url);
       
       // 查找包含图片信息的脚本标签
