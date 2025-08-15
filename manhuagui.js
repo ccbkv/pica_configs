@@ -78,8 +78,9 @@ class ManHuaGui extends ComicSource {
     let res = await Network.get(url, headers);
     
     // 同时检查status和ok状态
-    if (res.status !== 200 || !res.ok) {
-      throw `Network error: Status code ${res.status}, ok: ${res.ok}`;
+     // 处理响应状态
+    if (res.status !== 200) {
+      throw `Invalid status code: ${res.status}`;
     }
     
     // 确保body不为null或空
