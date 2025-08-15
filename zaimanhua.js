@@ -25,10 +25,7 @@ class ZaiManHua extends ComicSource {
    * @returns {Promise<{document:HtmlDocument}>}
    */
   async fetchHtml(url, headers = {}) {
-    let res = await fetch(url, {
-      method: 'GET',
-      headers: headers
-    });
+    let res = await Network.get(url, headers);
     if (!res.ok) {
       throw "Invalid status code: " + res.status;
     }
@@ -45,10 +42,7 @@ class ZaiManHua extends ComicSource {
    * @returns {Promise<{data:object}>}
    */
   async fetchJson(url, headers = {}) {
-    let res = await fetch(url, {
-      method: 'GET',
-      headers: headers
-    });
+    let res = await Network.get(url, headers);
     if (!res.ok) {
       throw "Invalid status code: " + res.status;
     }
