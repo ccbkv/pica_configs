@@ -999,10 +999,14 @@ class ManHuaGui extends ComicSource {
       let scripts = document.querySelectorAll("script");
       let targetScript = null;
       for (let i = 0; i < scripts.length; i++) {
-        let scriptContent = scripts[i].innerHTML;
-        if (scriptContent.includes('window["\x63\x6F\x6E\x66\x69\x67"]')) {
-          targetScript = scriptContent;
-          break;
+        try {
+          let scriptContent = scripts[i].innerHTML || '';
+          if (scriptContent.includes('window["\x63\x6F\x6E\x66\x69\x67"]')) {
+            targetScript = scriptContent;
+            break;
+          }
+        } catch (e) {
+          console.error(`访问script[${i}]的innerHTML时出错:`, e);
         }
       }
       
