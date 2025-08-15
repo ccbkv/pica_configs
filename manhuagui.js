@@ -1038,30 +1038,8 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      // 检查document是否为undefined
-      if (!document) {
-        console.error("无法获取章节页面");
-        return { images: [] };
-      }
-      let scripts = document.querySelectorAll("script");
-      // 检查scripts是否为空或长度不足
-      if (!scripts || scripts.length < 5) {
-        console.error("页面中script标签数量不足");
-        return { images: [] };
-      }
-      let script = scripts[4].innerHTML; // 使用第5个script标签(索引为4)
-      // 检查script是否为undefined或空字符串
-      if (!script) {
-        console.error("无法获取script内容");
-        return { images: [] };
-      }
+      let script = document.querySelectorAll("script")[4].innerHTML;
       let infos = this.getImgInfos(script);
-      
-      // 检查infos是否为undefined或infos.files是否为undefined
-      if (!infos || !infos.files) {
-        console.error("infos或infos.files为undefined:", infos);
-        return { images: [] };
-      }
 
       // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
       let imgDomain = `https://us.hamreus.com`;
