@@ -925,20 +925,9 @@ class ManHuaGui extends ComicSource {
           let lis = chapterList.querySelectorAll("li");
           for (let li of lis) {
             let a = li.querySelector("a");
-            // 增强验证，确保a标签、attributes和href属性都存在
-            if (a && a.attributes && a.attributes['href'] && a.attributes['href'].value) {
-              let href = a.attributes['href'].value.trim();
-              if (href) {
-                // 安全执行split操作
-                let idParts = href.split('/');
-                if (idParts.length > 0) {
-                  let id = idParts.pop().replace('.html', '');
-                  let title = a.querySelector('span') ? a.querySelector('span').text.trim() : '';
-                  // 确保id和title都是字符串
-                  groupChapters.set(id.toString(), title.toString() || '未知章节');
-                }
-              }
-            }
+            let id = a.attributes["href"].split("/").pop().replace(".html", "");
+            let title = a.querySelector("span").text.trim();
+            groupChapters.set(id, title);
           }
           
           // 章节升序排列
@@ -951,15 +940,20 @@ class ManHuaGui extends ComicSource {
       
       // 兼容旧版本，如果app版本不支持多分组，则合并所有分组
       let chapters;
-      // 简化处理，直接合并所有分组
-      chapters = new Map();
-      for (let [_, groupChapters] of chaptersMap) {
-        for (let [id, title] of groupChapters) {
-          chapters.set(id, title);
+      if (this.isAppVersionAfter && this.isAppVersionAfter("1.3.0")) {
+        // 支持多分组
+        chapters = chaptersMap;
+      } else {
+        // 合并所有分组
+        chapters = new Map();
+        for (let [_, groupChapters] of chaptersMap) {
+          for (let [id, title] of groupChapters) {
+            chapters.set(id, title);
+          }
         }
+        // 章节升序
+        chapters = new Map([...chapters].sort((a, b) => a[0] - b[0]));
       }
-      // 章节升序
-      chapters = new Map([...chapters].sort((a, b) => a[0] - b[0]));
 
       //ANCHOR - 推荐
       let recommend = [];
@@ -1006,81 +1000,18 @@ class ManHuaGui extends ComicSource {
       
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      
-      // 尝试获取包含图片信息的脚本标签
-      let scripts = document.querySelectorAll("script");
-      let scriptContent = null;
-      
-      // 优先尝试获取特定位置的脚本（通常是第5个脚本标签）
-      if (scripts.length >= 5) {
-        scriptContent = scripts[4].innerHTML;
-      }
-      
-      // 如果特定位置脚本为空或不存在，查找包含特定字符串的脚本
-      if (!scriptContent || scriptContent.trim() === '') {
-        for (let script of scripts) {
-          if (script.innerHTML && script.innerHTML.includes('window\['+'"\_\$MANGA\_"'+'\]')) {
-            scriptContent = script.innerHTML;
-            // 添加空内容检查
-            if (!scriptContent || scriptContent.trim() === '') {
-              continue;
-            }
-            break;
-          }
-        }
-      }
-      
-      if (!scriptContent || scriptContent.trim() === '') {
-        throw new Error("未找到包含漫画图片信息的脚本标签");
-      }
-      
-      let infos = this.getImgInfos(scriptContent);
+      let script = document.querySelectorAll("script")[4].innerHTML;
+      let infos = this.getImgInfos(script);
 
-      // 确保infos和所需属性存在
-      if (!infos) {
-        throw new Error("解析图片信息失败: 未获取到图片信息");
-      }
-
-      // 检查files数组
-      if (!infos.files || !Array.isArray(infos.files)) {
-        infos.files = [];
-      }
-
-      // 初始化sl对象默认值
-      infos.sl = infos.sl || {};
-      // 确保e和m参数存在
-      infos.sl.e = infos.sl.e || '';
-      infos.sl.m = infos.sl.m || '';
-
-      // 确保path存在
-      if (!infos.path) {
-        infos.path = '';
-      }
-
-      // 使用固定域名构建图片URL
-      const imgDomain = 'https://us.hamreus.com';
+      // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
+      let imgDomain = `https://us.hamreus.com`;
       let images = [];
-
-      // 确保path存在并处理
-      const path = infos.path || '';
-      
-      // 安全获取e和m参数
-      let eParam = infos.sl.e !== undefined ? String(infos.sl.e) : '';
-      let mParam = infos.sl.m !== undefined ? String(infos.sl.m) : '';
-
       for (let f of infos.files) {
-        // 确保f是字符串
-        if (typeof f !== 'string') continue;
-        
-        // 构建完整图片URL
-        let imgUrl = imgDomain + path + f;
-        // 只有当e和m参数都存在时才添加查询字符串
-        if (eParam && mParam) {
-          imgUrl += `?e=${eParam}&m=${mParam}`;
-        }
+        let imgUrl =
+          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
         images.push(imgUrl);
       }
-      
+      // log("warning", this.name, images);
       return {
         images,
       };
