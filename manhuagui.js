@@ -359,9 +359,14 @@ class ManHuaGui extends ComicSource {
       let params_part = str.split("}(")[1].split("))")[0];
       let params = splitParams(params_part);
       params[5] = {};
-      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
-        "|"
-      );
+      try {
+        params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
+          "|"
+        );
+      } catch (e) {
+        console.error("解压params[3]失败:", e);
+        params[3] = [];
+      }
       return params;
     }
 
@@ -955,19 +960,6 @@ class ManHuaGui extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      // 如果epId无效或与comicId相同，则尝试获取第一个章节ID
-      if (!epId || epId === comicId) {
-        // 获取漫画信息以获得章节列表
-        let comicInfo = await this.comic.loadInfo(comicId);
-        // 从章节列表中获取第一个有效的章节ID
-        if (comicInfo.chapters && comicInfo.chapters.size > 0) {
-          // 获取第一个章节ID
-          epId = Array.from(comicInfo.chapters.keys())[0];
-        } else {
-          throw new Error("无法获取有效的章节ID");
-        }
-      }
-      
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
       let script = document.querySelectorAll("script")[4].innerHTML;
