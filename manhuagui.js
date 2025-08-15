@@ -1,35 +1,23 @@
-// 引用 _venera_.js 中的 Comic 构造函数
-// 假设系统提供了加载其他文件的方法
-if (typeof Comic === 'undefined') {
-  // 尝试从全局对象中获取 Comic 构造函数
-  // 这取决于项目的具体架构和模块系统
-  if (window && window.Comic) {
-    var Comic = window.Comic;
-  } else if (global && global.Comic) {
-    var Comic = global.Comic;
-  } else {
-    console.error('Comic 构造函数未找到，请确保 _venera_.js 已被正确加载');
-    // 定义一个临时的 Comic 构造函数以避免错误
-    var Comic = function(options) {
-      this.id = options.id;
-      this.title = options.title;
-      this.cover = options.cover;
-      this.description = options.description;
-      this.tags = options.tags;
-      this.author = options.author;
-    };
-  }
-}
-
 class ManHuaGui extends ComicSource {
-    constructor() {
-        super();
-        this.init();
-    }
-  // Note: The fields which are marked as [Optional] should be removed if not used
+  constructor() {
+    super();
+    this.init();
+  }
 
-  // name of the source
+  // 此漫画源的名称
   name = "漫画柜";
+
+  // 唯一标识符
+  key = "ManHuaGui";
+
+  version = "1.0.1";
+
+  minAppVersion = "1.4.0";
+
+  // 更新链接
+  url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
+
+  baseUrl = "https://www.manhuagui.com";
 
   // unique id of the source
   key = "ManHuaGui";
