@@ -1020,24 +1020,13 @@ class ManHuaGui extends ComicSource {
      * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
      */
     onImageLoad: (url, comicId, epId) => {
+      // 简化headers配置，避免复杂字段可能导致的类型转换问题
       return {
         headers: {
-          accept:
-            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-          "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-          "cache-control": "no-cache",
-          pragma: "no-cache",
-          priority: "i",
-          "sec-ch-ua":
-            '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
-          "sec-ch-ua-mobile": "?0",
-          "sec-ch-ua-platform": '"Windows"',
-          "sec-fetch-dest": "image",
-          "sec-fetch-mode": "no-cors",
-          "sec-fetch-site": "cross-site",
-          "sec-fetch-storage-access": "active",
+          accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
           Referer: "https://www.manhuagui.com/",
-          "Referrer-Policy": "strict-origin-when-cross-origin",
+          cookie: "country=US", // 添加cookie以保持一致性
         },
       };
     },
@@ -1050,23 +1039,12 @@ class ManHuaGui extends ComicSource {
      * They are not supported for thumbnails.
      */
     onThumbnailLoad: (url) => {
+      // 简化headers配置，避免复杂字段可能导致的类型转换问题
       let headers = {
-        accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-        "cache-control": "no-cache",
-        pragma: "no-cache",
-        priority: "u=0, i",
-        "sec-ch-ua":
-          '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"Windows"',
-        "sec-fetch-dest": "document",
-        "sec-fetch-mode": "navigate",
-        "sec-fetch-site": "none",
-        "sec-fetch-user": "?1",
-        "upgrade-insecure-requests": "1",
-        "Referrer-Policy": "strict-origin-when-cross-origin"
+        accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+        Referer: "https://www.manhuagui.com/",
+        cookie: "country=US", // 添加cookie以保持一致性
       };
 
       return {
