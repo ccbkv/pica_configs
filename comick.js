@@ -622,13 +622,13 @@ class Comick extends ComicSource {
                     list.forEach(ch => {
                         let key, label;
                         if (ch.chap == null && ch.vol == null) {
-                            key = `${ch.hid || 'unknown'}//no//-1//${first.lang || 'unknown'}`;
+                            key = `${ch.hid || 'unknown'}//no//-1//${first?.lang || 'unknown'}`;
                             label = '无标卷';
                         } else if (ch.chap != null) {
-                            key = `${ch.hid || 'unknown'}//chapter//${ch.chap}//${first.lang || 'unknown'}`;
+                            key = `${ch.hid || 'unknown'}//chapter//${ch.chap}//${first?.lang || 'unknown'}`;
                             label = `第${ch.chap}话`;
                         } else {
-                            key = `${ch.hid || 'unknown'}//volume//${ch.vol}//${first.lang || 'unknown'}`;
+                            key = `${ch.hid || 'unknown'}//volume//${ch.vol}//${first?.lang || 'unknown'}`;
                             label = `第${ch.vol}卷`;
                         }
                         chapters.set(key, label);
@@ -708,11 +708,12 @@ class Comick extends ComicSource {
 
            // let updateTime = comicData.last_chapter ? "第" + comicData.last_chapter + "话" : " "; //这里目前还无法实现更新时间
             let buildId = jsonData?.buildId;
+            if (!buildId) throw "buildId is null"; // Add null check for buildId
             let slug = jsonData?.query?.slug;
-            let firstChapter = firstChapters.length > 0 ? firstChapters[0] : null;
-            
+            // 过滤掉null值并获取第一个有效章节
+            const validChapters = firstChapters.filter(chapter => chapter !== null);
             // 处理无章节的情况
-            if (!firstChapter) {
+            if (validChapters.length === 0) {
                 let chapters = new Map();
                 let updateTime = comicData?.last_chapter ? "第" + comicData.last_chapter + "话" : "暂无更新";
                 return {
@@ -732,9 +733,9 @@ class Comick extends ComicSource {
             
             // 处理无标卷和无标话的情况
             if(firstChapter.vol == null && firstChapter.chap == null){
-                for(let i = 0; i < firstChapters.length; i++) {
+                for(let i = 0; i < validChapters.length; i++) {
                     if(firstChapters[i].vol != null || firstChapters[i].chap != null){
-                        firstChapter = firstChapters[i];
+                        firstChapter = validChapters[i];
                         break;
                     }
                 }
@@ -836,9 +837,9 @@ class Comick extends ComicSource {
 
                 // 查找下一页链接
                 const nextLink = document.querySelector("a#next-chapter");
-                if (nextLink?.text?.match(/下一页|下一頁/)) {
+                if (nextLink?.text && nextLink.text.match(/下一页|下一頁/)) {
                     const nextUrl = nextLink.attributes?.['href'];
-                    if (nextUrl) {
+                    if (nextUrl && typeof nextUrl === 'string') {
                         url = nextUrl;
                     } else {
                         break;
