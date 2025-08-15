@@ -1049,7 +1049,7 @@ class ManHuaGui extends ComicSource {
         console.error("页面中script标签数量不足");
         return { images: [] };
       }
-      let script = scripts[4].innerHTML;
+      let script = scripts[4].innerHTML; // 使用第5个script标签(索引为4)
       // 检查script是否为undefined或空字符串
       if (!script) {
         console.error("无法获取script内容");
