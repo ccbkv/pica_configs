@@ -1,5 +1,8 @@
-/** @type {import('./_venera_.js')} */
 class Baihehui extends ComicSource {
+  constructor() {
+    super();
+    this.init();
+  }
     // Note: The fields which are marked as [Optional] should be removed if not used
 
     // name of the source
@@ -13,7 +16,7 @@ class Baihehui extends ComicSource {
     minAppVersion = "1.4.0"
 
     // update url
-    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/baihehui.js"
+    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/baihehui.js"
 
     settings = {
         domains: {
@@ -42,7 +45,7 @@ class Baihehui extends ComicSource {
             Network.deleteCookies("https://www.yamibo.com");
             // 1. GET 登录页，保存 PHPSESSID 和 _csrf-frontend
             let resGet = await Network.get("https://www.yamibo.com/user/login", {
-                headers: { "User-Agent": "Mozilla/5.0" }
+                "User-Agent": "Mozilla/5.0"
             });
             if (resGet.status !== 200) throw "无法打开登录页";
 
@@ -156,7 +159,9 @@ explore = [
         type: "singlePageWithMultiPart",
         load: async (page) => {
                 // 1. 拿到 HTML
-                let res = await Network.get("https://www.yamibo.com/site/manga");
+                let res = await Network.get("https://www.yamibo.com/site/manga", {
+                    "User-Agent": "Mozilla/5.0"
+                });
                 if (res.status !== 200) {
                     throw `Invalid status code: ${res.status}`;
                 }
@@ -280,7 +285,7 @@ explore = [
 
             // 发起请求
             let res = await Network.get(url, {
-                headers: { "User-Agent": "Mozilla/5.0" }
+                "User-Agent": "Mozilla/5.0"
             });
             if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`;
@@ -430,9 +435,7 @@ explore = [
         load: async (keyword, options, page) => {
             let url = `https://www.yamibo.com/search/manga?SearchForm%5Bkeyword%5D=${encodeURIComponent(keyword)}&page=${page}`;
     let res = await Network.get(url, {
-        headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
-        }
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
     });
 
     if (res.status !== 200) {
