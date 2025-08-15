@@ -814,12 +814,14 @@ class Comick extends ComicSource {
             // 确保 cId 和 hid 不为 null
             const safeCId = cId || 'unknown';
             const safeHid = hid || 'unknown';
-            let url = " ";
+            // 初始化URL并确保所有变量都是字符串类型
+            let url = "";
             if(type=="no"){
                 // 如果是无标卷, 只看第一个
-                url = `${this.baseUrl}/comic/${safeCId}/${safeHid}`;
+                url = `${this.baseUrl}/comic/${String(safeCId)}/${String(safeHid)}`;
             }else{
-                url = `${this.baseUrl}/comic/${safeCId}/${safeHid}-${type}-${chapter}-${lang}`;
+                // 确保所有拼接变量都是字符串类型
+                url = `${this.baseUrl}/comic/${String(safeCId)}/${String(safeHid)}-${String(type)}-${String(chapter)}-${String(lang)}`;
             }
 
             let maxAttempts = 100;
