@@ -3,39 +3,25 @@ class ManHuaGui extends ComicSource {
   constructor() {
     super();
     
-    // 添加调试信息
-    console.log('运行环境检测:');
-    console.log('window对象存在吗?', typeof window !== 'undefined');
-    console.log('global对象存在吗?', typeof global !== 'undefined');
-    console.log('self对象存在吗?', typeof self !== 'undefined');
-    
-    // 更健壮的全局对象检测逻辑
-    let globalObj;
-    if (typeof window !== 'undefined') {
-      globalObj = window;
-      console.log('使用window作为全局对象');
-    } else if (typeof global !== 'undefined') {
-      globalObj = global;
-      console.log('使用global作为全局对象');
-    } else if (typeof self !== 'undefined') {
-      globalObj = self;
-      console.log('使用self作为全局对象');
-    } else {
-      // 创建一个空对象作为最后的备选
-      globalObj = {};
-      console.log('无法找到全局对象，使用空对象代替');
-    }
-    
     // 检查Comic是否已定义
     if (typeof Comic === 'undefined') {
-      // 尝试从全局对象获取
-      if (globalObj && globalObj.Comic) {
-        this.Comic = globalObj.Comic;
-        console.log('从全局对象获取到Comic构造函数');
+      // 尝试从父类获取
+      if (this.constructor.Comic) {
+        this.Comic = this.constructor.Comic;
+        console.log('从父类获取到Comic构造函数');
       } else {
         console.error('Comic构造函数未找到');
-        // 创建一个空函数作为备选，避免后续调用失败
-        this.Comic = function() { console.error('Comic构造函数未定义'); };
+        // 创建一个有效构造函数代替，避免后续调用失败
+        this.Comic = function(options) {
+          return {
+            id: options.id || '',
+            title: options.title || '',
+            cover: options.cover || '',
+            description: options.description || '',
+            tags: options.tags || [],
+            author: options.author || ''
+          };
+        };
       }
     } else {
       this.Comic = Comic;
@@ -101,7 +87,9 @@ class ManHuaGui extends ComicSource {
       // 状态码正常但res.ok为false的情况
       console.warn("Response ok is false but status code is " + res.status);
     }
-    let document = new HtmlDocument(res.body);
+    // 确保body不为null
+    let body = res.body || '';
+    let document = new HtmlDocument(body);
     return document;
   }
   parseSimpleComic(e) {
