@@ -70,52 +70,25 @@ class ManHuaGui extends ComicSource {
 
   // 获取HTML内容并处理响应
   async getHtml(url) {
-    // 优化headers，移除不必要的字段
+    // 简化headers配置，参考ikmmh.js和copy_manga.js
     let headers = {
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      priority: "u=0, i",
-      "sec-ch-ua":
-        '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-      "sec-fetch-dest": "document",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "same-origin",
-      "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
       cookie: "country=US",
       Referer: "https://www.manhuagui.com/",
-      "Referrer-Policy": "strict-origin-when-cross-origin",
     };
     let res = await Network.get(url, headers);
     
     // 处理响应状态
-    // 优先检查状态码，避免依赖res.ok
-    if (res.status < 200 || res.status >= 300) {
+    if (res.status !== 200) {
       throw `Invalid status code: ${res.status}`;
     }
     
     // 状态码正常但res.ok为false的情况
     if (!res.ok) {
       console.warn(`Response ok is false but status code is ${res.status}`);
-      // 使用console.log替代console.debug，确保在所有环境中可用
-      // 安全地处理响应头输出，避免Flutter环境中的类型转换问题
-      // 安全处理响应头，避免在Flutter环境中的类型转换问题
-      try {
-        // 只记录关键响应头字段，避免处理整个headers对象
-        const safeHeaders = {
-          'status': res.status,
-          'content-type': res.headers['content-type'] || '',
-          'content-length': res.headers['content-length'] || ''
-        };
-        console.log('Response headers (safe):', JSON.stringify(safeHeaders));
-      } catch (e) {
-        console.log('Failed to process response headers:', e.toString());
-      }
+      // 简化响应头处理，避免JSON序列化可能导致的类型问题
+      console.log(`Response headers status: ${res.status}`);
     }
     
     // 确保body不为null或空
@@ -907,12 +880,13 @@ class ManHuaGui extends ComicSource {
       let status = detail_list[7].text.trim();
 
       // 确保tags对象中的所有值都是字符串数组，避免类型转换问题
+      // 直接使用数组值，不使用toString()
       let tags = {
-        年代: [createYear.toString()],
+        年代: createYear.length > 0 ? createYear : ['未知'],
         状态: [status],
-        作者: [author.toString()],
-        地区: [area.toString()],
-        类型: [genre.toString()],
+        作者: author.length > 0 ? author : ['未知'],
+        地区: area.length > 0 ? area : ['未知'],
+        类型: genre.length > 0 ? genre : ['未知'],
       };
       let updateTime = detail_list[8].text.trim();
 
@@ -948,17 +922,30 @@ class ManHuaGui extends ComicSource {
       }
       
       // 处理章节分组
-        // 将Map转换为普通对象，避免Flutter环境中的类型转换问题
+        // 直接使用对象而非Map，避免Flutter环境中的类型转换问题
         let chapters = {};
-        chaptersMap.forEach((groupChapters, groupName) => {
+        chapterGroups.forEach((group, i) => {
+          let groupName = group.text.trim();
           let groupObj = {};
-          groupChapters.forEach((title, id) => {
-            groupObj[id] = title;
-          });
-          chapters[groupName] = groupObj;
+          let chapterList = document.querySelectorAll('.chapter-list')[i];
+          if (chapterList) {
+            let lis = chapterList.querySelectorAll('li');
+            for (let li of lis) {
+              let a = li.querySelector('a');
+              let id = a.attributes['href'].split('/').pop().replace('.html', '');
+              let title = a.querySelector('span').text.trim();
+              groupObj[id] = title;
+            }
+            // 章节升序排列
+            let sortedGroupObj = {};
+            Object.keys(groupObj).sort((a, b) => a - b).forEach(key => {
+              sortedGroupObj[key] = groupObj[key];
+            });
+            chapters[groupName] = sortedGroupObj;
+          }
         });
 
-        // 如果chaptersMap为空，则创建一个空对象
+        // 如果chapters为空，则创建一个空对象
         if (Object.keys(chapters).length === 0) {
           chapters = {};
         }
