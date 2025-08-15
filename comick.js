@@ -1,8 +1,13 @@
 class Comick extends ComicSource {
+    constructor() {
+        super();
+        this.init();
+    }
+
     name = "comick"
     key = "comick"
     version = "1.1.1"
-    minAppVersion = "1.4.0"
+    minAppVersion = "3.1.0"
     // update url
     url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/comick.js"
 
@@ -401,8 +406,8 @@ class Comick extends ComicSource {
                 ? "https://comick.io/home2"
                 : this.baseUrl;
 
-            let res = await Network.get(url);
-            if (res.status !== 200) throw "Request Error: " + res.status;
+            let res = await Network.get(url, Comick.getRandomHeaders());
+            if (!res.ok) throw "Request Error: " + res.status;
 
             let document = new HtmlDocument(res.body);
             let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text);
@@ -457,8 +462,8 @@ class Comick extends ComicSource {
 
             url += params.join('&');
 
-            let res = await Network.get(url);
-            if (res.status !== 200) throw "Request Error: " + res.status;
+            let res = await Network.get(url, Comick.getRandomHeaders());
+            if (!res.ok) throw "Request Error: " + res.status;
 
             let mangaList = JSON.parse(res.body);
             if (!Array.isArray(mangaList)) throw "Invalid data format";
@@ -479,8 +484,8 @@ class Comick extends ComicSource {
     search = {
         load: async (keyword, options, page) => {
             let url = `https://api.comick.io/v1.0/search?q=${keyword}&limit=49&page=${page}`;
-            let res = await Network.get(url);
-            if (res.status !== 200) throw "Request Error: " + res.status;
+            let res = await Network.get(url, Comick.getRandomHeaders());
+            if (!res.ok) throw "Request Error: " + res.status;
 
             let mangaList = JSON.parse(res.body);
             if (!Array.isArray(mangaList)) throw "Invalid data format";
