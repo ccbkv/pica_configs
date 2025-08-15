@@ -45,17 +45,27 @@ class ManHuaGui extends ComicSource {
 
   baseUrl = "https://www.manhuagui.com";
 
+  // 检查APP版本是否大于等于目标版本
+  // 为避免APP未定义的错误，添加了try-catch块
   isAppVersionAfter(target) {
-    if (!APP || !APP.version) return false;
-    let current = APP.version;
-    let targetArr = target.split('.');
-    let currentArr = current.split('.');
-    for (let i = 0; i < 3; i++) {
-      if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
-        return false;
+    try {
+      if (!APP || !APP.version) return false;
+      let current = APP.version;
+      let targetArr = target.split('.');
+      let currentArr = current.split('.');
+      for (let i = 0; i < Math.min(targetArr.length, currentArr.length); i++) {
+        if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
+          return false;
+        } else if (parseInt(currentArr[i]) > parseInt(targetArr[i])) {
+          return true;
+        }
       }
+      // 如果前面的版本号都相同，则当前版本大于等于目标版本
+      return true;
+    } catch (e) {
+      console.error('检查APP版本时出错:', e);
+      return false; // 出错时默认返回false
     }
-    return true;
   }
 
   async getHtml(url) {
@@ -903,22 +913,15 @@ class ManHuaGui extends ComicSource {
         }
       }
       
-      // 兼容旧版本，如果app版本不支持多分组，则合并所有分组
-      let chapters;
-      if (this.isAppVersionAfter && this.isAppVersionAfter("1.3.0")) {
-        // 支持多分组
-        chapters = chaptersMap;
-      } else {
-        // 合并所有分组
-        chapters = new Map();
-        for (let [_, groupChapters] of chaptersMap) {
-          for (let [id, title] of groupChapters) {
-            chapters.set(id, title);
-          }
+      // 处理章节分组
+        // 不再依赖APP版本检查，默认使用多分组模式
+        // 如果需要兼容旧版本，可以通过配置或其他方式处理
+        let chapters = chaptersMap;
+
+        // 如果chaptersMap为空，则创建一个空的Map
+        if (chapters.size === 0) {
+          chapters = new Map();
         }
-        // 章节升序
-        chapters = new Map([...chapters].sort((a, b) => a[0] - b[0]));
-      }
 
       //ANCHOR - 推荐
       let recommend = [];
