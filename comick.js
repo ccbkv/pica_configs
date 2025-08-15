@@ -448,20 +448,8 @@ class Comick extends ComicSource {
                 `page=${encodeURIComponent(page)}`
             ];
 
-            // 确保排序值是 API 允许的
             if (options[0]) {
-                const sortValue = options[0].split("-")[0];
-                // 检查排序值是否在允许的列表中
-                const allowedSorts = ['view', 'created_at', 'uploaded', 'rating', 'follow', 'user_follow_count', ''];
-                if (allowedSorts.includes(sortValue)) {
-                    params.push(`sort=${encodeURIComponent(sortValue)}`);
-                } else {
-                    // 使用默认排序值
-                    params.push('sort=uploaded');
-                }
-            } else {
-                // 如果没有提供排序选项，使用默认值
-                params.push('sort=uploaded');
+                params.push(`sort=${encodeURIComponent(options[0].split("-")[0])}`);
             }
 
             if (options[1] && options[1] !== "-全部") {
@@ -495,7 +483,24 @@ class Comick extends ComicSource {
     /// search related
     search = {
         load: async (keyword, options, page) => {
-            let url = `https://api.comick.io/v1.0/search?q=${keyword}&limit=49&page=${page}`;
+            // 基础URL
+            let url = `https://api.comick.io/v1.0/search?q=${encodeURIComponent(keyword)}&limit=49&page=${encodeURIComponent(page)}`;
+
+            // 添加排序参数
+            if (options[0]) {
+                url += `&sort=${encodeURIComponent(options[0].split("-")[0])}`;
+            }
+
+            // 添加地区参数
+            if (options[1] && options[1] !== "-全部") {
+                url += `&country=${encodeURIComponent(options[1].split("-")[0])}`;
+            }
+
+            // 添加状态参数
+            if (options[2]) {
+                url += `&status=${encodeURIComponent(options[2].split("-")[0])}`;
+            }
+
             let res = await Network.get(url, Comick.getRandomHeaders());
             if (!res.ok) throw "Request Error: " + res.status;
 
@@ -507,7 +512,11 @@ class Comick extends ComicSource {
                 maxPage: 1
             };
         },
-        optionList: []
+        optionList: [
+            {options: ["uploaded-更新排序","user_follow_count-关注排序", "rating-评分排序", "created_at-创建排序"]},
+            {options: ["-全部", "cn-国漫", "jp-日本", "kr-韩国", "others-欧美"]},
+            {options: ["1-连载", "2-完结", "3-休刊", "4-暂停更新"]}
+        ]
     }
 
     /// single comic related
