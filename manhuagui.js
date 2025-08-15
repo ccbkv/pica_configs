@@ -974,22 +974,30 @@ class ManHuaGui extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      // 注意：虽然我们验证epId，但实际URL中不使用它
-      // 这是为了保持函数接口一致性并过滤无效请求
+      // 验证epId
       if (!epId || epId === '0' || isNaN(epId)) {
         throw new Error('无效的章节ID');
       }
-      let url = `${this.baseUrl}/comic/${comicId}/`;
+      
+      // 构建包含epId的完整URL
+      let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
       
-      // 查找包含图片信息的脚本标签
+      // 尝试获取包含图片信息的脚本标签
       let scripts = document.querySelectorAll("script");
       let scriptContent = null;
+      
+      // 方法1: 查找包含特定字符串的脚本
       for (let script of scripts) {
         if (script.innerHTML && script.innerHTML.includes('window\['+'"\_\$MANGA\_"'+'\]')) {
           scriptContent = script.innerHTML;
           break;
         }
+      }
+      
+      // 方法2: 如果方法1失败，尝试获取特定位置的脚本
+      if (!scriptContent && scripts.length >= 5) {
+        scriptContent = scripts[4].innerHTML;
       }
       
       if (!scriptContent) {
