@@ -1,3 +1,26 @@
+// 引用 _venera_.js 中的 Comic 构造函数
+// 假设系统提供了加载其他文件的方法
+if (typeof Comic === 'undefined') {
+  // 尝试从全局对象中获取 Comic 构造函数
+  // 这取决于项目的具体架构和模块系统
+  if (window && window.Comic) {
+    var Comic = window.Comic;
+  } else if (global && global.Comic) {
+    var Comic = global.Comic;
+  } else {
+    console.error('Comic 构造函数未找到，请确保 _venera_.js 已被正确加载');
+    // 定义一个临时的 Comic 构造函数以避免错误
+    var Comic = function(options) {
+      this.id = options.id;
+      this.title = options.title;
+      this.cover = options.cover;
+      this.description = options.description;
+      this.tags = options.tags;
+      this.author = options.author;
+    };
+  }
+}
+
 class ManHuaGui extends ComicSource {
     constructor() {
         super();
@@ -17,7 +40,7 @@ class ManHuaGui extends ComicSource {
 
   // update url
   url =
-    "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/manhuagui.js";
+    "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
 
@@ -90,9 +113,12 @@ class ManHuaGui extends ComicSource {
     let sl = e.querySelector(".sl");
     let status = sl ? "连载" : "完结";
     // 如果能够找到 <span class="updateon">更新于：2020-03-31<em>3.9</em></span> 解析 更新和评分
-    let tmp = e.querySelector(".updateon").childNodes;
-    let update = tmp[0].replace("更新于：", "").trim();
+    let tmp = e.querySelector(".updateon")?.childNodes;
+    let update = tmp ? tmp[0].replace("更新于：", "").trim() : "";
     let tags = [status, update];
+    // 尝试获取作者信息
+    let authorElement = e.querySelector(".author");
+    let author = authorElement ? authorElement.text.trim() : "";
 
     return new Comic({
       id: simple.id,
