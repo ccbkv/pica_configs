@@ -56,7 +56,8 @@ class ManHuaGui extends ComicSource {
       "Referrer-Policy": "strict-origin-when-cross-origin",
     };
     let res = await Network.get(url, headers);
-    if (!res.ok) {
+    // 修复状态码200但res.ok为false的问题
+    if (!res.ok && !(res.status >= 200 && res.status < 300)) {
       throw "Invalid status code: " + res.status;
     }
     let document = new HtmlDocument(res.body);
