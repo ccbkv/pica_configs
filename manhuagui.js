@@ -55,11 +55,7 @@ class ManHuaGui extends ComicSource {
       Referer: "https://www.manhuagui.com/",
       "Referrer-Policy": "strict-origin-when-cross-origin",
     };
-    let res = await fetch(url, {
-        method: 'GET',
-        headers: headers,
-        credentials: 'include'
-    });
+    let res = await Network.get(url, headers);
     if (!res.ok) {
       throw "Invalid status code: " + res.status;
     }

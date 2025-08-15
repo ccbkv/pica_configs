@@ -1,5 +1,8 @@
-/** @type {import('./_venera_.js')} */
 class ManWaBa extends ComicSource {
+    constructor() {
+        super();
+        this.init();
+    }
   // Note: The fields which are marked as [Optional] should be removed if not used
 
   // name of the source
@@ -37,9 +40,23 @@ class ManWaBa extends ComicSource {
           .join("&");
         url += `?${params_str}`;
       }
-      let res = await Network.sendRequest(method, url, headers, payload);
-      if (res.status !== 200) {
-        throw `Invalid status code: ${res.status}, body: ${res.body}`;
+      let res;
+      if (method === 'GET') {
+        res = await Network.get(url, headers || {});
+      } else if (method === 'POST') {
+        res = await Network.post(url, payload, { headers: headers || {} });
+      } else if (method === 'PUT') {
+        res = await Network.put(url, payload, { headers: headers || {} });
+      } else if (method === 'PATCH') {
+        res = await Network.patch(url, payload, { headers: headers || {} });
+      } else if (method === 'DELETE') {
+        res = await Network.delete(url, { headers: headers || {} });
+      } else {
+        throw `Unsupported method: ${method}`;
+      }
+      if (!res.ok) {
+        const body = await res.text();
+        throw `Invalid status code: ${res.status}, body: ${body}`;
       }
       let json = JSON.parse(res.body);
       return json;

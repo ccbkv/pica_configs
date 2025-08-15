@@ -1,4 +1,9 @@
 class ShonenJumpPlus extends ComicSource {
+  constructor() {
+    super();
+    this.init();
+  }
+
   name = "少年ジャンプ＋";
   key = "shonen_jump_plus";
   version = "1.1.0";
@@ -33,8 +38,9 @@ class ShonenJumpPlus extends ComicSource {
 
   async init() {
     const url = "https://apps.apple.com/jp/app/少年ジャンプ-人気漫画が読める雑誌アプリ/id875750302";
-    const resp = await Network.get(url);
-    const match = resp.body.match(/":\[\{\\"versionDisplay\\":\\"([\d.]+)\\",\\"rele/);
+    const resp = await Network.get(url, this.headers);
+    const body = await resp.text();
+    const match = body.match(/":\[\{\"versionDisplay\":\"([\d.]+)\",\"rele/);
     if (match) {
       this.latestVersion = match[1];
     }
@@ -246,14 +252,16 @@ class ShonenJumpPlus extends ComicSource {
     };
     const response = await Network.post(
       `${this.apiBase}/graphql?opname=${operationName}`,
-      {
-        ...this.headers,
-        "Authorization": `Bearer ${this.bearerToken}`,
-        "Accept": "application/json",
-        "X-APOLLO-OPERATION-NAME": operationName,
-        "Content-Type": "application/json",
-      },
       JSON.stringify(payload),
+      {
+        headers: {
+          ...this.headers,
+          "Authorization": `Bearer ${this.bearerToken}`,
+          "Accept": "application/json",
+          "X-APOLLO-OPERATION-NAME": operationName,
+          "Content-Type": "application/json",
+        }
+      }
     );
 
     if (response.status !== 200) throw `Invalid status: ${response.status}`;
@@ -278,8 +286,10 @@ class ShonenJumpPlus extends ComicSource {
   async fetchBearerToken() {
     const response = await Network.post(
       `${this.apiBase}/user_account/access_token`,
-      this.headers,
-      "",
+      '',
+      {
+        headers: this.headers
+      }
     );
     const { access_token, user_account_id } = JSON.parse(
       response.body,

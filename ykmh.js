@@ -1,5 +1,9 @@
-/** @type {import('./_venera_.js')} */
 class YKMHSource extends ComicSource {
+    constructor() {
+        super();
+        this.init();
+    }
+
     name = "优酷漫画"
     key = "ykmh"
     version = "1.0.0"
@@ -16,9 +20,11 @@ class YKMHSource extends ComicSource {
             type: "multiPartPage",
 
             load: async (page) => {
-                let res = await Network.get("https://www.ykmh.net")
+                let res = await Network.get("https://www.ykmh.net", {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+                });
 
-                if (res.status !== 200) {
+                if (!res.ok) {
                     throw `Invalid status code: ${res.status}`
                 }
 
@@ -310,9 +316,11 @@ class YKMHSource extends ComicSource {
                 url = `https://www.ykmh.net/list/${param}/${sort}/${page}/`;
             }
 
-            let res = await Network.get(url);
+            let res = await Network.get(url, {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+            });
 
-            if (res.status !== 200) {
+            if (!res.ok) {
                 throw `Invalid status code: ${res.status}`;
             }
             function parseComicsList(html) {
@@ -382,8 +390,10 @@ class YKMHSource extends ComicSource {
                 url = `https://www.ykmh.net/search/?keywords=${encodedKeyword}`;
             }
             
-            let res = await Network.get(url);
-            if (res.status !== 200) {
+            let res = await Network.get(url, {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+            });
+            if (!res.ok) {
                 throw `Request Error: ${res.status}`;
             }
             function parseSearchResults(html) {
@@ -454,12 +464,14 @@ class YKMHSource extends ComicSource {
                 targetUrl += '/';
             }
 
-            let res = await Network.get(targetUrl, {
+            let res = await fetch(targetUrl, {
+                method: 'GET',
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36 Edg/139.0.0.0'
-                }
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+                },
+                credentials: 'include'
             });
-            if (res.status !== 200) {
+            if (!res.ok) {
                 throw `请求失败，状态码: ${res.status}，URL: ${targetUrl}`;
             }
 

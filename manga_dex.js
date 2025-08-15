@@ -1,5 +1,8 @@
-/** @type {import('./_venera_.js')} */
 class MangaDex extends ComicSource {
+    constructor() {
+        super();
+        this.init();
+    }
     // Note: The fields which are marked as [Optional] should be removed if not used
 
     // name of the source
@@ -101,7 +104,7 @@ class MangaDex extends ComicSource {
             if (page && page > 1) {
                 popularUrl += `&offset=${(page - 1) * this.comicsPerPage}`
             }
-            let res = await fetch(popularUrl)
+            let res = await Network.get(popularUrl)
             let data = await res.json()
             let total = data['total']
             let maxPage = Math.ceil(total / this.comicsPerPage)
@@ -125,7 +128,7 @@ class MangaDex extends ComicSource {
             if (page && page > 1) {
                 recentUrl += `&offset=${(page - 1) * this.comicsPerPage}`
             }
-            let res = await fetch(recentUrl)
+            let res = await Network.get(recentUrl)
             let data = await res.json()
             let total = data['total']
             let maxPage = Math.ceil(total / this.comicsPerPage)
@@ -151,7 +154,7 @@ class MangaDex extends ComicSource {
             if (page && page > 1) {
                 updatedUrl += `&offset=${(page - 1) * this.comicsPerPage}`
             }
-            let res = await fetch(updatedUrl)
+            let res = await Network.get(updatedUrl)
             let data = await res.json()
             let total = data['total']
             let maxPage = Math.ceil(total / this.comicsPerPage)
@@ -342,7 +345,7 @@ class MangaDex extends ComicSource {
                 if (keyword !== "")
                     url += `&title=${keyword}`
             }
-            let res = await fetch(url)
+            let res = await Network.get(url)
             if (!res.ok) {
                 throw new Error("Network response was not ok")
             }
@@ -403,7 +406,7 @@ class MangaDex extends ComicSource {
     /// single comic related
     comic = {
         getComic: async (id) => {
-            let res = await fetch(`https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=artist&includes[]=author`)
+            let res = await Network.get(`https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=artist&includes[]=author`)
             if (!res.ok) {
                 throw new Error("Network response was not ok")
             }
@@ -412,7 +415,7 @@ class MangaDex extends ComicSource {
 
         },
         getChapters: async (id) => {
-            let res = await fetch(`https://api.mangadex.org/manga/${id}/feed?limit=500&translatedLanguage[]=en&order[chapter]=asc`)
+            let res = await Network.get(`https://api.mangadex.org/manga/${id}/feed?limit=500&translatedLanguage[]=en&order[chapter]=asc`)
             if (!res.ok) {
                 throw new Error("Network response was not ok")
             }
@@ -441,7 +444,7 @@ class MangaDex extends ComicSource {
             return chapters
         },
         getStats: async (id) => {
-            let res = await fetch(`https://api.mangadex.org/statistics/manga/${id}`)
+            let res = await Network.get(`https://api.mangadex.org/statistics/manga/${id}`)
             if (!res.ok) {
                 throw new Error("Network response was not ok")
             }
@@ -508,7 +511,7 @@ class MangaDex extends ComicSource {
             if (!epId) {
                 throw new Error("No chapter id provided")
             }
-            let res = await fetch(`https://api.mangadex.org/at-home/server/${epId}`)
+            let res = await Network.get(`https://api.mangadex.org/at-home/server/${epId}`)
             if (!res.ok) {
                 throw new Error("Network response was not ok")
             }
