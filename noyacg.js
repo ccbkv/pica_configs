@@ -321,9 +321,9 @@ class ManHuaGui extends ComicSource {
     })();
 
     function splitParams(str) {
-      // 检查参数是否为undefined
-      if (str === undefined) {
-        console.error("splitParams参数为undefined");
+      // 检查str参数是否为undefined或空字符串
+      if (!str) {
+        console.error("splitParams输入字符串为空或undefined");
         return [];
       }
       let params = [];
@@ -361,8 +361,9 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
+      // 检查参数是否为undefined或空字符串
       if (!str) {
-        console.error("输入字符串为空");
+        console.error("extractParams输入字符串为空或undefined");
         return [];
       }
       let splitResult = str.split("}(");
@@ -415,8 +416,8 @@ class ManHuaGui extends ComicSource {
 
     function formatData(p, a, c, k, e, d) {
       // 检查参数是否为undefined
-      if (p === undefined || a === undefined || c === undefined || k === undefined) {
-        console.error("formatData参数为undefined:", { p, a, c, k });
+      if (p === undefined || a === undefined || c === undefined || k === undefined || e === undefined || d === undefined) {
+        console.error("formatData参数为undefined:", { p, a, c, k, e, d });
         return "";
       }
       e = function (c) {
@@ -442,9 +443,9 @@ class ManHuaGui extends ComicSource {
       return p;
     }
     function extractFields(text) {
-      // 检查参数是否为undefined
-      if (text === undefined) {
-        console.error("extractFields参数为undefined");
+      // 检查参数是否为undefined或空字符串
+      if (!text) {
+        console.error("extractFields输入字符串为空或undefined");
         return {};
       }
       // 创建一个对象存储提取的结果
@@ -486,6 +487,11 @@ class ManHuaGui extends ComicSource {
       return result;
     }
     this.getImgInfos = function (script) {
+      // 检查script参数是否为undefined或空字符串
+      if (!script) {
+        console.error("getImgInfos输入字符串为空或undefined");
+        return {};
+      }
       let params = extractParams(script);
       // 检查params是否为空或长度不足
       if (!params || params.length < 6) {
@@ -500,6 +506,11 @@ class ManHuaGui extends ComicSource {
         }
       }
       let imgData = formatData(...params);
+      // 检查imgData是否为undefined或空字符串
+      if (!imgData) {
+        console.error("formatData返回的数据为空或undefined");
+        return {};
+      }
       let imgInfos = extractFields(imgData);
       return imgInfos;
     };
@@ -1027,7 +1038,23 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      let script = document.querySelectorAll("script")[4].innerHTML;
+      // 检查document是否为undefined
+      if (!document) {
+        console.error("无法获取章节页面");
+        return { images: [] };
+      }
+      let scripts = document.querySelectorAll("script");
+      // 检查scripts是否为空或长度不足
+      if (!scripts || scripts.length < 5) {
+        console.error("页面中script标签数量不足");
+        return { images: [] };
+      }
+      let script = scripts[4].innerHTML;
+      // 检查script是否为undefined或空字符串
+      if (!script) {
+        console.error("无法获取script内容");
+        return { images: [] };
+      }
       let infos = this.getImgInfos(script);
       
       // 检查infos是否为undefined或infos.files是否为undefined
