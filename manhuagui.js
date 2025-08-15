@@ -947,13 +947,19 @@ class ManHuaGui extends ComicSource {
       }
       
       // 处理章节分组
-        // 不再依赖APP版本检查，默认使用多分组模式
-        // 如果需要兼容旧版本，可以通过配置或其他方式处理
-        let chapters = chaptersMap;
+        // 将Map转换为普通对象，避免Flutter环境中的类型转换问题
+        let chapters = {};
+        chaptersMap.forEach((groupChapters, groupName) => {
+          let groupObj = {};
+          groupChapters.forEach((title, id) => {
+            groupObj[id] = title;
+          });
+          chapters[groupName] = groupObj;
+        });
 
-        // 如果chaptersMap为空，则创建一个空的Map
-        if (chapters.size === 0) {
-          chapters = new Map();
+        // 如果chaptersMap为空，则创建一个空对象
+        if (Object.keys(chapters).length === 0) {
+          chapters = {};
         }
 
       //ANCHOR - 推荐
