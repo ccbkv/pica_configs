@@ -1,334 +1,1093 @@
-class NoyAcgSource extends ComicSource {
-    name = "NoyAcg"
-    key = "noyacg"
-    version = "1.0.0"
-    minAppVersion = "3.1.0"
-    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/noyacg.js"
-
-    init() {
-        Date.prototype.format = function () {
-            let padLeft = function (str, length) {
-                str = str.toString();
-                if (str.length >= length) {
-                    return str;
-                }
-                for (let i = 0; i < length - str.length; i++) {
-                    str = "0" + str;
-                }
-                return str;
-            }
-            return `${padLeft(this.getFullYear(), 4)}-${padLeft(this.getMonth() + 1, 2)}-${padLeft(this.getDate(), 2)}`;
-        }
+class ManHuaGui extends ComicSource {
+  // 确保Comic构造函数可用
+  constructor() {
+    super();
+    
+    // 检查Comic是否已定义
+    if (typeof Comic === 'undefined') {
+      // 尝试从父类获取
+      if (this.constructor.Comic) {
+        this.Comic = this.constructor.Comic;
+        console.log('从父类获取到Comic构造函数');
+      } else {
+        console.error('Comic构造函数未找到');
+        // 创建一个有效构造函数代替，避免后续调用失败
+        this.Comic = function(options) {
+          return {
+            id: options.id || '',
+            title: options.title || '',
+            cover: options.cover || '',
+            description: options.description || '',
+            tags: options.tags || [],
+            author: options.author || ''
+          };
+        };
+      }
+    } else {
+      this.Comic = Comic;
+      console.log('直接使用已定义的Comic构造函数');
     }
+    this.init();
+  }
 
-    parseComic = function (comic) {
-        let formatNum = function (num) {
-            if (num <= 999) {
-                return num.toString();
-            }
-            return (num / 1000).toFixed(2).toString() + "k";
+  // 此漫画源的名称
+  name = "漫画柜";
+
+  // 唯一标识符
+  key = "ManHuaGui";
+
+  version = "1.0.1";
+
+  minAppVersion = "1.4.0";
+
+  // 更新链接
+  url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
+
+  baseUrl = "https://www.manhuagui.com";
+
+  // 检查APP版本是否大于等于目标版本
+  // 为避免APP未定义的错误，添加了try-catch块
+  isAppVersionAfter(target) {
+    try {
+      if (!APP || !APP.version) return false;
+      let current = APP.version;
+      let targetArr = target.split('.');
+      let currentArr = current.split('.');
+      for (let i = 0; i < Math.min(targetArr.length, currentArr.length); i++) {
+        if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
+          return false;
+        } else if (parseInt(currentArr[i]) > parseInt(targetArr[i])) {
+          return true;
         }
-        let title = `${comic.Bookname}`;
-        if (comic.Len) {
-            title = `[${comic.Len}P]${comic.Bookname}`;
-        }
-        return {
-            id: `${comic.Bid}#${comic.Len}`,
-            title: title,
-            subTitle: comic.Author,
-            cover: `https://img.noy.asia/${comic.Bid}/1.webp`,
-            tags: (comic.Ptag || "").split(" "),
-            description: `${new Date(comic.Time * 1000).format()}`
-        }
+      }
+      // 如果前面的版本号都相同，则当前版本大于等于目标版本
+      return true;
+    } catch (e) {
+      console.error('检查APP版本时出错:', e);
+      return false; // 出错时默认返回false
+    }
+  }
+
+  // 获取HTML内容并处理响应
+  async getHtml(url) {
+    // 简化headers配置，与ikmmh.js保持一致
+    let headers = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "Referer": "https://www.manhuagui.com/",
     };
-
-    post = async function (url, data) {
-        let headers = {
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        let res = await Network.post(url, headers, data);
-        if (res.status != 200) {
-            throw `Invalid status code: ${res.status}`
-        }
-        let resp = JSON.parse(res.body);
-        if ("status" in resp && resp.status != 'ok') {
-            throw resp.status;
-        }
-        return resp;
+    let res = await Network.get(url, headers);
+    
+    // 只检查status状态
+    if (res.status !== 200) {
+      throw `Network error: Status code ${res.status}`;
     }
-
-    searchComic = async function ({ info, type, sort, page }) {
-        let data = await this.post("https://noy1.top/api/search_v2", `info=${info}&type=${type}&sort=${sort}&page=${page}`);
-        let maxPage = Math.ceil(data.len / 20);
-        return {
-            comics: data.Info.map(this.parseComic),
-            maxPage: maxPage
-        }
+    
+    // 确保body不为null或空
+    let body = res.body || '';
+    if (!body.trim()) {
+      console.warn('Response body is empty');
+      body = '<!DOCTYPE html><html><head><title>Empty Response</title></head><body></body></html>';
     }
+    
+    try {
+      return new HtmlDocument(body);
+    } catch (e) {
+      console.error('Failed to parse HTML:', e);
+      throw "Failed to parse HTML content";
+    }
+  }
+  parseSimpleComic(e) {
+    let url = e.querySelector(".ell > a").attributes["href"];
+    let id = url.split("/")[2];
+    let title = e.querySelector(".ell > a").text.trim();
+    let cover = e.querySelector("img").attributes["src"];
+    if (!cover) {
+      cover = e.querySelector("img").attributes["data-src"];
+    }
+    cover = `https:${cover}`;
+    let description = e.querySelector(".tt").text.trim();
+    return new this.Comic({
+      id,
+      title,
+      cover,
+      description,
+    });
+  }
 
-    getThumbnails = function (comicId, length) {
-        let images = [];
-        for (let i = 1; i <= parseInt(length); i++) {
-            images.push(`https://img.noy.asia/${comicId}/${i}.webp`);
+  parseComic(e) {
+    let simple = this.parseSimpleComic(e);
+    let sl = e.querySelector(".sl");
+    let status = sl ? "连载" : "完结";
+    // 如果能够找到 <span class="updateon">更新于：2020-03-31<em>3.9</em></span> 解析 更新和评分
+    let tmp = e.querySelector(".updateon")?.childNodes;
+    let update = tmp ? tmp[0].replace("更新于：", "").trim() : "";
+    let tags = [status, update];
+    // 尝试获取作者信息
+    let authorElement = e.querySelector(".author");
+    let author = authorElement ? authorElement.text.trim() : "";
+
+    return new this.Comic({
+      id: simple.id,
+      title: simple.title,
+      cover: simple.cover,
+      description: simple.description,
+      tags,
+      author,
+    });
+  }
+  /**
+   * [Optional] init function
+   */
+  init() {
+    var LZString = (function () {
+      var f = String.fromCharCode;
+      var keyStrBase64 =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+      var baseReverseDic = {};
+      function getBaseValue(alphabet, character) {
+        if (!baseReverseDic[alphabet]) {
+          baseReverseDic[alphabet] = {};
+          for (var i = 0; i < alphabet.length; i++) {
+            baseReverseDic[alphabet][alphabet.charAt(i)] = i;
+          }
         }
-        return images;
-    };
-
-    /// 账号
-    /// 设置为null禁用账号功能
-    account = {
-        /// 登录
-        /// 返回任意值表示登录成功
-        login: async (user, pass) => {
-            let data = await this.post('https://noy1.top/api/login', `user=${user}&pass=${pass}`)
-            const { status } = data;
-            if (status !== 'ok') {
-                throw 'Failed to login';
-            }
-            return 'ok';
+        return baseReverseDic[alphabet][character];
+      }
+      var LZString = {
+        decompressFromBase64: function (input) {
+          if (input == null) return "";
+          if (input == "") return null;
+          return LZString._0(input.length, 32, function (index) {
+            return getBaseValue(keyStrBase64, input.charAt(index));
+          });
         },
-        // 退出登录时将会调用此函数
-        logout: () => {
-            Network.deleteCookies('https://noy1.top');
-        },
-        registerWebsite: "https://noy1.top/#/reg"
-    }
-    explore = [
-        {
-            title: "NoyAcg",
-            type: "singlePageWithMultiPart",
-            load: async () => {
-                let data = await this.post("https://noy1.top/api/home")
-                let comics = {}
-                let size = 18;
-                comics["阅读榜"] = data["readDay"].slice(0, size).map(this.parseComic)
-                comics["收藏榜"] = data["favDay"].slice(0, size).map(this.parseComic)
-                // 高质量榜都是0P
-                comics["高质量榜"] = data["proportion"].slice(0, size).map(this.parseComic)
-                comics["收藏推荐"] = data["fs"].slice(0, size).map(this.parseComic)
-                return comics;
-            }
-        }
-    ]
-
-    category = {
-        title: "NoyAcg",
-        parts: [
-            {
-                name: "标签",
-                type: "fixed",
-                categories: ["纯爱", "全彩", "NTR", "伪娘", "扶她", "姐妹", "后宫", "重口", "束缚", "性转换", "无修正", "单行本", "强奸", "萝莉", "东方", "原神", "舰C", "原创"],
-                itemType: "category",
-                categoryParams: ["純愛", "全彩", "NTR", "偽娘", "扶她", "姐妹", "多人運動", "重 口", "束縛", "性轉換", "無修正", "單行本", "強姦", "蘿莉", "東方Project", "原神", "艦隊Collection", "原創"]
-            }
-        ],
-        enableRankingPage: false,
-    }
-
-    categoryComics = {
-        load: async (category, param, options, page) => {
-            return await this.searchComic({
-                info: param,
-                type: 'tag',
-                sort: options[0],
-                page: page
-            })
-        },
-        optionList: [
-            {
-                options: [
-                    "bid-时间排序",
-                    "views-阅读量排序",
-                    "favorites-收藏排序"
-                ],
-                notShowWhen: null,
-                showWhen: null
-            }
-        ],
-        ranking: {
-            options: [
-                "day-日",
-                "week-周"
-            ],
-            load: async (option, page) => {
-
-            }
-        }
-    }
-
-    /// 搜索
-    search = {
-        load: async (keyword, options, page) => {
-            return await this.searchComic({
-                info: keyword,
-                type: options[0],
-                sort: options[1],
-                page: page
-            });
-        },
-        // 提供选项
-        optionList: [
-            {
-                options: [
-                    "de-综合",
-                    "tag-标签",
-                    "author-作者"
-                ],
-                label: "搜索设置"
-            },
-            {
-                // 使用-分割, 左侧用于数据加载, 右侧显示给用户
-                options: [
-                    "bid-时间排序",
-                    "views-阅读量排序",
-                    "favorites-收藏排序"
-                ],
-                // 标签
-                label: "排序"
-            }
-        ]
-    }
-
-    /// 收藏
-    favorites = {
-        /// 是否为多收藏夹
-        multiFolder: false,
-        /// 添加或者删除收藏
-        addOrDelFavorite: async (id, folderId, isAdding) => {
-            let [comicId] = id.split("#");
-            let res = await Network.post("https://noy1.top/api/adfavorites", {
-                "Content-Type": "application/x-www-form-urlencoded"
-            }, `bid=${comicId}`)
-            let data = res.body;
-            if (data === 'ok') {
-                return 'ok';
-            }
-            throw data;
-        },
-        // 加载收藏夹, 仅当multiFolder为true时有效
-        // 当comicId不为null时, 需要同时返回包含该漫画的收藏夹
-        loadFolders: async (comicId) => {
-            /*
-            ```
-            let data = JSON.parse((await Network.get('...')).body)
-
-            let folders = {}
-
-            data.folders.forEach((f) => {
-                folders[f.id] = f.name
-            })
-
-            return {
-                // map<string, string> key为收藏夹id, value为收藏夹名称, id用于收藏夹相关内容的加载
-                folders: folders,
-                // string[]?, 包含comicId的收藏夹, 若comicId为空, 则此字段为空
-                favorited: data.favorited
-            }
-            ```
-            */
-        },
-        /// 加载漫画
-        loadComics: async (page, folder) => {
-            let data = await this.post("https://noy1.top/api/favoriteslist_v2", `page=${page}`);
-            return {
-                comics: data.info.map(this.parseComic),
-                maxPage: Math.ceil(data.len / 20)
-            }
-        }
-    }
-
-    /// 单个漫画相关
-    comic = {
-        // 加载漫画信息
-        loadInfo: async (id) => {
-            let [comicId, length] = id.split("#");
-            let data = await this.post('https://noy1.top/api/getbookinfo', `bid=${comicId}`);
-            let comic = {
-                // string 标题
-                title: data.Bookname,
-                // string 封面url
-                cover: `https://img.noy.asia/${comicId}/m1.webp`,
-                // string
-                // description: `${data.Len}P`,
-                // Map<string, string[]> | object 标签
-                tags: {
-                    "作者": [data.Author],
-                    "角色": (data.Pname || "").split(" "),
-                    "标签": (data.Ptag || "").split(" "),
-                    "其他": (data.Otag || "").split(" "),
-                    "页数": [`${data.Len}P`],
-                    "日期": [new Date(data.Time * 1000).format()]
-                },
-                // Map<string, string>? | object, key为章节id, value为章节名称
-                // 注意: 为了保证章节顺序, 最好使用Map, 使用object不能保证顺序
-                chapters: {},
-                // bool 注意, 如果是多收藏式的网络收藏, 将此项设置为null, 从而可以在漫画详情页面, 对每个单独的收藏夹执行收藏或者取消收藏操作
-                isFavorite: data.F,
-                // thumbnails: this.getThumbnails(comicId, length)
+        _0: function (length, resetValue, getNextValue) {
+          var dictionary = [],
+            next,
+            enlargeIn = 4,
+            dictSize = 4,
+            numBits = 3,
+            entry = "",
+            result = [],
+            i,
+            w,
+            bits,
+            resb,
+            maxpower,
+            power,
+            c,
+            data = {
+              val: getNextValue(0),
+              position: resetValue,
+              index: 1,
             };
-            return comic;
+          for (i = 0; i < 3; i += 1) {
+            dictionary[i] = i;
+          }
+          bits = 0;
+          maxpower = Math.pow(2, 2);
+          power = 1;
+          while (power != maxpower) {
+            resb = data.val & data.position;
+            data.position >>= 1;
+            if (data.position == 0) {
+              data.position = resetValue;
+              data.val = getNextValue(data.index++);
+            }
+            bits |= (resb > 0 ? 1 : 0) * power;
+            power <<= 1;
+          }
+          switch ((next = bits)) {
+            case 0:
+              bits = 0;
+              maxpower = Math.pow(2, 8);
+              power = 1;
+              while (power != maxpower) {
+                resb = data.val & data.position;
+                data.position >>= 1;
+                if (data.position == 0) {
+                  data.position = resetValue;
+                  data.val = getNextValue(data.index++);
+                }
+                bits |= (resb > 0 ? 1 : 0) * power;
+                power <<= 1;
+              }
+              c = f(bits);
+              break;
+            case 1:
+              bits = 0;
+              maxpower = Math.pow(2, 16);
+              power = 1;
+              while (power != maxpower) {
+                resb = data.val & data.position;
+                data.position >>= 1;
+                if (data.position == 0) {
+                  data.position = resetValue;
+                  data.val = getNextValue(data.index++);
+                }
+                bits |= (resb > 0 ? 1 : 0) * power;
+                power <<= 1;
+              }
+              c = f(bits);
+              break;
+            case 2:
+              return "";
+          }
+          dictionary[3] = c;
+          w = c;
+          result.push(c);
+          while (true) {
+            if (data.index > length) {
+              return "";
+            }
+            bits = 0;
+            maxpower = Math.pow(2, numBits);
+            power = 1;
+            while (power != maxpower) {
+              resb = data.val & data.position;
+              data.position >>= 1;
+              if (data.position == 0) {
+                data.position = resetValue;
+                data.val = getNextValue(data.index++);
+              }
+              bits |= (resb > 0 ? 1 : 0) * power;
+              power <<= 1;
+            }
+            switch ((c = bits)) {
+              case 0:
+                bits = 0;
+                maxpower = Math.pow(2, 8);
+                power = 1;
+                while (power != maxpower) {
+                  resb = data.val & data.position;
+                  data.position >>= 1;
+                  if (data.position == 0) {
+                    data.position = resetValue;
+                    data.val = getNextValue(data.index++);
+                  }
+                  bits |= (resb > 0 ? 1 : 0) * power;
+                  power <<= 1;
+                }
+                dictionary[dictSize++] = f(bits);
+                c = dictSize - 1;
+                enlargeIn--;
+                break;
+              case 1:
+                bits = 0;
+                maxpower = Math.pow(2, 16);
+                power = 1;
+                while (power != maxpower) {
+                  resb = data.val & data.position;
+                  data.position >>= 1;
+                  if (data.position == 0) {
+                    data.position = resetValue;
+                    data.val = getNextValue(data.index++);
+                  }
+                  bits |= (resb > 0 ? 1 : 0) * power;
+                  power <<= 1;
+                }
+                dictionary[dictSize++] = f(bits);
+                c = dictSize - 1;
+                enlargeIn--;
+                break;
+              case 2:
+                return result.join("");
+            }
+            if (enlargeIn == 0) {
+              enlargeIn = Math.pow(2, numBits);
+              numBits++;
+            }
+            if (dictionary[c]) {
+              entry = dictionary[c];
+            } else {
+              if (c === dictSize) {
+                entry = w + w.charAt(0);
+              } else {
+                return null;
+              }
+            }
+            result.push(entry);
+            dictionary[dictSize++] = w + entry.charAt(0);
+            enlargeIn--;
+            w = entry;
+            if (enlargeIn == 0) {
+              enlargeIn = Math.pow(2, numBits);
+              numBits++;
+            }
+          }
         },
-        // 获取章节图片
-        loadEp: async (id, epId) => {
-            let [comicId, len] = id.split("#");
-            return {
-                images: this.getThumbnails(comicId, len)
-            }
-        },
-        // 可选, 调整图片加载的行为; 如不需要, 删除此字段
-        onImageLoad: (url, comicId, epId) => {
-            return {
-                headers: {
-                    'Referer': 'https://noy1.top/',
-                },
-            }
-        },
-        // [v3.1.4添加] 可选, 调整缩略图(封面, 预览, 头像等)加载的行为; 如不需要, 删除此字段
-        onThumbnailLoad: (url) => {
-            return {
-                headers: {
-                    'Referer': 'https://noy1.top/',
-                },
-            }
-        },
-        // 加载评论
-        loadComments: async (id, subId, page, replyTo) => {
-            let [comicId] = id.split("#");
-            let data = await this.post("https://noy1.top/api/getComment", `bid=${comicId}&page=${page}`);
-            let over = data.over;
-            let getReplyCount = function (cid) {
-                return data.info.filter(c => c.reply == cid).length
-            }
-            let comments = data.info;
-            let maxPage = over ? page : page + 1
-            if (replyTo) {
-                comments = comments.filter(c => c.reply == replyTo);
-            }
-            return {
-                comments: comments.map(c => {
-                    return {
-                        userName: c.username,
-                        avatar: `https://bucket.noy.asia/${c.avatarUrl}`,
-                        content: c.content,
-                        time: new Date(c.time * 1000).format(),
-                        replyCount: getReplyCount(c.cid),
-                        id: c.cid
-                    }
-                }),
-                maxPage: maxPage
-            }
-        },
-        // 发送评论, 返回任意值表示成功
-        sendComment: async (id, subId, content, replyTo) => {
-            if (!replyTo) {
-                replyTo = -1;
-            }
-            let [comicId] = id.split("#");
-            let data = await this.post("https://noy1.top/api/sendComment", `bid=${comicId}&platform=web&content=${content}&reply=${replyTo}`);
-            if (data.status === 'ok') {
-                return "ok";
-            }
-            throw data.status;
+      };
+      return LZString;
+    })();
+
+    function splitParams(str) {
+      // 检查参数是否为undefined
+      if (str === undefined) {
+        console.error("splitParams参数为undefined");
+        return [];
+      }
+      let params = [];
+      let currentParam = "";
+      let stack = [];
+
+      for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+
+        if (char === "(" || char === "[" || char === "{"
+        ) {
+          stack.push(char);
+          currentParam += char;
+        } else if (char === ")" && stack[stack.length - 1] === "(") {
+          stack.pop();
+          currentParam += char;
+        } else if (char === "]" && stack[stack.length - 1] === "[") {
+          stack.pop();
+          currentParam += char;
+        } else if (char === "}" && stack[stack.length - 1] === "{") {
+          stack.pop();
+          currentParam += char;
+        } else if (char === "," && stack.length === 0) {
+          params.push(currentParam.trim());
+          currentParam = "";
+        } else {
+          currentParam += char;
         }
+      }
+
+      if (currentParam) {
+        params.push(currentParam.trim());
+      }
+
+      return params;
     }
+
+    function extractParams(str) {
+      if (!str) {
+        console.error("输入字符串为空");
+        return [];
+      }
+      let splitResult = str.split("}(");
+      if (splitResult.length < 2) {
+        console.error("无法正确分割字符串");
+        return [];
+      }
+      let params_part = splitResult[1].split("))")[0];
+      if (!params_part) {
+        console.error("无法提取参数部分");
+        return [];
+      }
+      let params = splitParams(params_part);
+      if (!params || params.length === 0) {
+        console.error("splitParams返回空数组");
+        return [];
+      }
+      params[5] = {};
+      try {
+        if (params.length > 3 && params[3]) {
+          // 确保params[3]是字符串类型
+          if (typeof params[3] !== 'string') {
+            console.error("params[3]不是字符串类型:", typeof params[3]);
+            params[3] = [];
+          } else {
+            let compressedData = params[3].split("'");
+            if (compressedData.length < 2) {
+              console.error("无法提取压缩数据");
+              params[3] = [];
+            } else {
+              let decompressed = LZString.decompressFromBase64(compressedData[1]);
+              // 确保解压后的数据是字符串类型
+              if (typeof decompressed !== 'string') {
+                console.error("解压后的数据不是字符串类型:", typeof decompressed);
+                params[3] = [];
+              } else {
+                params[3] = decompressed.split("|");
+              }
+            }
+          }
+        } else {
+          params[3] = [];
+        }
+      } catch (e) {
+        console.error("解压params[3]失败:", e);
+        params[3] = [];
+      }
+      return params;
+    }
+
+    function formatData(p, a, c, k, e, d) {
+      // 检查参数是否为undefined
+      if (p === undefined || a === undefined || c === undefined || k === undefined) {
+        console.error("formatData参数为undefined:", { p, a, c, k });
+        return "";
+      }
+      e = function (c) {
+        return (
+          (c < a ? "" : e(parseInt(c / a))) +
+          ((c = c % a) > 35 ? String.fromCharCode(c + 29) : c.toString(36))
+        );
+      };
+      if (!"".replace(/^/, String)) {
+        while (c--) d[e(c)] = k[c] || e(c);
+        k = [
+          function (e) {
+            return d[e];
+          },
+        ];
+        e = function () {
+          return "\\w+";
+        };
+        c = 1;
+      }
+      while (c--)
+        if (k[c]) p = p.replace(new RegExp("\\b" + e(c) + "\\b", "g"), k[c]);
+      return p;
+    }
+    function extractFields(text) {
+      // 检查参数是否为undefined
+      if (text === undefined) {
+        console.error("extractFields参数为undefined");
+        return {};
+      }
+      // 创建一个对象存储提取的结果
+      const result = {};
+
+      // 提取files数组
+      const filesMatch = text.match(/"files":\s*\[(.*?)\]/);
+      if (filesMatch && filesMatch[1]) {
+        // 提取所有文件名并去除引号和空格
+        result.files = filesMatch[1]
+          .split(",")
+          .map((file) => file.trim().replace(/"/g, ""));
+      }
+
+      // 提取path
+      const pathMatch = text.match(/"path":\s*"([^"]+)"/);
+      if (pathMatch && pathMatch[1]) {
+        result.path = pathMatch[1];
+      }
+
+      // 提取len
+      const lenMatch = text.match(/"len":\s*(\d+)/);
+      if (lenMatch && lenMatch[1]) {
+        result.len = parseInt(lenMatch[1], 10);
+      }
+
+      // 提取sl对象
+      const slMatch = text.match(/"sl":\s*({[^}]+})/);
+      if (slMatch && slMatch[1]) {
+        try {
+          // 将提取的字符串转换为对象
+          result.sl = JSON.parse(slMatch[1].replace(/(\w+):/g, '"$1":'));
+        } catch (e) {
+          console.error("解析sl字段失败:", e);
+          result.sl = null;
+        }
+      }
+
+      return result;
+    }
+    this.getImgInfos = function (script) {
+      let params = extractParams(script);
+      // 检查params是否为空或长度不足
+      if (!params || params.length < 6) {
+        console.error("extractParams返回的参数不足:", params);
+        return {};
+      }
+      // 检查params中的每个元素是否为undefined
+      for (let i = 0; i < params.length; i++) {
+        if (params[i] === undefined) {
+          console.error(`params[${i}] is undefined`);
+          return {};
+        }
+      }
+      let imgData = formatData(...params);
+      let imgInfos = extractFields(imgData);
+      return imgInfos;
+    };
+  }
+
+  // explore page list
+  explore = [
+    {
+      // title of the page.
+      // title is used to identify the page, it should be unique
+      title: "漫画柜",
+
+      /// multiPartPage or multiPageComicList or mixed
+      type: "singlePageWithMultiPart",
+
+      /**
+       * load function
+       * @param page {number | null} - page number, null for `singlePageWithMultiPart` type
+       * @returns {{}}
+       * - for `multiPartPage` type, return [{title: string, comics: Comic[], viewMore: PageJumpTarget}]
+       * - for `multiPageComicList` type, for each page(1-based), return {comics: Comic[], maxPage: number}
+       * - for `mixed` type, use param `page` as index. for each index(0-based), return {data: [], maxPage: number?}, data is an array contains Comic[] or {title: string, comics: Comic[], viewMore: string?}
+       */
+      load: async (page) => {
+        let document = await this.getHtml(this.baseUrl);
+        // log("info", this.name, `获取主页成功`);
+        let tabs = document.querySelectorAll("#cmt-tab li");
+        // log("info", this.name, tabs);
+        let parts = document.querySelectorAll("#cmt-cont ul");
+        // log("info", this.name, parts);
+        let result = {};
+        // tabs len = parts len
+        for (let i = 0; i < tabs.length; i++) {
+          let title = tabs[i].text.trim();
+          let comics = parts[i]
+            .querySelectorAll("li")
+            .map((e) => this.parseSimpleComic(e));
+          result[title] = comics;
+        }
+        // log("info", this.name, result);
+        return result;
+      },
+
+      /**
+       * Only use for `multiPageComicList` type.
+       * `loadNext` would be ignored if `load` function is implemented.
+       * @param next {string | null} - next page token, null if first page
+       * @returns {Promise<{comics: Comic[], next: string?}>} - next is null if no next page.
+       */
+      loadNext(next) {},
+    },
+  ];
+
+  // categories
+  category = {
+    /// title of the category page, used to identify the page, it should be unique
+    title: "漫画柜",
+    parts: [
+      {
+        name: "类型",
+        type: "fixed",
+        itemType: "category",
+        categories: [
+          "全部",
+          "热血",
+          "冒险",
+          "魔幻",
+          "神鬼",
+          "搞笑",
+          "萌系",
+          "爱情",
+          "科幻",
+          "魔法",
+          "格斗",
+          "武侠",
+          "机战",
+          "战争",
+          "竞技",
+          "体育",
+          "校园",
+          "生活",
+          "励志",
+          "历史",
+          "伪娘",
+          "宅男",
+          "腐女",
+          "耽美",
+          "百合",
+          "后宫",
+          "治愈",
+          "美食",
+          "推理",
+          "悬疑",
+          "恐怖",
+          "四格",
+          "职场",
+          "侦探",
+          "社会",
+          "音乐",
+          "舞蹈",
+          "杂志",
+          "黑道",
+        ],
+        categoryParams: [
+          "",
+          "rexue",
+          "maoxian",
+          "mohuan",
+          "shengui",
+          "gaoxiao",
+          "mengxi",
+          "aiqing",
+          "kehuan",
+          "mofa",
+          "gedou",
+          "wuxia",
+          "jizhan",
+          "zhanzheng",
+          "jingji",
+          "tiyu",
+          "xiaoyuan",
+          "shenghuo",
+          "lizhi",
+          "lishi",
+          "weiniang",
+          "zhainan",
+          "funv",
+          "danmei",
+          "baihe",
+          "hougong",
+          "zhiyu",
+          "meishi",
+          "tuili",
+          "xuanyi",
+          "kongbu",
+          "sige",
+          "zhichang",
+          "zhentan",
+          "shehui",
+          "yinyue",
+          "wudao",
+          "zazhi",
+          "heidao",
+        ],
+      },
+    ],
+    // enable ranking page
+    enableRankingPage: false,
+  };
+
+  /// category comic loading related
+  categoryComics = {
+    /**
+     * load comics of a category
+     * @param category {string} - category name
+     * @param param {string?} - category param
+     * @param options {string[]} - options from optionList
+     * @param page {number} - page number
+     * @returns {Promise<{comics: Comic[], maxPage: number}>}
+     */
+    load: async (category, param, options, page) => {
+      let area = options[0];
+      let genre = param;
+      let age = options[1];
+      let status = options[2];
+      // log(
+      //   "info",
+      //   this.name,
+      //   ` 加载分类漫画: ${area} | ${genre} | ${age} | ${status}`
+      // );
+      // 字符串之间用“_”连接，空字符串除外
+      let params = [area, genre, age, status].filter((e) => e != "").join("_");
+
+      let url = `${this.baseUrl}/list/${params}/index_p${page}.html`;
+
+      let document = await this.getHtml(url);
+      let maxPage = document
+        .querySelector(".result-count")
+        .querySelectorAll("strong")[1].text;
+      maxPage = parseInt(maxPage);
+      let comics = document
+        .querySelectorAll("#contList > li")
+        .map((e) => this.parseSimpleComic(e));
+      return {
+        comics,
+        maxPage,
+      };
+    },
+    // provide options for category comic loading
+    optionList: [
+      {
+        options: [
+          "-全部",
+          "japan-日本",
+          "hongkong-港台",
+          "other-其它",
+          "europe-欧美",
+          "china-内地",
+          "korea-韩国",
+        ],
+      },
+      {
+        options: [
+          "-全部",
+          "shaonv-少女",
+          "shaonian-少年",
+          "qingnian-青年",
+          "ertong-儿童",
+          "tongyong-通用",
+        ],
+      },
+      {
+        options: ["-全部", "lianzai-连载", "wanjie-完结"],
+      },
+    ],
+    ranking: {
+      // 对于单个选项，使用“-”分隔值和文本，左侧为值，右侧为文本
+      options: [
+        "-最新发布",
+        "update-最新更新",
+        "view-人气最旺",
+        "rate-评分最高",
+      ],
+      /**
+       * 加载排行榜漫画
+       * @param option {string} - 来自optionList的选项
+       * @param page {number} - 页码
+       * @returns {Promise<{comics: Comic[], maxPage: number}>}
+       */
+      load: async (option, page) => {
+        let url = `${this.baseUrl}/list/${option}_p${page}.html`;
+        let document = await this.getHtml(url);
+        let maxPage = document
+          .querySelector(".result-count")
+          .querySelectorAll("strong")[1].text;
+        maxPage = parseInt(maxPage);
+        let comics = document
+          .querySelector("#contList")
+          .querySelectorAll("li")
+          .map((e) => this.parseComic(e));
+        return {
+          comics,
+          maxPage,
+        };
+      },
+    },
+  };
+
+  /**
+   * 专门解析搜索结果页面中的漫画信息
+   * @param {HTMLElement} item - 搜索结果中的单个漫画项
+   * @returns {Comic} - 解析后的漫画对象
+   */
+  parseSearchComic(item) {
+    try {
+      // 获取漫画链接和ID
+      let linkElement = item.querySelector(".book-detail dl dt a");
+      if (!linkElement) return null;
+      
+      let url = linkElement.attributes["href"];
+      let id = url.split("/")[2];
+      let title = linkElement.text.trim();
+      
+      // 获取封面图片
+      let coverElement = item.querySelector(".book-cover .bcover img");
+      let cover = coverElement ? coverElement.attributes["src"] : null;
+      if (cover) {
+        cover = cover.startsWith("//") ? `https:${cover}` : cover;
+      }
+      
+      // 获取更新状态和描述
+      let statusElement = item.querySelector(".tags.status span .red");
+      let status = statusElement ? statusElement.text.trim() : "";
+      
+      let updateElement = item.querySelector(".tags.status span .red:nth-child(2)");
+      let updateTime = updateElement ? updateElement.text.trim() : "";
+      
+      // 获取评分信息
+      let scoreElement = item.querySelector(".book-score .score-avg strong");
+      let score = scoreElement ? scoreElement.text.trim() : "";
+      
+      // 获取作者信息
+      let authorElements = item.querySelectorAll(".tags a[href*='/author/']");
+      let author = authorElements.length > 0 
+        ? authorElements.map(a => a.text.trim()).join(", ") 
+        : "";
+      
+      // 获取类型信息
+      let typeElements = item.querySelectorAll(".tags a[href*='/list/']");
+      let types = typeElements.length > 0 
+        ? typeElements.map(a => a.text.trim())
+        : [];
+      
+      // 获取简介
+      let introElement = item.querySelector(".intro span");
+      let description = introElement ? introElement.text.replace("简介：", "").trim() : "";
+      
+      // 如果简介为空，使用更新状态作为描述
+      if (!description && status) {
+        description = `状态: ${status}`;
+        if (updateTime) description += `, 更新: ${updateTime}`;
+      }
+      
+      return new Comic({
+        id,
+        title,
+        cover,
+        description,
+        tags: [...types, status],
+        author,
+        score
+      });
+    } catch (error) {
+      console.error("解析搜索结果项时出错:", error);
+      return null;
+    }
+  }
+
+  /// search related
+  search = {
+    /**
+     * load search result
+     * @param keyword {string}
+     * @param options {string[]} - options from optionList
+     * @param page {number}
+     * @returns {Promise<{comics: Comic[], maxPage: number}>}
+     */
+    load: async (keyword, options, page) => {
+      let url = ""
+      if (options[0]) {
+        let type = options[0].split("-")[0];
+          if (type == '0') {
+              url = `${this.baseUrl}/s/${keyword}_p${page}.html`;
+          } else{
+            url = `${this.baseUrl}/s/${keyword}_o${type}_p${page}.html`;
+          }
+      }else{
+          url = `${this.baseUrl}/s/${keyword}_p${page}.html`;
+      }
+      let document = await this.getHtml(url);
+      
+      // 检查是否有结果计数元素
+      let resultCount = document.querySelector(".result-count");
+      if (!resultCount) {
+        // 没有搜索结果或页面结构不同
+        return {
+          comics: [],
+          maxPage: 1
+        };
+      }
+      
+      let comicNum = resultCount.querySelectorAll("strong")[1].text;
+      comicNum = parseInt(comicNum);
+      // 每页10个
+      let maxPage = Math.ceil(comicNum / 10);
+
+      // 在搜索结果页面中，漫画列表位于 .book-result ul 下
+      let comicList = document.querySelector(".book-result ul");
+      if (!comicList) {
+        return {
+          comics: [],
+          maxPage: maxPage || 1
+        };
+      }
+      
+      // 使用专门的搜索解析函数解析每个漫画项
+      let comics = comicList.querySelectorAll("li.cf")
+        .map(item => this.parseSearchComic(item))
+        .filter(comic => comic !== null); // 过滤掉解析失败的项
+      
+      return {
+        comics,
+        maxPage,
+      };
+    },
+
+    optionList: [
+      {
+        type: "select",
+        options: ["0-最新更新", "1-最近最热","2-最新上架", "3-评分最高"],
+        label: "sort",
+        default: null,
+      },
+    ],
+
+    enableTagsSuggestions: false,
+  };
+
+  /// single comic related
+  comic = {
+    /**
+     * load comic info
+     * @param id {string}
+     * @returns {Promise<ComicDetails>}
+     */
+    loadInfo: async (id) => {
+      let url = `${this.baseUrl}/comic/${id}/`;
+      let document = await this.getHtml(url);
+      // ANCHOR 基本信息
+      let book = document.querySelector(".book-cont");
+      let title = book
+        .querySelector(".book-title")
+        .querySelector("h1")
+        .text.trim();
+      let subtitle = book
+        .querySelector(".book-title")
+        .querySelector("h2")
+        .text.trim();
+      let cover = book.querySelector(".hcover").querySelector("img").attributes[
+        "src"
+      ];
+      cover = `https:${cover}`;
+      let description = book
+        .querySelector("#intro-all")
+        .querySelectorAll("p")
+        .map((e) => e.text.trim())
+        .join("\n");
+      //   log("warn", this.name, { title, subtitle, cover, description });
+
+      let detail_list = book.querySelectorAll(".detail-list span");
+
+      function parseDetail(idx) {
+        let ele = detail_list[idx].querySelectorAll("a");
+        if (ele.length > 0) {
+          return ele.map((e) => e.text.trim());
+        }
+        return [""];
+      }
+      let createYear = parseDetail(0);
+      let area = parseDetail(1);
+      let genre = parseDetail(3);
+      let author = parseDetail(4);
+      // let alias = parseDetail(5);
+
+      //   let lastChapter = parseDetail(6);
+      let status = detail_list[7].text.trim();
+
+      // 确保tags对象中的所有值都是字符串数组，与ikmmh.js保持一致
+      let tags = {
+        "作者": author.length > 0 ? author.map(item => item.toString()) : ['未知'],
+        "状态": [status.toString()],
+        "地区": area.length > 0 ? area.map(item => item.toString()) : ['未知'],
+        "类型": genre.length > 0 ? genre.map(item => item.toString()) : ['未知'],
+        "年代": createYear.length > 0 ? createYear.map(item => item.toString()) : ['未知'],
+      };
+      let updateTime = detail_list[8].text.trim();
+
+      // ANCHOR 章节信息
+      // 支持多分组
+      let chaptersMap = new Map();
+      
+      // 查找所有章节分组标题
+      let chapterGroups = document.querySelectorAll(".chapter h4 span");
+      
+      // 处理每个分组
+      for (let i = 0; i < chapterGroups.length; i++) {
+        let groupName = chapterGroups[i].text.trim();
+        let groupChapters = new Map();
+        
+        // 获取对应的章节列表
+        let chapterList = document.querySelectorAll(".chapter-list")[i];
+        if (chapterList) {
+          let lis = chapterList.querySelectorAll("li");
+          for (let li of lis) {
+            let a = li.querySelector("a");
+            let id = a.attributes["href"].split("/").pop().replace(".html", "");
+            let title = a.querySelector("span").text.trim();
+            groupChapters.set(id, title);
+          }
+          
+          // 章节升序排列
+          groupChapters = new Map([...groupChapters].sort((a, b) => a[0] - b[0]));
+          
+          // 将分组添加到总的章节映射中
+          chaptersMap.set(groupName, groupChapters);
+        }
+      }
+      
+      // 兼容旧版本，如果app版本不支持多分组，则合并所有分组
+      let chapters;
+      if (this.isAppVersionAfter && this.isAppVersionAfter("1.3.0")) {
+        // 支持多分组
+        chapters = chaptersMap;
+      } else {
+        // 合并所有分组
+        chapters = new Map();
+        for (let [_, groupChapters] of chaptersMap) {
+          for (let [id, title] of groupChapters) {
+            chapters.set(id, title);
+          }
+        }
+        // 章节升序
+        chapters = new Map([...chapters].sort((a, b) => a[0] - b[0]));
+      }
+
+      //ANCHOR - 推荐
+      let recommend = [];
+      let similar = document.querySelector(".similar-list");
+      if (similar) {
+        let similar_list = similar.querySelectorAll("li");
+        for (let li of similar_list) {
+            let comic = this.parseSimpleComic(li);
+            recommend.push(comic);
+        }
+      }
+
+      // 创建并返回ComicDetails对象
+      return {
+        title: title,
+        cover: cover,
+        description: description,
+        tags: tags,
+        chapters: chapters,
+        suggestions: recommend,
+        updateTime: updateTime
+      };
+    },
+
+    /**
+     * load images of a chapter
+     * @param comicId {string}
+     * @param epId {string?}
+     * @returns {Promise<{images: string[]}>}
+     */
+    loadEp: async (comicId, epId) => {
+      let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
+      let document = await this.getHtml(url);
+      let script = document.querySelectorAll("script")[4].innerHTML;
+      let infos = this.getImgInfos(script);
+      
+      // 检查infos是否为undefined或infos.files是否为undefined
+      if (!infos || !infos.files) {
+        console.error("infos或infos.files为undefined:", infos);
+        return { images: [] };
+      }
+
+      // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
+      let imgDomain = `https://us.hamreus.com`;
+      let images = [];
+      for (let f of infos.files) {
+        let imgUrl =
+          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
+        images.push(imgUrl);
+      }
+      // log("warning", this.name, images);
+      return {
+        images,
+      };
+    },
+    /**
+     * [Optional] provide configs for an image loading
+     * @param url
+     * @param comicId
+     * @param epId
+     * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
+     */
+    onImageLoad: (url, comicId, epId) => {
+      // 简化headers配置，避免复杂字段可能导致的类型转换问题
+      return {
+        headers: {
+          accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+          Referer: "https://www.manhuagui.com/",
+          cookie: "country=US", // 添加cookie以保持一致性
+        },
+      };
+    },
+    /**
+     * [Optional] provide configs for a thumbnail loading
+     * @param url {string}
+     * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
+     *
+     * `ImageLoadingConfig.modifyImage` and `ImageLoadingConfig.onLoadFailed` will be ignored.
+     * They are not supported for thumbnails.
+     */
+    onThumbnailLoad: (url) => {
+      // 简化headers配置，避免复杂字段可能导致的类型转换问题
+      let headers = {
+        accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+        Referer: "https://www.manhuagui.com/",
+        cookie: "country=US", // 添加cookie以保持一致性
+      };
+
+      return {
+        headers
+      };
+    }
+  };
 }
