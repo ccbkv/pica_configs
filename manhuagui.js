@@ -1,3 +1,6 @@
+// 引用Comic构造函数
+const Comic = require('comic');
+
 class ManHuaGui extends ComicSource {
   constructor() {
     super();
@@ -68,12 +71,11 @@ class ManHuaGui extends ComicSource {
     };
     let res = await Network.get(url, headers);
     // 确保状态码200-299不会抛出错误
-    if (!res.ok) {
-      if (res.status >= 200 && res.status < 300) {
-        console.warn("Response ok is false but status code is " + res.status);
-      } else {
-        throw "Invalid status code: " + res.status;
-      }
+    if (!res.ok && !(res.status >= 200 && res.status < 300)) {
+      throw "Invalid status code: " + res.status;
+    } else if (res.status >= 200 && res.status < 300) {
+      // 状态码正常但res.ok为false的情况
+      console.warn("Response ok is false but status code is " + res.status);
     }
     let document = new HtmlDocument(res.body);
     return document;
