@@ -916,15 +916,25 @@ class ManHuaGui extends ComicSource {
       if (chapterList) {
         let lis = chapterList.querySelectorAll('li');
         for (let li of lis) {
-          let a = li.querySelector('a');
-          if (a && a.attributes && a.attributes['href']) {
-            let href = a.attributes['href'].value || '';
-            if (href) {
-              let id = href.split('/').pop().replace('.html', '');
-              let title = a.querySelector('span') ? a.querySelector('span').text.trim() : '';
-              // 确保id和title都是字符串
-              chapters[id.toString()] = title.toString();
+          try {
+            let a = li.querySelector('a');
+            // 增强验证，确保a标签、attributes和href属性都存在
+            if (a && a.attributes && a.attributes['href'] && a.attributes['href'].value) {
+              let href = a.attributes['href'].value.trim();
+              if (href) {
+                // 安全执行split操作
+                let idParts = href.split('/');
+                if (idParts.length > 0) {
+                  let id = idParts.pop().replace('.html', '');
+                  let title = a.querySelector('span') ? a.querySelector('span').text.trim() : '';
+                  // 确保id和title都是字符串
+                  chapters[id.toString()] = title.toString() || '未知章节';
+                }
+              }
             }
+          } catch (e) {
+            console.error('处理章节时出错:', e);
+            // 忽略错误，继续处理下一个章节
           }
         }
       }
