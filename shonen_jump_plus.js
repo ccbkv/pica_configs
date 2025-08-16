@@ -324,11 +324,23 @@ class ShonenJumpPlus extends ComicSource {
   }
 
   async fetchEpisodePages(episodeId) {
-    const response = await this.graphqlRequest(
-      "EpisodeViewerConditionallyCacheable",
-      { episodeID: episodeId },
-    );
-    return response?.data?.episode || {};
+    try {
+      const response = await this.graphqlRequest(
+        "EpisodeViewerConditionallyCacheable",
+        { episodeID: episodeId },
+      );
+      
+      // 确保response.data.episode是对象
+      if (typeof response?.data?.episode !== 'object' || response.data.episode === null) {
+        console.error('Invalid episode data:', response?.data?.episode);
+        return {};
+      }
+      
+      return response.data.episode;
+    } catch (e) {
+      console.error('Error fetching episode pages:', e);
+      return {};
+    }
   }
 
   isEpisodeAccessible({ purchaseInfo }) {
@@ -346,8 +358,18 @@ class ShonenJumpPlus extends ComicSource {
   }
 
   buildImageUrls({ pageImages, pageImageToken }) {
-    const validImages = pageImages.edges.flatMap((edge) => edge.node?.src)
-      .filter(Boolean);
+    // 检查pageImages是否存在且有edges属性
+    if (!pageImages || !Array.isArray(pageImages.edges)) {
+      console.error('Invalid pageImages structure:', pageImages);
+      return { images: [] };
+    }
+    
+    const validImages = pageImages.edges.flatMap((edge) => {
+      // 检查edge和edge.node是否存在
+      if (!edge || !edge.node) return [];
+      return edge.node?.src || [];
+    }).filter(Boolean);
+    
     return {
       images: validImages.map((url) => `${url}?token=${pageImageToken}`),
     };
