@@ -899,10 +899,11 @@ class ManHuaGui extends ComicSource {
       let area = parseDetail(1);
       let genre = parseDetail(3);
       let author = parseDetail(4);
+      // 增加对parseDetail函数的使用，保持代码风格一致
       // let alias = parseDetail(5);
-
-      //   let lastChapter = parseDetail(6);
-      let status = detail_list[7].text.trim();
+      // let lastChapter = parseDetail(6);
+      // 添加对detail_list元素的存在性检查
+      let status = detail_list.length > 7 ? detail_list[7].text.trim() : '未知';
 
       // 确保tags对象中的所有值都是字符串数组，与ikmmh.js保持一致
       let tags = {
@@ -912,7 +913,7 @@ class ManHuaGui extends ComicSource {
         "类型": genre.length > 0 ? genre.map(item => item.toString()) : ['未知'],
         "年代": createYear.length > 0 ? createYear.map(item => item.toString()) : ['未知'],
       };
-      let updateTime = detail_list[8].text.trim();
+      let updateTime = detail_list.length > 8 ? detail_list[8].text.trim() : '';
 
       // ANCHOR 章节信息
       // 支持多分组
