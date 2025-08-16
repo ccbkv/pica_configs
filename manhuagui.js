@@ -39,7 +39,7 @@ class ManHuaGui extends ComicSource {
 
   version = "1.0.1";
 
-  minAppVersion = "3.1.0";
+  minAppVersion = "1.4.0";
 
   // 更新链接
   url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
@@ -1005,7 +1005,7 @@ class ManHuaGui extends ComicSource {
       let scripts = document.querySelectorAll("script");
 let script = null;
 for (let s of scripts) {
-  if (s.innerHTML.includes('p,a,c,k,e,d')) {
+  if (s.innerHTML && s.innerHTML.includes('p,a,c,k,e,d')) {
     script = s.innerHTML;
     break;
   }
