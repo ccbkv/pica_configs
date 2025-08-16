@@ -964,13 +964,26 @@ class ManHuaGui extends ComicSource {
       let document = await this.getHtml(url);
       let script = "";
       let scripts = document.querySelectorAll("script");
+      // Use s.text first, like in the reference implementation, but with regex
       for (const s of scripts) {
         const text = s.text;
-        if (text && text.includes("eval(function(p,a,c,k,e,d)")) {
+        if (text && text.match(/eval\(function\(p,a,c,k,e,d\)/)) {
           script = text;
           break;
         }
       }
+
+      // Fallback to innerHTML if s.text fails
+      if (!script) {
+        for (const s of scripts) {
+          const html = s.innerHTML;
+          if (html && html.match(/eval\(function\(p,a,c,k,e,d\)/)) {
+            script = html;
+            break;
+          }
+        }
+      }
+
       if (!script) {
         throw "Network: Empty image script";
       }
