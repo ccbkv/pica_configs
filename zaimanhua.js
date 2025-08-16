@@ -32,6 +32,10 @@ class Zaimanhua extends ComicSource {
           `username=${username}&passwd=${encryptedPwd}`
         );
 
+        // 检查响应体是否为字符串类型
+        if (typeof res.body !== 'string') {
+          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+        }
         const data = JSON.parse(res.body);
         if (data.errno !== 0) throw new Error(data.errmsg);
 
@@ -95,6 +99,10 @@ class Zaimanhua extends ComicSource {
           this.buildUrl(`comic/update/list/0/${page}`),
           this.headers
         );
+        // 检查响应体是否为字符串类型
+        if (typeof res.body !== 'string') {
+          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+        }
         const data = JSON.parse(res.body).data;
         return {
           comics: data.map((item) => this.parseComic(item)),
@@ -202,6 +210,10 @@ class Zaimanhua extends ComicSource {
           ),
           this.headers
         );
+        // 检查响应体是否为字符串类型
+        if (typeof res.body !== 'string') {
+          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+        }
         const data = JSON.parse(res.body).data;
         return {
           comics: data.comicList.map((item) => this.parseComic(item)),
@@ -263,6 +275,10 @@ class Zaimanhua extends ComicSource {
         ),
         this.headers
       );
+      // 检查响应体是否为字符串类型
+      if (typeof res.body !== 'string') {
+        throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+      }
       const data = JSON.parse(res.body).data.list;
       return {
         comics: data.map((item) => this.parseComic(item)),
@@ -280,6 +296,10 @@ class Zaimanhua extends ComicSource {
         this.buildUrl(`comic/sub/${path}?comic_id=${comicId}`),
         this.headers
       );
+      // 检查响应体是否为字符串类型
+      if (typeof res.body !== 'string') {
+        throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+      }
       const data = JSON.parse(res.body);
       if (data.errno !== 0) {
         throw new Error(data.errmsg || "操作失败");
@@ -292,6 +312,10 @@ class Zaimanhua extends ComicSource {
           this.buildUrl(`comic/sub/list?status=0&page=${page}&size=20`),
           this.headers
         );
+        // 检查响应体是否为字符串类型
+        if (typeof res.body !== 'string') {
+          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+        }
         const data = JSON.parse(res.body).data;
         return {
           comics: data.subList.map((item) => this.parseComic(item)) ?? [],
@@ -319,6 +343,10 @@ class Zaimanhua extends ComicSource {
           this.headers
         );
         this.checkResponseStatus(res);
+        // 检查响应体是否为字符串类型
+        if (typeof res.body !== 'string') {
+          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+        }
         return JSON.parse(res.body).data.isSub;
       };
       let results = await Promise.all([
@@ -328,6 +356,10 @@ class Zaimanhua extends ComicSource {
         ),
         getFavoriteStatus.bind(this)(id),
       ]);
+      // 检查响应体是否为字符串类型
+      if (typeof results[0].body !== 'string') {
+        throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof results[0].body}`);
+      }
       const response = JSON.parse(results[0].body);
       if (response.errno !== 0) throw new Error(response.errmsg || "加载失败");
       const data = response.data.data;
@@ -370,6 +402,10 @@ class Zaimanhua extends ComicSource {
       const res = await Network.get(
         this.buildUrl(`comic/chapter/${comicId}/${epId}`)
       );
+      // 检查响应体是否为字符串类型
+      if (typeof res.body !== 'string') {
+        throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+      }
       const data = JSON.parse(res.body).data.data;
       return { images: data.page_url_hd || data.page_url };
     },
@@ -384,6 +420,10 @@ class Zaimanhua extends ComicSource {
         );
         const res = await Network.get(url, this.headers);
         this.checkResponseStatus(res);
+        // 检查响应体是否为字符串类型
+        if (typeof res.body !== 'string') {
+          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+        }
 
         const response = JSON.parse(res.body);
         const data = response.data;
@@ -469,6 +509,10 @@ class Zaimanhua extends ComicSource {
         )}&to_comment_id=${replyTo}&type=4`
       );
       this.checkResponseStatus(res);
+      // 检查响应体是否为字符串类型
+      if (typeof res.body !== 'string') {
+        throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+      }
       let response = JSON.parse(res.body);
       if (response.errno !== 0) throw new Error(response.errmsg || "加载失败");
       return "ok";
