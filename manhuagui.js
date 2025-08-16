@@ -71,20 +71,32 @@ class ManHuaGui extends ComicSource {
 
   // 获取HTML内容并处理响应
   async getHtml(url) {
-    // 与參考.js保持完全一致的headers配置
     let headers = {
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
       "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
       "cache-control": "no-cache",
-      cookie: "country=US", 
       pragma: "no-cache",
       priority: "u=0, i",
+      "sec-ch-ua":
+        '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "same-origin",
+      "sec-fetch-user": "?1",
+      "upgrade-insecure-requests": "1",
+      cookie: "country=US",
       Referer: "https://www.manhuagui.com/",
       "Referrer-Policy": "strict-origin-when-cross-origin",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
     };
     let res = await Network.get(url, headers);
-    return new HtmlDocument(res.body);
+    if (res.status !== 200) {
+      throw "Invalid status code: " + res.status;
+    }
+    let document = new HtmlDocument(res.body);
+    return document;
   }
   parseSimpleComic(e) {
     let url = e.querySelector(".ell > a").attributes["href"];
@@ -953,9 +965,9 @@ class ManHuaGui extends ComicSource {
       let script = "";
       let scripts = document.querySelectorAll("script");
       for (const s of scripts) {
-        const html = s.innerHTML;
-        if (html.includes("eval(function(p,a,c,k,e,d)")) {
-          script = html;
+        const text = s.text;
+        if (text && text.includes("eval(function(p,a,c,k,e,d)")) {
+          script = text;
           break;
         }
       }
