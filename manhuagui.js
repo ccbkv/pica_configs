@@ -356,37 +356,19 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
-      if (!str) {
-        console.error("输入字符串为空");
-        return [];
-      }
       let splitResult = str.split("}(");
       if (splitResult.length < 2) {
         console.error("无法正确分割字符串");
         return [];
       }
       let params_part = splitResult[1].split("))")[0];
-      if (!params_part) {
-        console.error("无法提取参数部分");
-        return [];
-      }
       let params = splitParams(params_part);
-      if (!params || params.length === 0) {
-        console.error("splitParams返回空数组");
-        return [];
-      }
       params[5] = {};
       try {
         if (params.length > 3 && params[3]) {
-          let compressedData = params[3].split("'");
-          if (compressedData.length < 2) {
-            console.error("无法提取压缩数据");
-            params[3] = [];
-          } else {
-            params[3] = LZString.decompressFromBase64(compressedData[1]).split(
-              "|"
-            );
-          }
+          params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
+            "|"
+          );
         } else {
           params[3] = [];
         }
