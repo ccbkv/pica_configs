@@ -42,7 +42,7 @@ class ManHuaGui extends ComicSource {
   minAppVersion = "1.4.0";
 
   // 更新链接
-  url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/master/manhuagui.js";
+  url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
 
