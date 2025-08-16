@@ -13,7 +13,7 @@ class Baihehui extends ComicSource {
     minAppVersion = "1.4.0"
 
     // update url
-    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/baihehui.js"
+    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/baihehui.js"
 
     settings = {
         domains: {
@@ -543,8 +543,11 @@ explore = [
             });
 
             // 提取简介
-            //let description = document.querySelector("div.panel-body > div.panel-collapse > div.panel-body").text.trim();
             let description = "";
+            let descriptionEl = document.querySelector("#collapse-1 > .panel-body");
+            if (descriptionEl) {
+                description = descriptionEl.text.trim();
+            }
 
             // 提取章节信息
             let chapters = [];
@@ -556,6 +559,8 @@ explore = [
                     title: chapterTitle,
                 }));
             });
+            
+            document.dispose();
 
             return {
                 title: title,
@@ -613,6 +618,8 @@ explore = [
             let maxPageElement = document.querySelector("li.last > a");
             let maxPage = maxPageElement ? parseInt(maxPageElement.attributes['data-page']) + 1 : 1;
 
+            document.dispose();
+
             return {
                 comments: comments,
                 totalComments: totalComments,
@@ -621,53 +628,49 @@ explore = [
         },
 
         loadEp: async (comicId, epId) => {
-            let baseUrl = `https://www.yamibo.com/manga/view-chapter?id=${epId}`;
-    let res = await Network.get(`${baseUrl}&page=1`, {
-        headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
-        }
-    });
+            let url = `https://www.yamibo.com/manga/view-chapter?id=${epId}`;
+            let res = await Network.get(url, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+                }
+            });
 
-    if (res.status !== 200) {
-        throw `Invalid status code: ${res.status}`;
-    }
-
-    let document = new HtmlDocument(res.body);
-
-    // 提取最大页数
-    let lastPageElement = document.querySelector("li.last > a");
-    let maxPage = lastPageElement ? parseInt(lastPageElement.attributes['data-page']) + 1 : 1;
-
-    let images = [];
-
-    // 循环抓取所有页面的图片
-    for (let page = 1; page <= maxPage; page++) {
-        let pageUrl = `${baseUrl}&page=${page}`;
-        let pageRes = await Network.get(pageUrl, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
             }
-        });
 
-        if (pageRes.status !== 200) {
-            throw `Invalid status code on page ${page}: ${pageRes.status}`;
-        }
+            let body = res.body;
+            let match = body.match(/var pages = (.*?);/);
+            if (!match || !match[1]) {
+                // Fallback to single image parsing if pages array is not found
+                let doc = new HtmlDocument(body);
+                let imageElement = doc.querySelector("img#imgPic");
+                if (!imageElement) {
+                    // try to find image in another way
+                    imageElement = doc.querySelector(".comic-contain img");
+                }
+                if (!imageElement) {
+                    throw `Image not found.`;
+                }
+                let imageUrl = imageElement.attributes['src'];
+                doc.dispose();
+                return {
+                    images: [imageUrl]
+                };
+            }
 
-        let pageDocument = new HtmlDocument(pageRes.body);
+            let pagesData;
+            try {
+                pagesData = JSON.parse(match[1]);
+            } catch (e) {
+                throw "Failed to parse pages data";
+            }
 
-        // 提取图片 URL
-        let imageElement = pageDocument.querySelector("img#imgPic");
-        if (!imageElement) {
-            throw `Image not found on page ${page}.`;
-        }
-        let imageUrl = imageElement.attributes['src'];
-        images.push(imageUrl);
-    }
+            let images = pagesData.map(p => p.url);
 
-    return {
-        images: images, // 所有页面的图片 URL
-        maxPage: maxPage
-    };
+            return {
+                images: images
+            };
         },
 
         // enable tags translate
