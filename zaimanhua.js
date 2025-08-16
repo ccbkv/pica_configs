@@ -434,10 +434,6 @@ class Zaimanhua extends ComicSource {
         );
         const res = await Network.get(url, this.headers);
         this.checkResponseStatus(res);
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
 
         const response = JSON.parse(res.body);
         const data = response.data;
@@ -523,10 +519,6 @@ class Zaimanhua extends ComicSource {
         )}&to_comment_id=${replyTo}&type=4`
       );
       this.checkResponseStatus(res);
-      // 检查响应体是否为字符串类型
-      if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-      }
       let response = JSON.parse(res.body);
       if (response.errno !== 0) throw new Error(response.errmsg || "加载失败");
       return "ok";
@@ -542,10 +534,6 @@ class Zaimanhua extends ComicSource {
         `commentId=${commentId}&type=4`
       );
       this.checkResponseStatus(res);
-      // 检查响应体是否为字符串类型
-      if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-      }
       return "ok";
     },
   };
