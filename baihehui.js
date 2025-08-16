@@ -1,3 +1,4 @@
+/** @type {import('./_venera_.js')} */
 class Baihehui extends ComicSource {
     // Note: The fields which are marked as [Optional] should be removed if not used
 
@@ -12,7 +13,7 @@ class Baihehui extends ComicSource {
     minAppVersion = "1.4.0"
 
     // update url
-    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/baihehui.js"
+    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/baihehui.js"
 
     settings = {
         domains: {
@@ -546,11 +547,14 @@ explore = [
             let description = "";
 
             // 提取章节信息
-            let chapters = new Map();
+            let chapters = [];
             document.querySelectorAll("div[data-key]").forEach(chapter => {
                 let chapterKey = chapter.attributes['data-key']; // 获取 data-key 值
                 let chapterTitle = chapter.querySelector("a").text.trim(); // 获取章节标题
-                chapters.set(chapterKey, chapterTitle); // 将 data-key 和章节标题存入 Map
+                chapters.push(new Chapter({
+                    id: chapterKey,
+                    title: chapterTitle,
+                }));
             });
 
             return {
