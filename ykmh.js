@@ -8,7 +8,7 @@ class YKMHSource extends ComicSource {
     key = "ykmh"
     version = "1.0.0"
     minAppVersion = "1.4.0"
-    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/master/ykmh.js"
+    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/ykmh.js"
 
     get baseUrl() {
         return "https://www.ykmh.net";
@@ -24,7 +24,7 @@ class YKMHSource extends ComicSource {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
                 });
 
-                if (!res.ok) {
+                if (res.status !== 200) {
                     throw `Invalid status code: ${res.status}`
                 }
 
@@ -313,7 +313,7 @@ class YKMHSource extends ComicSource {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
             });
 
-            if (!res.ok) {
+            if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`;
             }
             function parseComicsList(html) {
@@ -386,7 +386,7 @@ class YKMHSource extends ComicSource {
             let res = await Network.get(url, {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
             });
-            if (!res.ok) {
+            if (res.status !== 200) {
                 throw `Request Error: ${res.status}`;
             }
             function parseSearchResults(html) {
@@ -464,7 +464,7 @@ class YKMHSource extends ComicSource {
                 },
                 credentials: 'include'
             });
-            if (!res.ok) {
+            if (res.status !== 200) {
                 throw `请求失败，状态码: ${res.status}，URL: ${targetUrl}`;
             }
 
