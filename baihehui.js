@@ -549,7 +549,12 @@ explore = [
             let chapters = new Map();
             document.querySelectorAll("div[data-key]").forEach(chapter => {
                 let chapterKey = chapter.attributes['data-key']; // 获取 data-key 值
-                let chapterTitle = chapter.querySelector("a").text.trim(); // 获取章节标题
+                if (!chapterKey) return;
+                
+                let aTag = chapter.querySelector("a");
+                if (!aTag) return;
+                let chapterTitle = aTag.text.trim(); // 获取章节标题
+                
                 chapters.set(chapterKey, chapterTitle); // 将 data-key 和章节标题存入 Map
             });
 
@@ -588,13 +593,30 @@ explore = [
             // 提取评论列表
             let comments = [];
             document.querySelectorAll("div.post.row").forEach(post => {
-                let userName = post.querySelector("span.cmt-username > a").text.trim();
-                let avatar = "https://www.yamibo.com/" + post.querySelector("a > img.cmt-avatar").attributes['src'];
-                let content = post.querySelector("div.row > p").text.trim();
-                let time = post.querySelector("span.description").text.replace("在 ", "").trim();
-                let replyCountMatch = post.querySelector("a.btn.btn-sm").text.match(/(\d+) 条回复/);
+                // 进行空检查以避免空引用错误
+                let userNameLink = post.querySelector("span.cmt-username > a");
+                if (!userNameLink) return;
+                let userName = userNameLink.text.trim();
+
+                let avatarImg = post.querySelector("a > img.cmt-avatar");
+                if (!avatarImg) return;
+                let avatar = "https://www.yamibo.com/" + avatarImg.attributes['src'];
+
+                let contentP = post.querySelector("div.row > p");
+                if (!contentP) return;
+                let content = contentP.text.trim();
+
+                let descriptionSpan = post.querySelector("span.description");
+                if (!descriptionSpan) return;
+                let time = descriptionSpan.text.replace("在 ", "").trim();
+
+                let replyBtn = post.querySelector("a.btn.btn-sm");
+                let replyCountMatch = replyBtn ? replyBtn.text.match(/(\d+) 条回复/) : null;
                 let replyCount = replyCountMatch ? parseInt(replyCountMatch[1]) : 0;
-                let id = post.querySelector("button.btn_reply").attributes['pid'];
+
+                let replyButton = post.querySelector("button.btn_reply");
+                if (!replyButton) return;
+                let id = replyButton.attributes['pid'];
 
                 comments.push({
                     userName: userName,
@@ -633,7 +655,10 @@ explore = [
 
     // 提取最大页数
     let lastPageElement = document.querySelector("li.last > a");
-    let maxPage = lastPageElement ? parseInt(lastPageElement.attributes['data-page']) + 1 : 1;
+    let maxPage = 1;
+    if (lastPageElement && lastPageElement.attributes['data-page']) {
+        maxPage = parseInt(lastPageElement.attributes['data-page']) + 1;
+    }
 
     let images = [];
 
@@ -657,7 +682,11 @@ explore = [
         if (!imageElement) {
             throw `Image not found on page ${page}.`;
         }
-        let imageUrl = imageElement.attributes['src'];
+        let srcAttr = imageElement.attributes['src'];
+        if (!srcAttr) {
+            throw `Image src attribute not found on page ${page}.`;
+        }
+        let imageUrl = srcAttr;
         images.push(imageUrl);
     }
 
