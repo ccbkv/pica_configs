@@ -378,25 +378,14 @@ class ManHuaGui extends ComicSource {
       params[5] = {};
       try {
         if (params.length > 3 && params[3]) {
-          // 确保params[3]是字符串类型
-          if (typeof params[3] !== 'string') {
-            console.error("params[3]不是字符串类型:", typeof params[3]);
+          let compressedData = params[3].split("'");
+          if (compressedData.length < 2) {
+            console.error("无法提取压缩数据");
             params[3] = [];
           } else {
-            let compressedData = params[3].split("'");
-            if (compressedData.length < 2) {
-              console.error("无法提取压缩数据");
-              params[3] = [];
-            } else {
-              let decompressed = LZString.decompressFromBase64(compressedData[1]);
-              // 确保解压后的数据是字符串类型
-              if (typeof decompressed !== 'string') {
-                console.error("解压后的数据不是字符串类型:", typeof decompressed);
-                params[3] = [];
-              } else {
-                params[3] = decompressed.split("|");
-              }
-            }
+            params[3] = LZString.decompressFromBase64(compressedData[1]).split(
+              "|"
+            );
           }
         } else {
           params[3] = [];
