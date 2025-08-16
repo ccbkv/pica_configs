@@ -186,21 +186,41 @@ class MangaDex extends ComicSource {
             load: async () => {
                 // For singlePageWithMultiPart, we don't use page parameter
                 // Just load the first page
-                let res = await Promise.all([
-                    this.api.getPopular(1),
-                    this.api.getRecent(1),
-                    this.api.getUpdated(1)
-                ])
-                let titles = ["Popular", "Recent", "Updated"]
-                let parts = []
-                for (let i = 0; i < res.length; i++) {
-                    let part = res[i]
-                    parts.push({
-                        title: titles[i],
-                        comics: part.comics
-                    })
+                try {
+                    let res = await Promise.all([
+                        this.api.getPopular(1),
+                        this.api.getRecent(1),
+                        this.api.getUpdated(1)
+                    ])
+                    let titles = ["Popular", "Recent", "Updated"]
+                    let parts = []
+                    for (let i = 0; i < res.length; i++) {
+                        let part = res[i]
+                        // Check if part is not null and has comics property
+                        if (part && part.comics && Array.isArray(part.comics)) {
+                            parts.push({
+                                title: titles[i],
+                                comics: part.comics
+                            })
+                        } else {
+                            // Log error and add empty comics array to prevent crash
+                            console.error(`Invalid response for ${titles[i]}:`, part)
+                            parts.push({
+                                title: titles[i],
+                                comics: []
+                            })
+                        }
+                    }
+                    return parts
+                } catch (error) {
+                    console.error("Error loading explore page:", error)
+                    // Return empty parts array to prevent crash
+                    return [
+                        { title: "Popular", comics: [] },
+                        { title: "Recent", comics: [] },
+                        { title: "Updated", comics: [] }
+                    ]
                 }
-                return parts
             },
         }
     ]
