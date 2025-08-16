@@ -1,8 +1,4 @@
 class Baihehui extends ComicSource {
-  constructor() {
-    super();
-    this.init();
-  }
     // Note: The fields which are marked as [Optional] should be removed if not used
 
     // name of the source
@@ -45,7 +41,7 @@ class Baihehui extends ComicSource {
             Network.deleteCookies("https://www.yamibo.com");
             // 1. GET 登录页，保存 PHPSESSID 和 _csrf-frontend
             let resGet = await Network.get("https://www.yamibo.com/user/login", {
-                "User-Agent": "Mozilla/5.0"
+                headers: { "User-Agent": "Mozilla/5.0" }
             });
             if (resGet.status !== 200) throw "无法打开登录页";
 
@@ -159,9 +155,7 @@ explore = [
         type: "singlePageWithMultiPart",
         load: async (page) => {
                 // 1. 拿到 HTML
-                let res = await Network.get("https://www.yamibo.com/site/manga", {
-                    "User-Agent": "Mozilla/5.0"
-                });
+                let res = await Network.get("https://www.yamibo.com/site/manga");
                 if (res.status !== 200) {
                     throw `Invalid status code: ${res.status}`;
                 }
@@ -191,7 +185,7 @@ explore = [
                 // 5. 抓「最近更新」
                 let latest = [];
                 // 找到标题元素，再拿其后面的 <ul> 下的 .media-cell.vertical
-                let latestTitle = Array.from(doc.querySelectorAll("h2.module-title"))
+                let latestTitle = doc.querySelectorAll("h2.module-title")
                     .find(e => e.text.includes("最近更新"));
                 if (latestTitle) {
                     let ul = latestTitle.nextElementSibling;
@@ -203,7 +197,7 @@ explore = [
 
                 // 原创推荐
                 let original = [];
-                let originalTitle = Array.from(doc.querySelectorAll("h2.module-title"))
+                let originalTitle = doc.querySelectorAll("h2.module-title")
                     .find(e => e.text.includes("原创推荐"));
                 if (originalTitle) {
                     let ul = originalTitle.nextElementSibling;
@@ -215,7 +209,7 @@ explore = [
 
                 // 6. 抓「同人推荐」
                 let fan = [];
-                let fanTitle = Array.from(doc.querySelectorAll("h2.module-title"))
+                let fanTitle = doc.querySelectorAll("h2.module-title")
                     .find(e => e.text.includes("同人推荐"));
                 if (fanTitle) {
                     let ul = fanTitle.nextElementSibling;
@@ -285,7 +279,7 @@ explore = [
 
             // 发起请求
             let res = await Network.get(url, {
-                "User-Agent": "Mozilla/5.0"
+                headers: { "User-Agent": "Mozilla/5.0" }
             });
             if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`;
@@ -310,9 +304,7 @@ explore = [
                     // 提取信息
                     let href = row.querySelector('a').attributes['href'];
                     // 提取最后的数字作为 id
-                    let matchResult = href.match(/\/manga\/(\d+)$/);
-                    if (!matchResult) return; // 如果没有匹配到，跳过当前项
-                    let rawId = matchResult[1];
+                    let rawId = href.match(/\/manga\/(\d+)$/)[1];
 
                     // 补零处理 - 确保id是3位数
                     let id = rawId.padStart(3, '0');
@@ -352,9 +344,7 @@ explore = [
                     // 提取信息
                     let href = row.querySelector('a').attributes['href'];
                     // 提取最后的数字作为 id
-                    let matchResult = href.match(/\/manga\/(\d+)$/);
-                    if (!matchResult) return; // 如果没有匹配到，跳过当前项
-                    let rawId = matchResult[1];
+                    let rawId = href.match(/\/manga\/(\d+)$/)[1];
                     // 补零处理 - 确保id是3位数
                     let id = rawId.padStart(3, '0');
                     let title = row.querySelector('a').text;
@@ -396,9 +386,7 @@ explore = [
                     // 提取信息
                     let href = row.querySelector('a').attributes['href'];
                     // 提取最后的数字作为 id
-                    let matchResult = href.match(/\/manga\/(\d+)$/);
-                    if (!matchResult) return; // 如果没有匹配到，跳过当前项
-                    let rawId = matchResult[1];
+                    let rawId = href.match(/\/manga\/(\d+)$/)[1];
                     // 补零处理 - 确保id是3位数
                     let id = rawId.padStart(3, '0');
                     let title = row.querySelector('a').text;
@@ -441,7 +429,9 @@ explore = [
         load: async (keyword, options, page) => {
             let url = `https://www.yamibo.com/search/manga?SearchForm%5Bkeyword%5D=${encodeURIComponent(keyword)}&page=${page}`;
     let res = await Network.get(url, {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+        }
     });
 
     if (res.status !== 200) {
@@ -460,9 +450,7 @@ explore = [
                     // 提取信息
                     let href = row.querySelector('a').attributes['href'];
                     // 提取最后的数字作为 id
-                    let matchResult = href.match(/\/manga\/(\d+)$/);
-                    if (!matchResult) return; // 如果没有匹配到，跳过当前项
-                    let rawId = matchResult[1];
+                    let rawId = href.match(/\/manga\/(\d+)$/)[1];
                     // 补零处理 - 确保id是3位数
                     let id = rawId.padStart(3, '0');
                     let title = row.querySelector('a').text;
@@ -526,9 +514,7 @@ explore = [
             let document = new HtmlDocument(res.body);
 
             // 提取漫画标题
-            let titleElement = document.querySelector("h3.col-md-12");
-            if (!titleElement) throw "无法找到漫画标题"; // 或者设置默认值
-            let title = titleElement.text.trim();
+            let title = document.querySelector("h3.col-md-12").text.trim();
 
             // 提取封面图片
             let cover = "https://www.yamibo.com/coverm/000/000/" + id + ".jpg";
@@ -563,10 +549,7 @@ explore = [
             let chapters = new Map();
             document.querySelectorAll("div[data-key]").forEach(chapter => {
                 let chapterKey = chapter.attributes['data-key']; // 获取 data-key 值
-                if (!chapterKey) return; // 如果没有 data-key 属性，跳过当前项
-                let chapterTitleElement = chapter.querySelector("a");
-                if (!chapterTitleElement) return; // 如果没有找到 a 标签，跳过当前项
-                let chapterTitle = chapterTitleElement.text.trim(); // 获取章节标题
+                let chapterTitle = chapter.querySelector("a").text.trim(); // 获取章节标题
                 chapters.set(chapterKey, chapterTitle); // 将 data-key 和章节标题存入 Map
             });
 
@@ -604,35 +587,13 @@ explore = [
             // 提取评论列表
             let comments = [];
             document.querySelectorAll("div.post.row").forEach(post => {
-                // 提取用户名
-                let userNameElement = post.querySelector("span.cmt-username > a");
-                if (!userNameElement) return; // 如果找不到，跳过当前项
-                let userName = userNameElement.text.trim();
-
-                // 提取头像
-                let avatarElement = post.querySelector("a > img.cmt-avatar");
-                if (!avatarElement || !avatarElement.attributes['src']) return;
-                let avatar = "https://www.yamibo.com/" + avatarElement.attributes['src'];
-
-                // 提取评论内容
-                let contentElement = post.querySelector("div.row > p");
-                if (!contentElement) return;
-                let content = contentElement.text.trim();
-
-                // 提取时间
-                let timeElement = post.querySelector("span.description");
-                if (!timeElement) return;
-                let time = timeElement.text.replace("在 ", "").trim();
-
-                // 提取回复数量
-                let replyCountElement = post.querySelector("a.btn.btn-sm");
-                let replyCountMatch = replyCountElement ? replyCountElement.text.match(/(\d+) 条回复/) : null;
+                let userName = post.querySelector("span.cmt-username > a").text.trim();
+                let avatar = "https://www.yamibo.com/" + post.querySelector("a > img.cmt-avatar").attributes['src'];
+                let content = post.querySelector("div.row > p").text.trim();
+                let time = post.querySelector("span.description").text.replace("在 ", "").trim();
+                let replyCountMatch = post.querySelector("a.btn.btn-sm").text.match(/(\d+) 条回复/);
                 let replyCount = replyCountMatch ? parseInt(replyCountMatch[1]) : 0;
-
-                // 提取ID
-                let idElement = post.querySelector("button.btn_reply");
-                if (!idElement || !idElement.attributes['pid']) return;
-                let id = idElement.attributes['pid'];
+                let id = post.querySelector("button.btn_reply").attributes['pid'];
 
                 comments.push({
                     userName: userName,
@@ -695,9 +656,8 @@ explore = [
         if (!imageElement) {
             throw `Image not found on page ${page}.`;
         }
-        let imageSrc = imageElement.attributes['src'];
-        if (!imageSrc) throw `Image src not found on page ${page}.`;
-        images.push(imageSrc);
+        let imageUrl = imageElement.attributes['src'];
+        images.push(imageUrl);
     }
 
     return {
