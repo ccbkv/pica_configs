@@ -1,10 +1,15 @@
 class ShonenJumpPlus extends ComicSource {
+  constructor() {
+    super();
+    this.init();
+  }
+
   name = "少年ジャンプ＋";
   key = "shonen_jump_plus";
   version = "1.1.0";
   minAppVersion = "1.2.1";
   url =
-    "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/shonen_jump_plus.js";
+    "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/shonen_jump_plus.js";
 
   deviceId = this.generateDeviceId();
   bearerToken = null;
@@ -33,8 +38,9 @@ class ShonenJumpPlus extends ComicSource {
 
   async init() {
     const url = "https://apps.apple.com/jp/app/少年ジャンプ-人気漫画が読める雑誌アプリ/id875750302";
-    const resp = await Network.get(url);
-    const match = resp.body.match(/":\[\{\\"versionDisplay\\":\\"([\d.]+)\\",\\"rele/);
+    const resp = await Network.get(url, this.headers);
+    const body = await resp.text();
+    const match = body.match(/":\[\{\"versionDisplay\":\"([\d.]+)\",\"rele/);
     if (match) {
       this.latestVersion = match[1];
     }
@@ -120,7 +126,7 @@ class ShonenJumpPlus extends ComicSource {
 
       const response = await this.graphqlRequest(operationName, {
         keyword,
-      });
+      });;
       const edges = response?.data?.search?.edges || [];
       const pageInfo = response?.data?.search?.pageInfo || {};
 
@@ -185,7 +191,7 @@ class ShonenJumpPlus extends ComicSource {
         Boolean,
       );
 
-      return new ComicDetails({
+      return {
         title: seriesData.title || "",
         subtitle: authors.join(" / "),
         cover: this.replaceCoverUrl(seriesData.thumbnailUriTemplate),
@@ -196,7 +202,7 @@ class ShonenJumpPlus extends ComicSource {
         },
         url: `https://shonenjumpplus.com/app/episode/${seriesData.publisherId}`,
         chapters,
-      });
+      };
     },
 
     loadEp: async (comicId, epId) => {
@@ -253,11 +259,16 @@ class ShonenJumpPlus extends ComicSource {
         "X-APOLLO-OPERATION-NAME": operationName,
         "Content-Type": "application/json",
       },
-      JSON.stringify(payload),
+      JSON.stringify(payload)
     );
 
     if (response.status !== 200) throw `Invalid status: ${response.status}`;
-    return JSON.parse(response.body);
+    try {
+      return JSON.parse(response.body);
+    } catch (e) {
+      console.error('Failed to parse GraphQL response:', e);
+      throw 'Invalid response format from GraphQL endpoint';
+    }
   }
 
   normalizeEpisodeId(epId) {
@@ -279,15 +290,18 @@ class ShonenJumpPlus extends ComicSource {
     const response = await Network.post(
       `${this.apiBase}/user_account/access_token`,
       this.headers,
-      "",
+      ''
     );
-    const { access_token, user_account_id } = JSON.parse(
-      response.body,
-    );
-    this.bearerToken = access_token;
-    this.userAccountId = user_account_id;
-    this.tokenExpiry = Date.now() + 3600000;
-  }
+    try {
+      const { access_token, user_account_id } = JSON.parse(response.body);
+      this.bearerToken = access_token;
+      this.userAccountId = user_account_id;
+      this.tokenExpiry = Date.now() + 3600000;
+    } catch (e) {
+      console.error('Failed to parse bearer token response:', e);
+      throw 'Invalid response format from access_token endpoint';
+    }
+    }
 
   async fetchSeriesDetail(id) {
     const response = await this.graphqlRequest("SeriesDetail", { id });
@@ -306,11 +320,23 @@ class ShonenJumpPlus extends ComicSource {
   }
 
   async fetchEpisodePages(episodeId) {
-    const response = await this.graphqlRequest(
-      "EpisodeViewerConditionallyCacheable",
-      { episodeID: episodeId },
-    );
-    return response?.data?.episode || {};
+    try {
+      const response = await this.graphqlRequest(
+        "EpisodeViewerConditionallyCacheable",
+        { episodeID: episodeId },
+      );
+      
+      // 确保response.data.episode是对象
+      if (typeof response?.data?.episode !== 'object' || response.data.episode === null) {
+        console.error('Invalid episode data:', response?.data?.episode);
+        return {};
+      }
+      
+      return response.data.episode;
+    } catch (e) {
+      console.error('Error fetching episode pages:', e);
+      return {};
+    }
   }
 
   isEpisodeAccessible({ purchaseInfo }) {
@@ -328,8 +354,18 @@ class ShonenJumpPlus extends ComicSource {
   }
 
   buildImageUrls({ pageImages, pageImageToken }) {
-    const validImages = pageImages.edges.flatMap((edge) => edge.node?.src)
-      .filter(Boolean);
+    // 检查pageImages是否存在且有edges属性
+    if (!pageImages || !Array.isArray(pageImages.edges)) {
+      console.error('Invalid pageImages structure:', pageImages);
+      return { images: [] };
+    }
+    
+    const validImages = pageImages.edges.flatMap((edge) => {
+      // 检查edge和edge.node是否存在
+      if (!edge || !edge.node) return [];
+      return edge.node?.src || [];
+    }).filter(Boolean);
+    
     return {
       images: validImages.map((url) => `${url}?token=${pageImageToken}`),
     };
