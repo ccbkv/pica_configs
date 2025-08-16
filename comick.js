@@ -1,16 +1,11 @@
-class Comick extends ComicSource {
-    constructor() {
-        super();
-        this.init();
-    }
 
+class Comick extends ComicSource {
     name = "comick"
     key = "comick"
     version = "1.1.1"
     minAppVersion = "1.4.0"
     // update url
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/comick.js"
-
     settings = {
         domains: {
             title: "主页源",
@@ -406,24 +401,20 @@ class Comick extends ComicSource {
                 ? "https://comick.io/home2"
                 : this.baseUrl;
 
-            let res = await Network.get(url, Comick.getRandomHeaders());
-            if (!res.ok) throw "Request Error: " + res.status;
+            let res = await Network.get(url);
+            if (res.status !== 200) throw "Request Error: " + res.status;
 
             let document = new HtmlDocument(res.body);
-            let nextDataElement = document.getElementById('__NEXT_DATA__');
-            if (!nextDataElement) throw "__NEXT_DATA__ element not found";
-            let nextDataText = nextDataElement.text;
-            if (!nextDataText) throw "__NEXT_DATA__ text is empty";
-            let jsonData = JSON.parse(nextDataText);
-            let mangaData = jsonData.props.pageProps.data || {};
+            let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text);
+            let mangaData = jsonData.props.pageProps.data;
 
             // 使用统一函数转换数据
             const result = {
-                "最近更新": this.transformBookList(mangaData.extendedNews || []),
-                "最近上传": this.transformBookList(mangaData.news || []),
-                "最近热门": this.transformBookList(mangaData.recentRank || []),
-                "总热门": this.transformBookList(mangaData.rank || []),
-                "完结": this.transformBookList(mangaData.completions || []),
+                "最近更新": this.transformBookList(mangaData.extendedNews),
+                "最近上传": this.transformBookList(mangaData.news),
+                "最近热门": this.transformBookList(mangaData.recentRank),
+                "总热门": this.transformBookList(mangaData.rank),
+                "完结": this.transformBookList(mangaData.completions),
             };
 
             return result;
@@ -466,11 +457,11 @@ class Comick extends ComicSource {
 
             url += params.join('&');
 
-            let res = await Network.get(url, Comick.getRandomHeaders());
-            if (!res.ok) throw "Request Error: " + res.status;
+            let res = await Network.get(url);
+            if (res.status !== 200) throw "Request Error: " + res.status;
 
-            let mangaList = JSON.parse(res.body) || [];
-            if (!Array.isArray(mangaList)) mangaList = [];
+            let mangaList = JSON.parse(res.body);
+            if (!Array.isArray(mangaList)) throw "Invalid data format";
 
             return {
                 comics: mangaList.map(this.getFormattedManga),
@@ -487,40 +478,19 @@ class Comick extends ComicSource {
     /// search related
     search = {
         load: async (keyword, options, page) => {
-            // 基础URL
-            let url = `https://api.comick.io/v1.0/search?q=${encodeURIComponent(keyword)}&limit=49&page=${encodeURIComponent(page)}`;
+            let url = `https://api.comick.io/v1.0/search?q=${keyword}&limit=49&page=${page}`;
+            let res = await Network.get(url);
+            if (res.status !== 200) throw "Request Error: " + res.status;
 
-            // 添加排序参数
-            if (options[0]) {
-                url += `&sort=${encodeURIComponent(options[0].split("-")[0])}`;
-            }
-
-            // 添加地区参数
-            if (options[1] && options[1] !== "-全部") {
-                url += `&country=${encodeURIComponent(options[1].split("-")[0])}`;
-            }
-
-            // 添加状态参数
-            if (options[2]) {
-                url += `&status=${encodeURIComponent(options[2].split("-")[0])}`;
-            }
-
-            let res = await Network.get(url, Comick.getRandomHeaders());
-            if (!res.ok) throw "Request Error: " + res.status;
-
-            let mangaList = JSON.parse(res.body) || [];
-            if (!Array.isArray(mangaList)) mangaList = [];
+            let mangaList = JSON.parse(res.body);
+            if (!Array.isArray(mangaList)) throw "Invalid data format";
 
             return {
                 comics: mangaList.map(this.getFormattedManga),
                 maxPage: 1
             };
         },
-        optionList: [
-            {options: ["uploaded-更新排序","user_follow_count-关注排序", "rating-评分排序", "created_at-创建排序"]},
-            {options: ["-全部", "cn-国漫", "jp-日本", "kr-韩国", "others-欧美"]},
-            {options: ["1-连载", "2-完结", "3-休刊", "4-暂停更新"]}
-        ]
+        optionList: []
     }
 
     /// single comic related
@@ -584,20 +554,19 @@ class Comick extends ComicSource {
                     }
 
                     // 3. 构造章节请求 URL
-                    if (!buildId) throw "buildId is null"; // Add null check for buildId
-                    // 确保 id 不为 null，使用 first.hid 作为备用值
-                    const safeId = id || first.hid || 'unknown';
-                    // 确保 lang 不为 null
-                    const safeLang = lang || 'unknown';
                     const url =
-                    `${this.baseUrl}/_next/data/${buildId}/comic/${safeId}/${first.hid || 'unknown'}` +
+                    `${this.baseUrl}/_next/data/${buildId}/comic/${id}/${first.hid || 'unknown'}` +
                     (first.chap != null
                         ? `-chapter-${first.chap}`
                         : `-volume-${first.vol}`) +
-                    `-${safeLang}.json?slug=${safeId}&` +
+                    `-${lang}.json?slug=${id}&` +
                     (first.chap != null
                         ? `chapter=${first.hid || 'unknown'}`
-                        : `volume=${first.hid || 'unknown'}`)
+                        : `volume=${first.hid || 'unknown'}`) 
+                    +
+                    (first.chap != null
+                        ? `-chapter-${first.chap}`
+                        : `-volume-${first.vol}`) + `-${lang}`
                     ;
 
                     const res = await Network.get(url, { headers });
@@ -609,7 +578,7 @@ class Comick extends ComicSource {
                         //获得更新时间：
                         updateTime = raw.pageProps?.chapter?.updated_at
                             ? raw.pageProps.chapter.updated_at.split('T')[0] : comicData?.last_chapter
-                                ? `第${comicData.last_chapter}话` : "暂无更新";
+                                ? `第${comicData.last_chapter}话`: " ";
                     }
                     i++;
                     const list = (raw.pageProps.chapters || []).reverse();
@@ -617,18 +586,16 @@ class Comick extends ComicSource {
 
                     // 4. 构建章节 Map
                     const chapters = new Map();
-                    // 确保first不为null且有lang属性
-                    const chapterLang = first?.lang || 'unknown';
                     list.forEach(ch => {
                         let key, label;
                         if (ch.chap == null && ch.vol == null) {
-                            key = `${ch.hid || 'unknown'}//no//-1//${chapterLang}`;
+                            key = `${ch.hid || 'unknown'}//no//-1//${first.lang || 'unknown'}`;
                             label = '无标卷';
                         } else if (ch.chap != null) {
-                            key = `${ch.hid || 'unknown'}//chapter//${ch.chap}//${chapterLang}`;
+                            key = `${ch.hid || 'unknown'}//chapter//${ch.chap}//${first.lang || 'unknown'}`;
                             label = `第${ch.chap}话`;
                         } else {
-                            key = `${ch.hid || 'unknown'}//volume//${ch.vol}//${chapterLang}`;
+                            key = `${ch.hid || 'unknown'}//volume//${ch.vol}//${first.lang || 'unknown'}`;
                             label = `第${ch.vol}卷`;
                         }
                         chapters.set(key, label);
@@ -644,19 +611,13 @@ class Comick extends ComicSource {
             //填充文章id：
             this.comic.id = id;
             let document = new HtmlDocument(res.body)
-            let nextDataElement = document.getElementById('__NEXT_DATA__');
-            if (!nextDataElement) throw "__NEXT_DATA__ element not found";
-            let nextDataText = nextDataElement.text;
-            if (!nextDataText) throw "__NEXT_DATA__ text is empty";
-            let jsonData = JSON.parse(nextDataText);
+            let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text);
             let comicData = jsonData.props?.pageProps?.comic;
-            if (!comicData) throw "comicData is null"; // Add null check for comicData
             let authorData = jsonData.props?.pageProps?.authors || [];
-            let title = cTitle || comicData.title || "未知标题";
-            let status = comicData.status || "1"; // 默认连载 (comicData is not null here)
-            const b2key = comicData.md_covers?.[0]?.b2key;
-            let cover = b2key ? `https://meo.comick.pictures/${b2key}` : 'w7xqzd.jpg';
-            let author = authorData.length > 0 ? authorData[0]?.name || "未知作者" : "未知作者";
+            let title = cTitle || comicData?.title || "未知标题";
+            let status = comicData?.status || "1"; // 默认连载
+            let cover = comicData?.md_covers?.[0]?.b2key ? `https://meo.comick.pictures/${comicData.md_covers[0].b2key}` : 'w7xqzd.jpg';
+            let author = authorData[0]?.name || "未知作者";
 
             // 提取标签的slug数组的代码
             let extractSlugs = (comicData) => {
@@ -681,8 +642,8 @@ class Comick extends ComicSource {
             });
             let description = comicData?.desc || "暂无描述";
 
-            //处理推荐列表，确保传递的是数组
-            let recommends = this.transReformBookList(Array.isArray(comicData?.recommendations) ? comicData.recommendations : []);
+            //处理推荐列表
+            let recommends = this.transReformBookList(comicData?.recommendations || []);
             //只要recommends数组前面十个，不够十个则就是recommends的长度
             recommends = recommends.slice(0, Math.min(recommends.length, 10));
 
@@ -708,12 +669,11 @@ class Comick extends ComicSource {
 
            // let updateTime = comicData.last_chapter ? "第" + comicData.last_chapter + "话" : " "; //这里目前还无法实现更新时间
             let buildId = jsonData?.buildId;
-            if (!buildId) throw "buildId is null"; // Add null check for buildId
             let slug = jsonData?.query?.slug;
-            // 过滤掉null值并获取第一个有效章节
-            const validChapters = firstChapters.filter(chapter => chapter !== null);
+            let firstChapter = firstChapters.length > 0 ? firstChapters[0] : null;
+            
             // 处理无章节的情况
-            if (validChapters.length === 0) {
+            if (!firstChapter) {
                 let chapters = new Map();
                 let updateTime = comicData?.last_chapter ? "第" + comicData.last_chapter + "话" : "暂无更新";
                 return {
@@ -732,12 +692,10 @@ class Comick extends ComicSource {
             }
             
             // 处理无标卷和无标话的情况
-            // 获取第一个有效章节
-            let firstChapter = validChapters[0];
             if(firstChapter.vol == null && firstChapter.chap == null){
-                for(let i = 0; i < validChapters.length; i++) {
-                    if(validChapters[i].vol != null || validChapters[i].chap != null){
-                        firstChapter = validChapters[i];
+                for(let i = 0; i < firstChapters.length; i++) {
+                    if(firstChapters[i].vol != null || firstChapters[i].chap != null){
+                        firstChapter = firstChapters[i];
                         break;
                     }
                 }
@@ -745,7 +703,7 @@ class Comick extends ComicSource {
                 if(firstChapter.vol == null && firstChapter.chap == null){
                     let chapters = new Map()
                     let updateTime = comicData?.last_chapter ? "第" + comicData.last_chapter + "话" : "暂无更新";
-                    chapters.set((firstChapter.hid || 'unknown') + "//no//-1//" + (firstChapter?.lang || 'unknown'), "无标卷")
+                    chapters.set((firstChapter.hid || 'unknown') + "//no//-1//" + (firstChapter.lang || 'unknown'), "无标卷")
                     return {
                         title: title,
                         cover: cover,
@@ -763,21 +721,9 @@ class Comick extends ComicSource {
             }
 
             //获取章节
-            // 确保 cId 不为 null，使用 comicData.slug 作为备用值
-            const safeCId = cId || comicData.slug || 'unknown';
-            // 使用validChapters而不是firstChapters，避免传递null值
-            let temp = null;
-            let chapters = new Map();
-            let updateTime = comicData?.last_chapter ? `第${comicData.last_chapter}话` : "暂无更新";
-            try {
-                temp = await load_chapter(validChapters, comicData, buildId, safeCId);
-                if (temp && Array.isArray(temp) && temp.length >= 2) {
-                    chapters = temp[0] || new Map();
-                    updateTime = temp[1] || updateTime;
-                }
-            } catch (error) {
-                console.error("Error loading chapters:", error);
-            }
+            let temp = await load_chapter(firstChapters, comicData, buildId, cId);
+            let chapters = temp[0];
+            let updateTime = temp[1];
 
             return {
                 title: title,
@@ -803,39 +749,28 @@ class Comick extends ComicSource {
             const [hid, type, chapter, lang] = epId.split("//");
 
             // 检查分割结果是否有效
-            if (!hid || typeof hid !== 'string' ||
-                !type || typeof type !== 'string' ||
-                !chapter || typeof chapter !== 'string' ||
-                !lang || typeof lang !== 'string') {
+            if (!hid || !type || !chapter || !lang) {
                 console.error("Invalid epId format. Expected 'hid//chapter'");
                 return {images};  // 返回空数组
             }
 
-            // 确保 cId 和 hid 不为 null
-            const safeCId = cId || 'unknown';
-            const safeHid = hid || 'unknown';
-            // 初始化URL并确保所有变量都是字符串类型
-            let url = "";
+            let url = " ";
             if(type=="no"){
                 // 如果是无标卷, 只看第一个
-                url = `${this.baseUrl}/comic/${String(safeCId)}/${String(safeHid)}`;
+                url = `${this.baseUrl}/comic/${cId}/${hid}`;
             }else{
-                // 确保所有拼接变量都是字符串类型
-                url = `${this.baseUrl}/comic/${String(safeCId)}/${String(safeHid)}-${String(type)}-${String(chapter)}-${String(lang)}`;
+                url = `${this.baseUrl}/comic/${cId}/${hid}-${type}-${chapter}-${lang}`;
             }
 
             let maxAttempts = 100;
 
             while (maxAttempts > 0) {
-                const res = await Network.get(url, Comick.getRandomHeaders());
+                const res = await Network.get(url);
                 if (res.status !== 200) break;
 
                 let document = new HtmlDocument(res.body)
-                let nextDataElement = document.getElementById('__NEXT_DATA__');
-                if (!nextDataElement) throw "__NEXT_DATA__ element not found";
-                let nextDataText = nextDataElement.text;
-                if (!nextDataText) throw "__NEXT_DATA__ text is empty";
-                let jsonData = JSON.parse(nextDataText); //json解析方式
+
+                let jsonData = JSON.parse(document.getElementById('__NEXT_DATA__').text); //json解析方式
                 let imagesData = jsonData.props?.pageProps?.chapter?.md_images;
 
                 // 检查图片数据是否存在
@@ -844,20 +779,19 @@ class Comick extends ComicSource {
                 }
 
                 // 解析当前页图片
-            imagesData.forEach(image => {
-                // 确保b2key是字符串类型
-                if (image?.b2key && typeof image.b2key === 'string') {
-                    // 处理图片链接
-                    let imageUrl = `https://meo.comick.pictures/${image.b2key}`;
-                    images.push(imageUrl);
-                }
-            });
+                imagesData.forEach(image => {
+                    if (image?.b2key) {
+                        // 处理图片链接
+                        let imageUrl = `https://meo.comick.pictures/${image.b2key}`;
+                        images.push(imageUrl);
+                    }
+                });
 
                 // 查找下一页链接
                 const nextLink = document.querySelector("a#next-chapter");
-                if (nextLink?.text && nextLink.text.match(/下一页|下一頁/)) {
+                if (nextLink?.text?.match(/下一页|下一頁/)) {
                     const nextUrl = nextLink.attributes?.['href'];
-                    if (nextUrl && typeof nextUrl === 'string') {
+                    if (nextUrl) {
                         url = nextUrl;
                     } else {
                         break;
