@@ -553,19 +553,28 @@ explore = [
 
             // 提取章节信息
             let chapters = {};
-            let chapterElements = document.querySelectorAll("div[data-key]");
-            if (chapterElements) {
-                Array.from(chapterElements).forEach(chapter => {
-                    let chapterKeyAttr = chapter.attributes['data-key']; // 获取 data-key 属性
-                    if (!chapterKeyAttr || !chapterKeyAttr.value) return;
-                    let chapterKey = chapterKeyAttr.value; // 获取属性值
-                    
-                    let aTag = chapter.querySelector("a");
-                    if (!aTag) return;
-                    let chapterTitle = aTag.text.trim(); // 获取章节标题
-                    
-                    chapters[chapterKey] = chapterTitle; // 将 data-key 和章节标题存入对象
-                });
+            try {
+                let chapterElements = document.querySelectorAll("div[data-key]");
+                if (chapterElements && chapterElements.length > 0) {
+                    // 确保使用Array.from转换NodeList
+                    Array.from(chapterElements).forEach(chapter => {
+                        try {
+                            let chapterKeyAttr = chapter.attributes['data-key'];
+                            if (chapterKeyAttr && chapterKeyAttr.value) {
+                                let chapterKey = chapterKeyAttr.value;
+                                let aTag = chapter.querySelector("a");
+                                if (aTag) {
+                                    let chapterTitle = aTag.text.trim();
+                                    chapters[chapterKey] = chapterTitle;
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error processing chapter:', e);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Error fetching chapters:', e);
             }
 
             return {
