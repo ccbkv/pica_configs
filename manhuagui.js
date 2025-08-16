@@ -1052,25 +1052,42 @@ class ManHuaGui extends ComicSource {
           console.log(`尝试使用索引 ${index} 的脚本 (策略: ${strategy})`);
           let infos = this.getImgInfos(content);
           
-          // 验证infos是否有效
-          if (infos && infos.files && Array.isArray(infos.files) && infos.files.length > 0) {
-            if (infos.path && infos.sl && infos.sl.e && infos.sl.m) {
-              console.log(`成功从索引 ${index} 的脚本中提取图片信息`);
-              let imgDomain = `https://us.hamreus.com`;
-              let images = [];
-              for (let f of infos.files) {
-                let imgUrl = 
-                  imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
-                images.push(imgUrl);
+          // 验证infos是否有效，添加更详细的日志输出
+          if (infos) {
+            console.log(`从索引 ${index} 的脚本中提取到infos对象`);
+            console.log(`infos.files: ${infos.files ? '存在' : '不存在'}, 类型: ${Array.isArray(infos.files) ? '数组' : typeof infos.files}`);
+            console.log(`infos.path: ${infos.path ? '存在' : '不存在'}`);
+            console.log(`infos.sl: ${infos.sl ? '存在' : '不存在'}`);
+            
+            if (infos.files && Array.isArray(infos.files) && infos.files.length > 0) {
+              // 放宽验证条件，只要求基本字段存在
+              if (infos.path && infos.sl) {
+                console.log(`成功从索引 ${index} 的脚本中提取图片信息`);
+                let imgDomain = `https://us.hamreus.com`;
+                let images = [];
+                for (let f of infos.files) {
+                  // 确保文件名不为空
+                  if (f) {
+                    let imgUrl = 
+                      imgDomain + infos.path + f + (infos.sl.e && infos.sl.m ? `?e=${infos.sl.e}&m=${infos.sl.m}` : '');
+                    images.push(imgUrl);
+                  }
+                }
+                if (images.length > 0) {
+                  return {
+                    images,
+                  };
+                } else {
+                  console.warn(`索引 ${index} 的脚本生成的图片URL列表为空`);
+                }
+              } else {
+                console.warn(`索引 ${index} 的脚本缺少必要的图片信息字段 (path或sl)`);
               }
-              return {
-                images,
-              };
             } else {
-              console.warn(`索引 ${index} 的脚本缺少必要的图片信息字段`);
+              console.warn(`无法从索引 ${index} 的脚本中提取有效图片信息 (files字段无效)`);
             }
           } else {
-            console.warn(`无法从索引 ${index} 的脚本中提取有效图片信息`);
+            console.warn(`无法从索引 ${index} 的脚本中提取infos对象`);
           }
         } catch (e) {
           console.error(`处理索引 ${index} 的脚本时出错:`, e);
