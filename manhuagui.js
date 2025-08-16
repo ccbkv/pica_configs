@@ -1,4 +1,3 @@
-
 class ManHuaGui extends ComicSource {
   // 确保Comic构造函数可用
   constructor() {
