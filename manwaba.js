@@ -44,13 +44,13 @@ class ManWaBa extends ComicSource {
       if (method === 'GET') {
         res = await Network.get(url, headers || {});
       } else if (method === 'POST') {
-        res = await Network.post(url, payload, { headers: headers || {} });
+        res = await Network.post(url, headers || {}, payload);
       } else if (method === 'PUT') {
-        res = await Network.put(url, payload, { headers: headers || {} });
+        res = await Network.put(url, headers || {}, payload);
       } else if (method === 'PATCH') {
-        res = await Network.patch(url, payload, { headers: headers || {} });
+        res = await Network.patch(url, headers || {}, payload);
       } else if (method === 'DELETE') {
-        res = await Network.delete(url, { headers: headers || {} });
+        res = await Network.delete(url, headers || {});
       } else {
         throw `Unsupported method: ${method}`;
       }
@@ -244,6 +244,7 @@ class ManWaBa extends ComicSource {
 
       let data = await this.fetchJson(url, {
         method: "POST",
+        headers: {"Content-Type": "application/json"},
         payload,
       }).then((res) => res.data);
 
