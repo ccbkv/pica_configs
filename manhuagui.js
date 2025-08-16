@@ -71,32 +71,14 @@ class ManHuaGui extends ComicSource {
 
   // 获取HTML内容并处理响应
   async getHtml(url) {
-    let headers = {
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      priority: "u=0, i",
-      "sec-ch-ua":
-        '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-      "sec-fetch-dest": "document",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "same-origin",
-      "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      cookie: "country=US",
-      Referer: "https://www.manhuagui.com/",
-      "Referrer-Policy": "strict-origin-when-cross-origin",
-    };
-    let res = await Network.get(url, headers);
-    if (res.status !== 200) {
-      throw "Invalid status code: " + res.status;
+    let res = await Network.get(url, {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36",
+        "Referer": "https://www.manhuagui.com/"
+    });
+    if(res.status !== 200){
+        throw "Network: " + res.status;
     }
-    let document = new HtmlDocument(res.body);
-    return document;
+    return new HtmlDocument(res.body);
   }
   parseSimpleComic(e) {
     let url = e.querySelector(".ell > a").attributes["href"];
@@ -964,39 +946,25 @@ class ManHuaGui extends ComicSource {
       let document = await this.getHtml(url);
       let script = "";
       let scripts = document.querySelectorAll("script");
-      // Use s.text first, like in the reference implementation, but with regex
-      for (const s of scripts) {
-        const text = s.text;
-        if (text && text.match(/eval\(function\(p,a,c,k,e,d\)/)) {
-          script = text;
-          break;
-        }
-      }
-
-      // Fallback to innerHTML if s.text fails
-      if (!script) {
-        for (const s of scripts) {
-          const html = s.innerHTML;
-          if (html && html.match(/eval\(function\(p,a,c,k,e,d\)/)) {
-            script = html;
-            break;
+      for (let s of scripts) {
+          let html = s.text || s.innerHTML;
+          if (html && html.includes("p,a,c,k,e,d")) {
+              script = html;
+              break;
           }
-        }
       }
 
       if (!script) {
-        throw "Network: Empty image script";
+          throw "Network: Empty image script";
       }
-      let infos = this.getImgInfos(script);
-      let imgDomain = `https://i.hamreus.com`;
-      let images = [];
-      for (let f of infos.files) {
-        let imgUrl =
-          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
-        images.push(imgUrl);
-      }
+
+      let imgInfos = this.getImgInfos(script);
+      let { files, path, sl } = imgInfos;
+      let images = files.map(
+          (file) => `https://i.hamreus.com${path}${file}?e=${sl.e}&m=${sl.m}`
+      );
       return {
-        images,
+          images,
       };
     },
     /**
