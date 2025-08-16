@@ -357,24 +357,25 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
+      // 增强错误处理，确保始终返回一个有效的参数数组
       if (!str) {
         console.error("输入字符串为空");
-        return [];
+        return ['', 0, 0, [], {}, {}]; // 返回默认参数
       }
       let splitResult = str.split("}(");
       if (splitResult.length < 2) {
         console.error("无法正确分割字符串");
-        return [];
+        return ['', 0, 0, [], {}, {}]; // 返回默认参数
       }
       let params_part = splitResult[1].split("))")[0];
       if (!params_part) {
         console.error("无法提取参数部分");
-        return [];
+        return ['', 0, 0, [], {}, {}]; // 返回默认参数
       }
       let params = splitParams(params_part);
       if (!params || params.length === 0) {
         console.error("splitParams返回空数组");
-        return [];
+        return ['', 0, 0, [], {}, {}]; // 返回默认参数
       }
       params[5] = {};
       try {
@@ -1001,14 +1002,48 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      let script = document.querySelectorAll("script")[4].innerHTML;
-      let infos = this.getImgInfos(script);
-
-      // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
+      
+      // 寻找包含图片信息的脚本
+      let scripts = document.querySelectorAll("script");
+      let scriptContent = null;
+      
+      // 尝试寻找包含window["_INITIAL_STATE_"]的脚本
+      for (let i = 0; i < scripts.length; i++) {
+        let script = scripts[i].innerHTML;
+        if (script.includes("window['_INITIAL_STATE_']")) {
+          scriptContent = script;
+          break;
+        }
+      }
+      
+      // 如果没找到，尝试使用第4个脚本（旧方法）
+      if (!scriptContent && scripts.length >= 5) {
+        scriptContent = scripts[4].innerHTML;
+        console.warn("未找到包含window['_INITIAL_STATE_']的脚本，使用第4个脚本");
+      }
+      
+      if (!scriptContent) {
+        console.error("未能找到有效的脚本内容");
+        return { images: [] };
+      }
+      
+      let infos = this.getImgInfos(scriptContent);
+      
+      // 验证infos是否有效
+      if (!infos || !infos.files || !Array.isArray(infos.files) || infos.files.length === 0) {
+        console.error("未能正确提取图片信息");
+        return { images: [] };
+      }
+      
+      if (!infos.path || !infos.sl || !infos.sl.e || !infos.sl.m) {
+        console.error("图片信息不完整");
+        return { images: [] };
+      }
+      
       let imgDomain = `https://us.hamreus.com`;
       let images = [];
       for (let f of infos.files) {
-        let imgUrl =
+        let imgUrl = 
           imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
         images.push(imgUrl);
       }
