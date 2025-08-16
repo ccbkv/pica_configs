@@ -1,560 +1,1040 @@
-class Zaimanhua extends ComicSource {
-  // 基础信息
-  name = "再漫画";
-  key = "zaimanhua";
-  version = "1.0.1";
-  minAppVersion = "3.1.0";
-  url =
-    "https://raw.githubusercontent.com/ccbkv/pica_configs/master/zaimanhua.js";
 
-  // 初始化请求头
-  init() {
-    this.headers = {
-      "User-Agent": "Mozilla/5.0 (Linux; Android) Mobile",
-      "authorization": `Bearer ${this.loadData("token") || ""}`,
-    };
-  }
-  // 构建 URL
-  buildUrl(path) {
-    return `https://v4api.zaimanhua.com/app/v1/${path}`;
-  }
-
-  //账户管理
-  account = {
-    login: async (username, password) => {
-      try {
-        const encryptedPwd = Convert.hexEncode(
-          Convert.md5(Convert.encodeUtf8(password))
-        );
-        const res = await Network.post(
-          "https://account-api.zaimanhua.com/v1/login/passwd",
-          { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
-          `username=${username}&passwd=${encryptedPwd}`
-        );
-
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
-        const data = JSON.parse(res.body);
-        if (data.errno !== 0) throw new Error(data.errmsg);
-
-        this.saveData("token", data.data.user.token);
-        this.headers.authorization = `Bearer ${data.data.user.token}`;
-        return true;
-      } catch (e) {
-        // 使用this.UI或降级到console.log
-        if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
-          this.UI.showMessage(`登录失败: ${e.message}`);
-        } else {
-          console.log(`登录失败: ${e.message}`);
-        }
-        throw e;
+class ManHuaGui extends ComicSource {
+  // 确保Comic构造函数可用
+  constructor() {
+    super();
+    
+    // 检查Comic是否已定义
+    if (typeof Comic === 'undefined') {
+      // 尝试从父类获取
+      if (this.constructor.Comic) {
+        this.Comic = this.constructor.Comic;
+        console.log('从父类获取到Comic构造函数');
+      } else {
+        console.error('Comic构造函数未找到');
+        // 创建一个有效构造函数代替，避免后续调用失败
+        this.Comic = function(options) {
+          return {
+            id: options.id || '',
+            title: options.title || '',
+            cover: options.cover || '',
+            description: options.description || '',
+            tags: options.tags || [],
+            author: options.author || ''
+          };
+        };
       }
-    },
-    logout: () => {
-      this.deleteData("token");
-    },
-  };
+    } else {
+      this.Comic = Comic;
+      console.log('直接使用已定义的Comic构造函数');
+    }
+    this.init();
+  }
 
-  // 状态检查
-  checkResponseStatus(res) {
-    if (res.status === 401) {
-      throw new Error("登录失效");
-    }
-    if (res.status !== 200) {
-      throw new Error(`请求失败: ${res.status}`);
-    }
-    // 检查响应体是否为字符串类型
-    if (typeof res.body !== 'string') {
-      throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-    }
-    // 检查响应体是否为有效的JSON格式
+  // 此漫画源的名称
+  name = "漫画柜";
+
+  // 唯一标识符
+  key = "ManHuaGui";
+
+  version = "1.0.1";
+
+  minAppVersion = "1.4.0";
+
+  // 更新链接
+  url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
+
+  baseUrl = "https://www.manhuagui.com";
+
+  // 检查APP版本是否大于等于目标版本
+  // 为避免APP未定义的错误，添加了try-catch块
+  isAppVersionAfter(target) {
     try {
-      JSON.parse(res.body);
+      if (!APP || !APP.version) return false;
+      let current = APP.version;
+      let targetArr = target.split('.');
+      let currentArr = current.split('.');
+      for (let i = 0; i < Math.min(targetArr.length, currentArr.length); i++) {
+        if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
+          return false;
+        } else if (parseInt(currentArr[i]) > parseInt(targetArr[i])) {
+          return true;
+        }
+      }
+      // 如果前面的版本号都相同，则当前版本大于等于目标版本
+      return true;
     } catch (e) {
-      throw new Error(`响应体不是有效的JSON格式: ${res.body}`);
+      console.error('检查APP版本时出错:', e);
+      return false; // 出错时默认返回false
     }
   }
 
-  // 漫画解析
-  parseComic(comic) {
-    // const safeString = (value) => (value || "").toString().trim();
-    const safeString = (value) => (value != null ? value.toString() : "");
-    const resolveId = () =>
-      [comic.comic_id, comic.id].find((id) => id && id !== "0") || "";
-    const resolveTags = () =>
-      [comic.status, ...safeString(comic.types).split("/")].filter(Boolean);
-    const resolveDescription = () => {
-      const candidates = [
-        comic.description,
-        comic.last_update_chapter_name,
-        comic.last_name,
-      ];
-      return candidates.find((text) => text) || "";
+  // 获取HTML内容并处理响应
+  async getHtml(url) {
+    // 简化headers配置，与ikmmh.js保持一致
+    let headers = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "Referer": "https://www.manhuagui.com/",
     };
+    let res = await Network.get(url, headers);
+    
+    // 只检查status状态
+    if (res.status !== 200) {
+      throw `Network error: Status code ${res.status}`;
+    }
+    
+    // 确保body不为null或空
+    let body = res.body || '';
+    if (!body.trim()) {
+      console.warn('Response body is empty');
+      body = '<!DOCTYPE html><html><head><title>Empty Response</title></head><body></body></html>';
+    }
+    
+    try {
+      return new HtmlDocument(body);
+    } catch (e) {
+      console.error('Failed to parse HTML:', e);
+      throw "Failed to parse HTML content";
+    }
+  }
+  parseSimpleComic(e) {
+    let url = e.querySelector(".ell > a").attributes["href"];
+    let id = url.split("/")[2];
+    let title = e.querySelector(".ell > a").text.trim();
+    let cover = e.querySelector("img").attributes["src"];
+    if (!cover) {
+      cover = e.querySelector("img").attributes["data-src"];
+    }
+    cover = `https:${cover}`;
+    let description = e.querySelector(".tt").text.trim();
+    return new this.Comic({
+      id,
+      title,
+      cover,
+      description,
+    });
+  }
 
-    return {
-      id: safeString(resolveId()),
-      title: comic.title || comic.name,
-      subTitle: comic.authors,
-      cover: comic.cover,
-      tags: resolveTags(),
-      description: resolveDescription(),
+  parseComic(e) {
+    let simple = this.parseSimpleComic(e);
+    let sl = e.querySelector(".sl");
+    let status = sl ? "连载" : "完结";
+    // 如果能够找到 <span class="updateon">更新于：2020-03-31<em>3.9</em></span> 解析 更新和评分
+    let tmp = e.querySelector(".updateon")?.childNodes;
+    let update = tmp ? tmp[0].replace("更新于：", "").trim() : "";
+    let tags = [status, update];
+    // 尝试获取作者信息
+    let authorElement = e.querySelector(".author");
+    let author = authorElement ? authorElement.text.trim() : "";
+
+    return new this.Comic({
+      id: simple.id,
+      title: simple.title,
+      cover: simple.cover,
+      description: simple.description,
+      tags,
+      author,
+    });
+  }
+  /**
+   * [Optional] init function
+   */
+  init() {
+    var LZString = (function () {
+      var f = String.fromCharCode;
+      var keyStrBase64 =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+      var baseReverseDic = {};
+      function getBaseValue(alphabet, character) {
+        if (!baseReverseDic[alphabet]) {
+          baseReverseDic[alphabet] = {};
+          for (var i = 0; i < alphabet.length; i++) {
+            baseReverseDic[alphabet][alphabet.charAt(i)] = i;
+          }
+        }
+        return baseReverseDic[alphabet][character];
+      }
+      var LZString = {
+        decompressFromBase64: function (input) {
+          if (input == null) return "";
+          if (input == "") return null;
+          return LZString._0(input.length, 32, function (index) {
+            return getBaseValue(keyStrBase64, input.charAt(index));
+          });
+        },
+        _0: function (length, resetValue, getNextValue) {
+          var dictionary = [],
+            next,
+            enlargeIn = 4,
+            dictSize = 4,
+            numBits = 3,
+            entry = "",
+            result = [],
+            i,
+            w,
+            bits,
+            resb,
+            maxpower,
+            power,
+            c,
+            data = {
+              val: getNextValue(0),
+              position: resetValue,
+              index: 1,
+            };
+          for (i = 0; i < 3; i += 1) {
+            dictionary[i] = i;
+          }
+          bits = 0;
+          maxpower = Math.pow(2, 2);
+          power = 1;
+          while (power != maxpower) {
+            resb = data.val & data.position;
+            data.position >>= 1;
+            if (data.position == 0) {
+              data.position = resetValue;
+              data.val = getNextValue(data.index++);
+            }
+            bits |= (resb > 0 ? 1 : 0) * power;
+            power <<= 1;
+          }
+          switch ((next = bits)) {
+            case 0:
+              bits = 0;
+              maxpower = Math.pow(2, 8);
+              power = 1;
+              while (power != maxpower) {
+                resb = data.val & data.position;
+                data.position >>= 1;
+                if (data.position == 0) {
+                  data.position = resetValue;
+                  data.val = getNextValue(data.index++);
+                }
+                bits |= (resb > 0 ? 1 : 0) * power;
+                power <<= 1;
+              }
+              c = f(bits);
+              break;
+            case 1:
+              bits = 0;
+              maxpower = Math.pow(2, 16);
+              power = 1;
+              while (power != maxpower) {
+                resb = data.val & data.position;
+                data.position >>= 1;
+                if (data.position == 0) {
+                  data.position = resetValue;
+                  data.val = getNextValue(data.index++);
+                }
+                bits |= (resb > 0 ? 1 : 0) * power;
+                power <<= 1;
+              }
+              c = f(bits);
+              break;
+            case 2:
+              return "";
+          }
+          dictionary[3] = c;
+          w = c;
+          result.push(c);
+          while (true) {
+            if (data.index > length) {
+              return "";
+            }
+            bits = 0;
+            maxpower = Math.pow(2, numBits);
+            power = 1;
+            while (power != maxpower) {
+              resb = data.val & data.position;
+              data.position >>= 1;
+              if (data.position == 0) {
+                data.position = resetValue;
+                data.val = getNextValue(data.index++);
+              }
+              bits |= (resb > 0 ? 1 : 0) * power;
+              power <<= 1;
+            }
+            switch ((c = bits)) {
+              case 0:
+                bits = 0;
+                maxpower = Math.pow(2, 8);
+                power = 1;
+                while (power != maxpower) {
+                  resb = data.val & data.position;
+                  data.position >>= 1;
+                  if (data.position == 0) {
+                    data.position = resetValue;
+                    data.val = getNextValue(data.index++);
+                  }
+                  bits |= (resb > 0 ? 1 : 0) * power;
+                  power <<= 1;
+                }
+                dictionary[dictSize++] = f(bits);
+                c = dictSize - 1;
+                enlargeIn--;
+                break;
+              case 1:
+                bits = 0;
+                maxpower = Math.pow(2, 16);
+                power = 1;
+                while (power != maxpower) {
+                  resb = data.val & data.position;
+                  data.position >>= 1;
+                  if (data.position == 0) {
+                    data.position = resetValue;
+                    data.val = getNextValue(data.index++);
+                  }
+                  bits |= (resb > 0 ? 1 : 0) * power;
+                  power <<= 1;
+                }
+                dictionary[dictSize++] = f(bits);
+                c = dictSize - 1;
+                enlargeIn--;
+                break;
+              case 2:
+                return result.join("");
+            }
+            if (enlargeIn == 0) {
+              enlargeIn = Math.pow(2, numBits);
+              numBits++;
+            }
+            if (dictionary[c]) {
+              entry = dictionary[c];
+            } else {
+              if (c === dictSize) {
+                entry = w + w.charAt(0);
+              } else {
+                return null;
+              }
+            }
+            result.push(entry);
+            dictionary[dictSize++] = w + entry.charAt(0);
+            enlargeIn--;
+            w = entry;
+            if (enlargeIn == 0) {
+              enlargeIn = Math.pow(2, numBits);
+              numBits++;
+            }
+          }
+        },
+      };
+      return LZString;
+    })();
+
+    function splitParams(str) {
+      let params = [];
+      let currentParam = "";
+      let stack = [];
+
+      for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+
+        if (char === "(" || char === "[" || char === "{") {
+          stack.push(char);
+          currentParam += char;
+        } else if (char === ")" && stack[stack.length - 1] === "(") {
+          stack.pop();
+          currentParam += char;
+        } else if (char === "]" && stack[stack.length - 1] === "[") {
+          stack.pop();
+          currentParam += char;
+        } else if (char === "}" && stack[stack.length - 1] === "{") {
+          stack.pop();
+          currentParam += char;
+        } else if (char === "," && stack.length === 0) {
+          params.push(currentParam.trim());
+          currentParam = "";
+        } else {
+          currentParam += char;
+        }
+      }
+
+      if (currentParam) {
+        params.push(currentParam.trim());
+      }
+
+      return params;
+    }
+
+    function extractParams(str) {
+      let params_part = str.split("}(")[1].split("))")[0];
+      let params = splitParams(params_part);
+      params[5] = {};
+      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
+        "|"
+      );
+      return params;
+    }
+
+    function formatData(p, a, c, k, e, d) {
+      e = function (c) {
+        return (
+          (c < a ? "" : e(parseInt(c / a))) +
+          ((c = c % a) > 35 ? String.fromCharCode(c + 29) : c.toString(36))
+        );
+      };
+      if (!"".replace(/^/, String)) {
+        while (c--) d[e(c)] = k[c] || e(c);
+        k = [
+          function (e) {
+            return d[e];
+          },
+        ];
+        e = function () {
+          return "\\w+";
+        };
+        c = 1;
+      }
+      while (c--)
+        if (k[c]) p = p.replace(new RegExp("\\b" + e(c) + "\\b", "g"), k[c]);
+      return p;
+    }
+    function extractFields(text) {
+      // 创建一个对象存储提取的结果
+      const result = {};
+
+      // 提取files数组
+      const filesMatch = text.match(/"files":\s*\[(.*?)\]/);
+      if (filesMatch && filesMatch[1]) {
+        // 提取所有文件名并去除引号和空格
+        result.files = filesMatch[1]
+          .split(",")
+          .map((file) => file.trim().replace(/"/g, ""));
+      }
+
+      // 提取path
+      const pathMatch = text.match(/"path":\s*"([^"]+)"/);
+      if (pathMatch && pathMatch[1]) {
+        result.path = pathMatch[1];
+      }
+
+      // 提取len
+      const lenMatch = text.match(/"len":\s*(\d+)/);
+      if (lenMatch && lenMatch[1]) {
+        result.len = parseInt(lenMatch[1], 10);
+      }
+
+      // 提取sl对象
+      const slMatch = text.match(/"sl":\s*({[^}]+})/);
+      if (slMatch && slMatch[1]) {
+        try {
+          // 将提取的字符串转换为对象
+          result.sl = JSON.parse(slMatch[1].replace(/(\w+):/g, '"$1":'));
+        } catch (e) {
+          console.error("解析sl字段失败:", e);
+          result.sl = null;
+        }
+      }
+
+      return result;
+    }
+    this.getImgInfos = function (script) {
+      let params = extractParams(script);
+      let imgData = formatData(...params);
+      let imgInfos = extractFields(imgData);
+      return imgInfos;
     };
   }
 
-  //探索页面
+  // explore page list
   explore = [
     {
-      title: "再漫画 更新",
-      type: "multiPageComicList",
+      // title of the page.
+      // title is used to identify the page, it should be unique
+      title: "漫画柜",
+
+      /// multiPartPage or multiPageComicList or mixed
+      type: "singlePageWithMultiPart",
+
+      /**
+       * load function
+       * @param page {number | null} - page number, null for `singlePageWithMultiPart` type
+       * @returns {{}}
+       * - for `multiPartPage` type, return [{title: string, comics: Comic[], viewMore: PageJumpTarget}]
+       * - for `multiPageComicList` type, for each page(1-based), return {comics: Comic[], maxPage: number}
+       * - for `mixed` type, use param `page` as index. for each index(0-based), return {data: [], maxPage: number?}, data is an array contains Comic[] or {title: string, comics: Comic[], viewMore: string?}
+       */
       load: async (page) => {
-        const res = await Network.get(
-          this.buildUrl(`comic/update/list/0/${page}`),
-          this.headers
-        );
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
+        let document = await this.getHtml(this.baseUrl);
+        // log("info", this.name, `获取主页成功`);
+        let tabs = document.querySelectorAll("#cmt-tab li");
+        // log("info", this.name, tabs);
+        let parts = document.querySelectorAll("#cmt-cont ul");
+        // log("info", this.name, parts);
+        let result = {};
+        // tabs len = parts len
+        for (let i = 0; i < tabs.length; i++) {
+          let title = tabs[i].text.trim();
+          let comics = parts[i]
+            .querySelectorAll("li")
+            .map((e) => this.parseSimpleComic(e));
+          result[title] = comics;
         }
-        const data = JSON.parse(res.body).data;
-        return {
-          comics: data.map((item) => this.parseComic(item)),
-        };
+        // log("info", this.name, result);
+        return result;
       },
+
+      /**
+       * Only use for `multiPageComicList` type.
+       * `loadNext` would be ignored if `load` function is implemented.
+       * @param next {string | null} - next page token, null if first page
+       * @returns {Promise<{comics: Comic[], next: string?}>} - next is null if no next page.
+       */
+      loadNext(next) {},
     },
   ];
 
-  static categoryParamMap = {
-    "全部": "0",
-    "冒险": "4",
-    "欢乐向": "5",
-    "格斗": "6",
-    "科幻": "7",
-    "爱情": "8",
-    "侦探": "9",
-    "竞技": "10",
-    "魔法": "11",
-    "神鬼": "12",
-    "校园": "13",
-    "惊悚": "14",
-    "其他": "16",
-    "四格": "17",
-    "亲情": "3242",
-    "百合": "3243",
-    "秀吉": "3244",
-    "悬疑": "3245",
-    "纯爱": "3246",
-    "热血": "3248",
-    "泛爱": "3249",
-    "历史": "3250",
-    "战争": "3251",
-    "萌系": "3252",
-    "宅系": "3253",
-    "治愈": "3254",
-    "励志": "3255",
-    "武侠": "3324",
-    "机战": "3325",
-    "音乐舞蹈": "3326",
-    "美食": "3327",
-    "职场": "3328",
-    "西方魔幻": "3365",
-    "高清单行": "4459",
-    "TS": "4518",
-    "东方": "5077",
-    "魔幻": "5806",
-    "奇幻": "5848",
-    "节操": "6219",
-    "轻小说": "6316",
-    "颜艺": "6437",
-    "搞笑": "7568",
-    "仙侠": "23388",
-    "舰娘": "7900",
-    "动画": "13627",
-    "AA": "17192",
-    "福瑞": "18522",
-    "生存": "23323",
-    "日常": "23388",
-    "画集": "30788",
-    "C100": "31137",
-  };
-
-  //分类页面
+  // categories
   category = {
-    title: "再漫画",
+    /// title of the category page, used to identify the page, it should be unique
+    title: "漫画柜",
     parts: [
       {
-        name: "排行榜",
+        name: "类型",
         type: "fixed",
-        categories: ["日排行", "周排行", "月排行", "总排行"],
         itemType: "category",
-        categoryParams: ["0", "1", "2", "3"],
-      },
-      {
-        name: "分类",
-        type: "fixed",
-        categories: Object.keys(Zaimanhua.categoryParamMap),
-        categoryParams: Object.values(Zaimanhua.categoryParamMap),
-        itemType: "category",
+        categories: [
+          "全部",
+          "热血",
+          "冒险",
+          "魔幻",
+          "神鬼",
+          "搞笑",
+          "萌系",
+          "爱情",
+          "科幻",
+          "魔法",
+          "格斗",
+          "武侠",
+          "机战",
+          "战争",
+          "竞技",
+          "体育",
+          "校园",
+          "生活",
+          "励志",
+          "历史",
+          "伪娘",
+          "宅男",
+          "腐女",
+          "耽美",
+          "百合",
+          "后宫",
+          "治愈",
+          "美食",
+          "推理",
+          "悬疑",
+          "恐怖",
+          "四格",
+          "职场",
+          "侦探",
+          "社会",
+          "音乐",
+          "舞蹈",
+          "杂志",
+          "黑道",
+        ],
+        categoryParams: [
+          "",
+          "rexue",
+          "maoxian",
+          "mohuan",
+          "shengui",
+          "gaoxiao",
+          "mengxi",
+          "aiqing",
+          "kehuan",
+          "mofa",
+          "gedou",
+          "wuxia",
+          "jizhan",
+          "zhanzheng",
+          "jingji",
+          "tiyu",
+          "xiaoyuan",
+          "shenghuo",
+          "lizhi",
+          "lishi",
+          "weiniang",
+          "zhainan",
+          "funv",
+          "danmei",
+          "baihe",
+          "hougong",
+          "zhiyu",
+          "meishi",
+          "tuili",
+          "xuanyi",
+          "kongbu",
+          "sige",
+          "zhichang",
+          "zhentan",
+          "shehui",
+          "yinyue",
+          "wudao",
+          "zazhi",
+          "heidao",
+        ],
       },
     ],
+    // enable ranking page
+    enableRankingPage: false,
   };
 
-  //分类漫画加载
+  /// category comic loading related
   categoryComics = {
+    /**
+     * load comics of a category
+     * @param category {string} - category name
+     * @param param {string?} - category param
+     * @param options {string[]} - options from optionList
+     * @param page {number} - page number
+     * @returns {Promise<{comics: Comic[], maxPage: number}>}
+     */
     load: async (category, param, options, page) => {
-      if (category.includes("排行")) {
-        let res = await Network.get(
-          this.buildUrl(
-            `comic/rank/list?page=${page}&rank_type=${options}&by_time=${param}`
-          ),
-          this.headers
-        );
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
-        return {
-          comics: JSON.parse(res.body).data.map((item) =>
-            this.parseComic(item)
-          ),
-          maxPage: 10,
-        };
-      } else {
-        param = Zaimanhua.categoryParamMap[category] || "0";
-        let res = await Network.get(
-          this.buildUrl(
-            `comic/filter/list?status=${options[2]}&theme=${param}&zone=${options[3]}&cate=${options[1]}&sortType=${options[0]}&page=${page}&size=20`
-          ),
-          this.headers
-        );
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
-        const data = JSON.parse(res.body).data;
-        return {
-          comics: data.comicList.map((item) => this.parseComic(item)),
-          maxPage: Math.ceil(data.totalNum / 20),
-        };
-      }
+      let area = options[0];
+      let genre = param;
+      let age = options[1];
+      let status = options[2];
+      // log(
+      //   "info",
+      //   this.name,
+      //   ` 加载分类漫画: ${area} | ${genre} | ${age} | ${status}`
+      // );
+      // 字符串之间用“_”连接，空字符串除外
+      let params = [area, genre, age, status].filter((e) => e != "").join("_");
+
+      let url = `${this.baseUrl}/list/${params}/index_p${page}.html`;
+
+      let document = await this.getHtml(url);
+      let maxPage = document
+        .querySelector(".result-count")
+        .querySelectorAll("strong")[1].text;
+      maxPage = parseInt(maxPage);
+      let comics = document
+        .querySelectorAll("#contList > li")
+        .map((e) => this.parseSimpleComic(e));
+      return {
+        comics,
+        maxPage,
+      };
     },
+    // provide options for category comic loading
     optionList: [
       {
-        options: ["1-更新", "2-人气"],
-        notShowWhen: null,
-        showWhen: Object.keys(Zaimanhua.categoryParamMap),
+        options: [
+          "-全部",
+          "japan-日本",
+          "hongkong-港台",
+          "other-其它",
+          "europe-欧美",
+          "china-内地",
+          "korea-韩国",
+        ],
       },
       {
         options: [
-          "0-全部",
-          "3262-少年漫画",
-          "3263-少女漫画",
-          "3264-青年漫画",
-          "13626-女青漫画",
+          "-全部",
+          "shaonv-少女",
+          "shaonian-少年",
+          "qingnian-青年",
+          "ertong-儿童",
+          "tongyong-通用",
         ],
-        notShowWhen: null,
-        showWhen: Object.keys(Zaimanhua.categoryParamMap),
       },
       {
-        options: ["0-全部", "2309-连载中", "2310-已完结", "29205-短篇"],
-        notShowWhen: null,
-        showWhen: Object.keys(Zaimanhua.categoryParamMap),
-      },
-      {
-        options: [
-          "0-全部",
-          "2304-日本",
-          "2305-韩国",
-          "2306-欧美",
-          "2307-港台",
-          "2308-内地",
-          "8435-其他",
-        ],
-        notShowWhen: null,
-        showWhen: Object.keys(Zaimanhua.categoryParamMap),
-      },
-      {
-        options: ["0-人气", "1-吐槽", "2-订阅"],
-        notshowWhen: null,
-        showWhen: ["日排行", "周排行", "月排行", "总排行"],
+        options: ["-全部", "lianzai-连载", "wanjie-完结"],
       },
     ],
-  };
-
-  //搜索
-  search = {
-    load: async (keyword, options, page) => {
-      const res = await Network.get(
-        this.buildUrl(
-          `search/index?keyword=${encodeURIComponent(
-            keyword
-          )}&page=${page}&sort=0&size=20`
-        ),
-        this.headers
-      );
-      // 检查响应体是否为字符串类型
-      if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-      }
-      const data = JSON.parse(res.body).data.list;
-      return {
-        comics: data.map((item) => this.parseComic(item)),
-      };
-    },
-    optionList: [],
-  };
-
-  //收藏
-  favorites = {
-    multiFolder: false,
-    addOrDelFavorite: async (comicId, folderId, isAdding) => {
-      const path = isAdding ? "add" : "del";
-      const res = await Network.get(
-        this.buildUrl(`comic/sub/${path}?comic_id=${comicId}`),
-        this.headers
-      );
-      // 检查响应体是否为字符串类型
-      if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-      }
-      const data = JSON.parse(res.body);
-      if (data.errno !== 0) {
-        throw new Error(data.errmsg || "操作失败");
-      }
-      return "ok";
-    },
-    loadComics: async (page) => {
-      try {
-        const res = await Network.get(
-          this.buildUrl(`comic/sub/list?status=0&page=${page}&size=20`),
-          this.headers
-        );
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
-        const data = JSON.parse(res.body).data;
+    ranking: {
+      // 对于单个选项，使用“-”分隔值和文本，左侧为值，右侧为文本
+      options: [
+        "-最新发布",
+        "update-最新更新",
+        "view-人气最旺",
+        "rate-评分最高",
+      ],
+      /**
+       * 加载排行榜漫画
+       * @param option {string} - 来自optionList的选项
+       * @param page {number} - 页码
+       * @returns {Promise<{comics: Comic[], maxPage: number}>}
+       */
+      load: async (option, page) => {
+        let url = `${this.baseUrl}/list/${option}_p${page}.html`;
+        let document = await this.getHtml(url);
+        let maxPage = document
+          .querySelector(".result-count")
+          .querySelectorAll("strong")[1].text;
+        maxPage = parseInt(maxPage);
+        let comics = document
+          .querySelector("#contList")
+          .querySelectorAll("li")
+          .map((e) => this.parseComic(e));
         return {
-          comics: data.subList.map((item) => this.parseComic(item)) ?? [],
-          maxPage: Math.ceil(data.total / 20),
+          comics,
+          maxPage,
         };
-      } catch (e) {
-        console.error("加载收藏失败:", e);
-        return { comics: [], maxPage: null };
-      }
+      },
     },
   };
 
-  // 时间戳转换
-  formatTimestamp(ts) {
-    const date = new Date(ts * 1000);
-    return date.toISOString().split("T")[0];
+  /**
+   * 专门解析搜索结果页面中的漫画信息
+   * @param {HTMLElement} item - 搜索结果中的单个漫画项
+   * @returns {Comic} - 解析后的漫画对象
+   */
+  parseSearchComic(item) {
+    try {
+      // 获取漫画链接和ID
+      let linkElement = item.querySelector(".book-detail dl dt a");
+      if (!linkElement) return null;
+      
+      let url = linkElement.attributes["href"];
+      let id = url.split("/")[2];
+      let title = linkElement.text.trim();
+      
+      // 获取封面图片
+      let coverElement = item.querySelector(".book-cover .bcover img");
+      let cover = coverElement ? coverElement.attributes["src"] : null;
+      if (cover) {
+        cover = cover.startsWith("//") ? `https:${cover}` : cover;
+      }
+      
+      // 获取更新状态和描述
+      let statusElement = item.querySelector(".tags.status span .red");
+      let status = statusElement ? statusElement.text.trim() : "";
+      
+      let updateElement = item.querySelector(".tags.status span .red:nth-child(2)");
+      let updateTime = updateElement ? updateElement.text.trim() : "";
+      
+      // 获取评分信息
+      let scoreElement = item.querySelector(".book-score .score-avg strong");
+      let score = scoreElement ? scoreElement.text.trim() : "";
+      
+      // 获取作者信息
+      let authorElements = item.querySelectorAll(".tags a[href*='/author/']");
+      let author = authorElements.length > 0 
+        ? authorElements.map(a => a.text.trim()).join(", ") 
+        : "";
+      
+      // 获取类型信息
+      let typeElements = item.querySelectorAll(".tags a[href*='/list/']");
+      let types = typeElements.length > 0 
+        ? typeElements.map(a => a.text.trim())
+        : [];
+      
+      // 获取简介
+      let introElement = item.querySelector(".intro span");
+      let description = introElement ? introElement.text.replace("简介：", "").trim() : "";
+      
+      // 如果简介为空，使用更新状态作为描述
+      if (!description && status) {
+        description = `状态: ${status}`;
+        if (updateTime) description += `, 更新: ${updateTime}`;
+      }
+      
+      return new Comic({
+        id,
+        title,
+        cover,
+        description,
+        tags: [...types, status],
+        author,
+        score
+      });
+    } catch (error) {
+      console.error("解析搜索结果项时出错:", error);
+      return null;
+    }
   }
 
-  //漫画详情
-  comic = {
-    loadInfo: async (id) => {
-      const getFavoriteStatus = async (id) => {
-        let res = await Network.get(
-          this.buildUrl(`comic/sub/checkIsSub?objId=${id}&source=1`),
-          this.headers
-        );
-        this.checkResponseStatus(res);
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
-        return JSON.parse(res.body).data.isSub;
-      };
-      let results = await Promise.all([
-        Network.get(
-          this.buildUrl(`comic/detail/${id}?channel=android`),
-          this.headers
-        ),
-        getFavoriteStatus.bind(this)(id),
-      ]);
-      // 检查响应体是否为字符串类型
-      if (typeof results[0].body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof results[0].body}`);
-      }
-      const response = JSON.parse(results[0].body);
-      if (response.errno !== 0) throw new Error(response.errmsg || "加载失败");
-      const data = response.data.data;
-
-      function processChapters(groups) {
-        const result = new Map();
-        (groups || []).forEach((group) => {
-          const groupTitle = group.title || "默认";
-          (group.data || []).reverse().forEach((ch, index) => {
-            const chapterId = String(ch.chapter_id);
-            const chapterTitle = `${ch.chapter_title.replace(
-              /^(?:连载版?)?(\d+\.?\d*)([话卷])?$/,
-              (_, n, t) => `第${n}${t || "话"}`
-            )}`;
-            // 使用组合键确保唯一性
-            result.set(chapterId, chapterTitle);
-          });
-        });
-        return result;
-      }
-      // 分类标签
-      const { authors, status, types } = data;
-      const tagMapper = (arr) => arr.map((t) => t.tag_name);
-      return {
-        title: data.title,
-        cover: data.cover,
-        description: data.description,
-        tags: {
-          "作者": tagMapper(authors),
-          "状态": [...tagMapper(status), data.last_update_chapter_name],
-          "标签": tagMapper(types),
-        },
-        updateTime: this.formatTimestamp(data.last_updatetime),
-        chapters: processChapters(data.chapters),
-        isFavorite: results[1],
-        subId: id,
-      };
-    },
-    loadEp: async (comicId, epId) => {
-      const res = await Network.get(
-        this.buildUrl(`comic/chapter/${comicId}/${epId}`)
-      );
-      // 检查响应体是否为字符串类型
-      if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-      }
-      const data = JSON.parse(res.body).data.data;
-      return { images: data.page_url_hd || data.page_url };
-    },
-    
-    loadComments: async (comicId, subId, page, replyTo) => {
-      try {
-        // 构建请求URL
-        const url = this.buildUrl(
-          `comment/list?page=${page}&size=30&type=4&objId=${
-            subId || comicId
-          }&sortBy=1`
-        );
-        const res = await Network.get(url, this.headers);
-        this.checkResponseStatus(res);
-
-        const response = JSON.parse(res.body);
-        const data = response.data;
-
-        /* 空数据检查 */
-        if (!data || !data.commentIdList || !data.commentList) {
-          // 使用this.UI或降级到console.log
-          if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
-            this.UI.showMessage("暂时没有评论，快来发表第一条吧~");
-          } else {
-            console.log("暂时没有评论，快来发表第一条吧~");
+  /// search related
+  search = {
+    /**
+     * load search result
+     * @param keyword {string}
+     * @param options {string[]} - options from optionList
+     * @param page {number}
+     * @returns {Promise<{comics: Comic[], maxPage: number}>}
+     */
+    load: async (keyword, options, page) => {
+      let url = ""
+      if (options[0]) {
+        let type = options[0].split("-")[0];
+          if (type == '0') {
+              url = `${this.baseUrl}/s/${keyword}_p${page}.html`;
+          } else{
+            url = `${this.baseUrl}/s/${keyword}_o${type}_p${page}.html`;
           }
-          return { comments: [], maxPage: 0 };
-        }
-
-        /* 处理评论ID列表 */
-        // 标准化ID数组：处理null/字符串/数组等多种情况
-        const rawIds = Array.isArray(data.commentIdList)
-          ? data.commentIdList
-          : [];
-
-        // 展开所有ID并过滤无效值
-        const allCommentIds = rawIds
-          .map((idStr) => `${idStr || ""}`.split(",")) // 转换为字符串再分割
-          .flat()
-          .filter((id) => id.trim() !== "");
-
-        // 最终ID处理流程
-        const processComments = () => {
-          // 去重并验证ID有效性
-          const validIds = [...new Set(allCommentIds)].filter((id) =>
-            data.commentList.hasOwnProperty(id)
-          );
-
-          // 过滤回复评论
-          const filteredIds = replyTo
-            ? validIds.filter(
-                (id) => data.commentList[id]?.to_comment_id == replyTo
-              )
-            : validIds;
-
-          // 转换为评论对象
-          return filteredIds.map((id) => {
-            const comment = data.commentList[id];
-            return new Comment({
-              userName: comment.nickname || "匿名用户",
-              avatar: comment.photo || "",
-              content: comment.content || "[内容已删除]",
-              time: this.formatTimestamp(comment.create_time),
-              replyCount: comment.reply_amount || 0,
-              score: comment.like_amount || 0,
-              id: String(id),
-              parentId: comment.to_comment_id || null,
-            });
-          });
-        };
-
-        // 当没有有效评论时显示提示
-        const comments = processComments();
-        if (comments.length === 0) {
-          // 使用this.UI或降级到console.log
-          if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
-            this.UI.showMessage(replyTo ? "该评论暂无回复" : "这里还没有评论哦~");
-          } else {
-            console.log(replyTo ? "该评论暂无回复" : "这里还没有评论哦~");
-          }
-        }
-
+      }else{
+          url = `${this.baseUrl}/s/${keyword}_p${page}.html`;
+      }
+      let document = await this.getHtml(url);
+      
+      // 检查是否有结果计数元素
+      let resultCount = document.querySelector(".result-count");
+      if (!resultCount) {
+        // 没有搜索结果或页面结构不同
         return {
-          comments: comments,
-          maxPage: Math.ceil((data.total || 0) / 30),
+          comics: [],
+          maxPage: 1
         };
-      } catch (e) {
-        console.error("评论加载失败:", e);
-        // 使用this.UI或降级到console.log
-        if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
-          this.UI.showMessage(`加载评论失败: ${e.message}`);
-        } else {
-          console.log(`加载评论失败: ${e.message}`);
+      }
+      
+      let comicNum = resultCount.querySelectorAll("strong")[1].text;
+      comicNum = parseInt(comicNum);
+      // 每页10个
+      let maxPage = Math.ceil(comicNum / 10);
+
+      // 在搜索结果页面中，漫画列表位于 .book-result ul 下
+      let comicList = document.querySelector(".book-result ul");
+      if (!comicList) {
+        return {
+          comics: [],
+          maxPage: maxPage || 1
+        };
+      }
+      
+      // 使用专门的搜索解析函数解析每个漫画项
+      let comics = comicList.querySelectorAll("li.cf")
+        .map(item => this.parseSearchComic(item))
+        .filter(comic => comic !== null); // 过滤掉解析失败的项
+      
+      return {
+        comics,
+        maxPage,
+      };
+    },
+
+    optionList: [
+      {
+        type: "select",
+        options: ["0-最新更新", "1-最近最热","2-最新上架", "3-评分最高"],
+        label: "sort",
+        default: null,
+      },
+    ],
+
+    enableTagsSuggestions: false,
+  };
+
+  /// single comic related
+  comic = {
+    /**
+     * load comic info
+     * @param id {string}
+     * @returns {Promise<ComicDetails>}
+     */
+    loadInfo: async (id) => {
+      let url = `${this.baseUrl}/comic/${id}/`;
+      let document = await this.getHtml(url);
+      // ANCHOR 基本信息
+      let book = document.querySelector(".book-cont");
+      let title = book
+        .querySelector(".book-title")
+        .querySelector("h1")
+        .text.trim();
+      let subtitle = book
+        .querySelector(".book-title")
+        .querySelector("h2")
+        .text.trim();
+      let cover = book.querySelector(".hcover").querySelector("img").attributes[
+        "src"
+      ];
+      cover = `https:${cover}`;
+      let description = book
+        .querySelector("#intro-all")
+        .querySelectorAll("p")
+        .map((e) => e.text.trim())
+        .join("\n");
+      //   log("warn", this.name, { title, subtitle, cover, description });
+
+      let detail_list = book.querySelectorAll(".detail-list span");
+
+      function parseDetail(idx) {
+        let ele = detail_list[idx].querySelectorAll("a");
+        if (ele.length > 0) {
+          return ele.map((e) => e.text.trim());
         }
-        return { comments: [], maxPage: 0 };
+        return [""];
       }
-    },
-  
-    // 发送评论, 返回任意值表示成功.
-    sendComment: async (comicId, subId, content, replyTo) => {
-      if (!replyTo) {
-        replyTo = 0;
+      let createYear = parseDetail(0);
+      let area = parseDetail(1);
+      let genre = parseDetail(3);
+      let author = parseDetail(4);
+      // let alias = parseDetail(5);
+
+      //   let lastChapter = parseDetail(6);
+      let status = detail_list[7].text.trim();
+
+      // 确保tags对象中的所有值都是字符串数组，与ikmmh.js保持一致
+      let tags = {
+        "作者": author.length > 0 ? author.map(item => item.toString()) : ['未知'],
+        "状态": [status.toString()],
+        "地区": area.length > 0 ? area.map(item => item.toString()) : ['未知'],
+        "类型": genre.length > 0 ? genre.map(item => item.toString()) : ['未知'],
+        "年代": createYear.length > 0 ? createYear.map(item => item.toString()) : ['未知'],
+      };
+      let updateTime = detail_list[8].text.trim();
+
+      // ANCHOR 章节信息
+      // 支持多分组
+      let chaptersMap = new Map();
+      
+      // 查找所有章节分组标题
+      let chapterGroups = document.querySelectorAll(".chapter h4 span");
+      
+      // 处理每个分组
+      for (let i = 0; i < chapterGroups.length; i++) {
+        let groupName = chapterGroups[i].text.trim();
+        let groupChapters = new Map();
+        
+        // 获取对应的章节列表
+        let chapterList = document.querySelectorAll(".chapter-list")[i];
+        if (chapterList) {
+          let lis = chapterList.querySelectorAll("li");
+          for (let li of lis) {
+            let a = li.querySelector("a");
+            let id = a.attributes["href"].split("/").pop().replace(".html", "");
+            let title = a.querySelector("span").text.trim();
+            groupChapters.set(id, title);
+          }
+          
+          // 章节升序排列
+          groupChapters = new Map([...groupChapters].sort((a, b) => a[0] - b[0]));
+          
+          // 将分组添加到总的章节映射中
+          chaptersMap.set(groupName, groupChapters);
+        }
       }
-      let res = await Network.post(
-        this.buildUrl(`comment/add`),
-        {
-          ...this.headers,
-          "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
-        },
-        `obj_id=${subId}&content=${encodeURIComponent(
-          content
-        )}&to_comment_id=${replyTo}&type=4`
-      );
-      this.checkResponseStatus(res);
-      let response = JSON.parse(res.body);
-      if (response.errno !== 0) throw new Error(response.errmsg || "加载失败");
-      return "ok";
+      
+      // 兼容旧版本，如果app版本不支持多分组，则合并所有分组
+      let chapters;
+      if (this.isAppVersionAfter && this.isAppVersionAfter("1.3.0")) {
+        // 支持多分组
+        chapters = chaptersMap;
+      } else {
+        // 合并所有分组
+        chapters = new Map();
+        for (let [_, groupChapters] of chaptersMap) {
+          for (let [id, title] of groupChapters) {
+            chapters.set(id, title);
+          }
+        }
+        // 章节升序
+        chapters = new Map([...chapters].sort((a, b) => a[0] - b[0]));
+      }
+
+      //ANCHOR - 推荐
+      let recommend = [];
+      let similar = document.querySelector(".similar-list");
+      if (similar) {
+        let similar_list = similar.querySelectorAll("li");
+        for (let li of similar_list) {
+            let comic = this.parseSimpleComic(li);
+            recommend.push(comic);
+        }
+      }
+
+      // 创建并返回ComicDetails对象
+      return {
+        title: title,
+        cover: cover,
+        description: description,
+        tags: tags,
+        chapters: chapters,
+        suggestions: recommend,
+        updateTime: updateTime
+      };
     },
-    // 点赞
-    likeComment: async (comicId, subId, commentId, isLike) => {
-      let res = await Network.post(
-        this.buildUrl(`comment/addLike`),
-        {
-          ...this.headers,
-          "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
-        },
-        `commentId=${commentId}&type=4`
-      );
-      this.checkResponseStatus(res);
-      return "ok";
+
+    /**
+     * load images of a chapter
+     * @param comicId {string}
+     * @param epId {string?}
+     * @returns {Promise<{images: string[]}>}
+     */
+    loadEp: async (comicId, epId) => {
+      let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
+      let document = await this.getHtml(url);
+      let scripts = document.querySelectorAll("script");
+      
+      // 优先使用参考实现的第 5 个 script 节点
+      let scriptContent = null;
+      if (scripts.length > 4) {
+        scriptContent = scripts[4].innerHTML;
+      }
+
+      // 回退：尝试查找包含 'p,a,c,k,e,d' 的脚本
+      if (!scriptContent) {
+        for (let i = 0; i < scripts.length; i++) {
+          const html = scripts[i].innerHTML;
+          if (html && html.includes('p,a,c,k,e,d')) {
+            scriptContent = html;
+            break;
+          }
+        }
+      }
+
+      // 仍然没有：将所有非空脚本合并后尝试一次
+      if (!scriptContent) {
+        scriptContent = scripts.map(s => s.innerHTML).filter(Boolean).join('\n');
+      }
+
+      const infos = this.getImgInfos(scriptContent);
+      if (!infos || !infos.files || infos.files.length === 0) {
+        throw "No image script found";
+      }
+
+      // 与參考.js 保持一致的图片域名
+      const imgDomain = `https://us.hamreus.com`;
+      const images = [];
+      for (const f of infos.files) {
+        if (!f) continue;
+        const query = (infos.sl && infos.sl.e && infos.sl.m) ? `?e=${infos.sl.e}&m=${infos.sl.m}` : '';
+        images.push(`${imgDomain}${infos.path}${f}${query}`);
+      }
+      return { images };
     },
+    /**
+     * [Optional] provide configs for an image loading
+     * @param url
+     * @param comicId
+     * @param epId
+     * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
+     */
+    onImageLoad: (url, comicId, epId) => {
+      // 简化headers配置，避免复杂字段可能导致的类型转换问题
+      return {
+        headers: {
+          accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+          Referer: "https://www.manhuagui.com/",
+          cookie: "country=US", // 添加cookie以保持一致性
+        },
+      };
+    },
+    /**
+     * [Optional] provide configs for a thumbnail loading
+     * @param url {string}
+     * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
+     *
+     * `ImageLoadingConfig.modifyImage` and `ImageLoadingConfig.onLoadFailed` will be ignored.
+     * They are not supported for thumbnails.
+     */
+    onThumbnailLoad: (url) => {
+      // 简化headers配置，避免复杂字段可能导致的类型转换问题
+      let headers = {
+        accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+        Referer: "https://www.manhuagui.com/",
+        cookie: "country=US", // 添加cookie以保持一致性
+      };
+
+      return {
+        headers
+      };
+    }
   };
 }
