@@ -1,3 +1,4 @@
+
 class ManHuaGui extends ComicSource {
   // 确保Comic构造函数可用
   constructor() {
@@ -41,7 +42,7 @@ class ManHuaGui extends ComicSource {
   minAppVersion = "1.4.0";
 
   // 更新链接
-  url = "https://raw.githubusercontent.com/ccbkv/pica_configs/master/manhuagui.js";
+  url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
 
@@ -358,7 +359,7 @@ class ManHuaGui extends ComicSource {
     function extractParams(str) {
       if (!str) {
         console.error("输入字符串为空");
-        return [];
+        return ['', '', '', [], '', {}]; // 返回默认参数，避免formatData报错
       }
       let splitResult = str.split("}(");
       if (splitResult.length < 2) {
@@ -472,6 +473,18 @@ class ManHuaGui extends ComicSource {
     }
     this.getImgInfos = function (script) {
       let params = extractParams(script);
+      // 确保params有足够的元素
+      while (params.length < 6) {
+        params.push('');
+      }
+      // 确保k参数是数组
+      if (!Array.isArray(params[3])) {
+        params[3] = [];
+      }
+      // 确保d参数是对象
+      if (typeof params[5] !== 'object' || params[5] === null) {
+        params[5] = {};
+      }
       let imgData = formatData(...params);
       let imgInfos = extractFields(imgData);
       return imgInfos;
@@ -1000,16 +1013,48 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      let script = document.querySelectorAll("script")[4].innerHTML;
-      let infos = this.getImgInfos(script);
+      
+      // 更健壮地查找包含图片信息的脚本
+      let scriptContent = '';
+      let scripts = document.querySelectorAll("script");
+      for (let i = 0; i < scripts.length; i++) {
+        let script = scripts[i];
+        if (script.innerHTML && script.innerHTML.includes('window\["\_INITIAL\_STATE\_"\]')) {
+          scriptContent = script.innerHTML;
+          break;
+        }
+      }
+      
+      if (!scriptContent) {
+        // 如果没有找到目标脚本，尝试使用第5个脚本
+        if (scripts.length > 4) {
+          scriptContent = scripts[4].innerHTML;
+        } else {
+          console.error("未找到包含图片信息的脚本");
+          return { images: [] };
+        }
+      }
+      
+      let infos = this.getImgInfos(scriptContent);
 
+      // 确保infos和infos.files存在
+      if (!infos || !infos.files || !Array.isArray(infos.files)) {
+        console.error("未能正确提取图片信息");
+        return { images: [] };
+      }
+      
       // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
       let imgDomain = `https://us.hamreus.com`;
       let images = [];
       for (let f of infos.files) {
-        let imgUrl =
-          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
-        images.push(imgUrl);
+        // 确保infos.path和infos.sl存在
+        if (infos.path && infos.sl && infos.sl.e && infos.sl.m) {
+          let imgUrl = 
+            imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
+          images.push(imgUrl);
+        } else {
+          console.error("图片信息不完整");
+        }
       }
       // log("warning", this.name, images);
       return {
