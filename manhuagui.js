@@ -1,62 +1,101 @@
-class ManHuaGui extends ComicSource {
-  // Note: The fields which are marked as [Optional] should be removed if not used
 
-  // name of the source
+class ManHuaGui extends ComicSource {
+  // 确保Comic构造函数可用
+  constructor() {
+    super();
+    
+    // 检查Comic是否已定义
+    if (typeof Comic === 'undefined') {
+      // 尝试从父类获取
+      if (this.constructor.Comic) {
+        this.Comic = this.constructor.Comic;
+        console.log('从父类获取到Comic构造函数');
+      } else {
+        console.error('Comic构造函数未找到');
+        // 创建一个有效构造函数代替，避免后续调用失败
+        this.Comic = function(options) {
+          return {
+            id: options.id || '',
+            title: options.title || '',
+            cover: options.cover || '',
+            description: options.description || '',
+            tags: options.tags || [],
+            author: options.author || ''
+          };
+        };
+      }
+    } else {
+      this.Comic = Comic;
+      console.log('直接使用已定义的Comic构造函数');
+    }
+    this.init();
+  }
+
+  // 此漫画源的名称
   name = "漫画柜";
 
-  // unique id of the source
+  // 唯一标识符
   key = "ManHuaGui";
 
   version = "1.0.1";
 
   minAppVersion = "1.4.0";
 
-  // update url
-  url =
-    "https://raw.githubusercontent.com/ccbkv/pica_configs/master/manhuagui.js";
+  // 更新链接
+  url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
 
+  // 检查APP版本是否大于等于目标版本
+  // 为避免APP未定义的错误，添加了try-catch块
   isAppVersionAfter(target) {
-    if (!APP || !APP.version) return false;
-    let current = APP.version;
-    let targetArr = target.split('.');
-    let currentArr = current.split('.');
-    for (let i = 0; i < 3; i++) {
-      if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
-        return false;
+    try {
+      if (!APP || !APP.version) return false;
+      let current = APP.version;
+      let targetArr = target.split('.');
+      let currentArr = current.split('.');
+      for (let i = 0; i < Math.min(targetArr.length, currentArr.length); i++) {
+        if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
+          return false;
+        } else if (parseInt(currentArr[i]) > parseInt(targetArr[i])) {
+          return true;
+        }
       }
+      // 如果前面的版本号都相同，则当前版本大于等于目标版本
+      return true;
+    } catch (e) {
+      console.error('检查APP版本时出错:', e);
+      return false; // 出错时默认返回false
     }
-    return true;
   }
 
+  // 获取HTML内容并处理响应
   async getHtml(url) {
+    // 简化headers配置，与ikmmh.js保持一致
     let headers = {
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      priority: "u=0, i",
-      "sec-ch-ua":
-        '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-      "sec-fetch-dest": "document",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "same-origin",
-      "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      cookie: "country=US",
-      Referer: "https://www.manhuagui.com/",
-      "Referrer-Policy": "strict-origin-when-cross-origin",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "Referer": "https://www.manhuagui.com/",
     };
     let res = await Network.get(url, headers);
+    
+    // 只检查status状态
     if (res.status !== 200) {
-      throw "Invalid status code: " + res.status;
+      throw `Network error: Status code ${res.status}`;
     }
-    let document = new HtmlDocument(res.body);
-    return document;
+    
+    // 确保body不为null或空
+    let body = res.body || '';
+    if (!body.trim()) {
+      console.warn('Response body is empty');
+      body = '<!DOCTYPE html><html><head><title>Empty Response</title></head><body></body></html>';
+    }
+    
+    try {
+      return new HtmlDocument(body);
+    } catch (e) {
+      console.error('Failed to parse HTML:', e);
+      throw "Failed to parse HTML content";
+    }
   }
   parseSimpleComic(e) {
     let url = e.querySelector(".ell > a").attributes["href"];
@@ -68,7 +107,7 @@ class ManHuaGui extends ComicSource {
     }
     cover = `https:${cover}`;
     let description = e.querySelector(".tt").text.trim();
-    return new Comic({
+    return new this.Comic({
       id,
       title,
       cover,
@@ -81,11 +120,14 @@ class ManHuaGui extends ComicSource {
     let sl = e.querySelector(".sl");
     let status = sl ? "连载" : "完结";
     // 如果能够找到 <span class="updateon">更新于：2020-03-31<em>3.9</em></span> 解析 更新和评分
-    let tmp = e.querySelector(".updateon").childNodes;
-    let update = tmp[0].replace("更新于：", "").trim();
+    let tmp = e.querySelector(".updateon")?.childNodes;
+    let update = tmp ? tmp[0].replace("更新于：", "").trim() : "";
     let tags = [status, update];
+    // 尝试获取作者信息
+    let authorElement = e.querySelector(".author");
+    let author = authorElement ? authorElement.text.trim() : "";
 
-    return new Comic({
+    return new this.Comic({
       id: simple.id,
       title: simple.title,
       cover: simple.cover,
@@ -315,12 +357,59 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
-      let params_part = str.split("}(")[1].split("))")[0];
+      if (!str) {
+        console.error("输入字符串为空");
+        // 返回包含默认值的完整参数数组
+        return ['', '', '', [], '', {}];
+      }
+      let splitResult = str.split("}(");
+      if (splitResult.length < 2) {
+        console.error("无法正确分割字符串");
+        // 返回包含默认值的完整参数数组
+        return ['', '', '', [], '', {}];
+      }
+      let params_part = splitResult[1].split("))")[0];
+      if (!params_part) {
+        console.error("无法提取参数部分");
+        // 返回包含默认值的完整参数数组
+        return ['', '', '', [], '', {}];
+      }
       let params = splitParams(params_part);
+      if (!params || params.length === 0) {
+        console.error("splitParams返回空数组");
+        // 返回包含默认值的完整参数数组
+        return ['', '', '', [], '', {}];
+      }
       params[5] = {};
-      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
-        "|"
-      );
+      try {
+        if (params.length > 3 && params[3]) {
+          // 确保params[3]是字符串类型
+          if (typeof params[3] !== 'string') {
+            console.error("params[3]不是字符串类型:", typeof params[3]);
+            params[3] = [];
+          } else {
+            let compressedData = params[3].split("'");
+            if (compressedData.length < 2) {
+              console.error("无法提取压缩数据");
+              params[3] = [];
+            } else {
+              let decompressed = LZString.decompressFromBase64(compressedData[1]);
+              // 确保解压后的数据是字符串类型
+              if (typeof decompressed !== 'string') {
+                console.error("解压后的数据不是字符串类型:", typeof decompressed);
+                params[3] = [];
+              } else {
+                params[3] = decompressed.split("|");
+              }
+            }
+          }
+        } else {
+          params[3] = [];
+        }
+      } catch (e) {
+        console.error("解压params[3]失败:", e);
+        params[3] = [];
+      }
       return params;
     }
 
@@ -388,6 +477,18 @@ class ManHuaGui extends ComicSource {
     }
     this.getImgInfos = function (script) {
       let params = extractParams(script);
+      // 确保params有足够的元素
+      while (params.length < 6) {
+        params.push('');
+      }
+      // 确保k参数是数组
+      if (!Array.isArray(params[3])) {
+        params[3] = [];
+      }
+      // 确保d参数是对象
+      if (typeof params[5] !== 'object' || params[5] === null) {
+        params[5] = {};
+      }
       let imgData = formatData(...params);
       let imgInfos = extractFields(imgData);
       return imgInfos;
@@ -826,12 +927,13 @@ class ManHuaGui extends ComicSource {
       //   let lastChapter = parseDetail(6);
       let status = detail_list[7].text.trim();
 
+      // 确保tags对象中的所有值都是字符串数组，与ikmmh.js保持一致
       let tags = {
-        年代: createYear,
-        状态: [status],
-        作者: author,
-        地区: area,
-        类型: genre,
+        "作者": author.length > 0 ? author.map(item => item.toString()) : ['未知'],
+        "状态": [status.toString()],
+        "地区": area.length > 0 ? area.map(item => item.toString()) : ['未知'],
+        "类型": genre.length > 0 ? genre.map(item => item.toString()) : ['未知'],
+        "年代": createYear.length > 0 ? createYear.map(item => item.toString()) : ['未知'],
       };
       let updateTime = detail_list[8].text.trim();
 
@@ -889,21 +991,21 @@ class ManHuaGui extends ComicSource {
       if (similar) {
         let similar_list = similar.querySelectorAll("li");
         for (let li of similar_list) {
-          let comic = this.parseSimpleComic(li);
-          recommend.push(comic);
+            let comic = this.parseSimpleComic(li);
+            recommend.push(comic);
         }
       }
 
-      return new ComicDetails({
-        title,
-        subtitle,
-        cover,
-        description,
-        tags,
-        updateTime,
-        chapters,
-        recommend,
-      });
+      // 创建并返回ComicDetails对象
+      return {
+        title: title,
+        cover: cover,
+        description: description,
+        tags: tags,
+        chapters: chapters,
+        suggestions: recommend,
+        updateTime: updateTime
+      };
     },
 
     /**
@@ -913,18 +1015,106 @@ class ManHuaGui extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
-      let document = await this.getHtml(url);
-      let script = document.querySelectorAll("script")[4].innerHTML;
-      let infos = this.getImgInfos(script);
+        let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
+        let document = await this.getHtml(url);
+        
+        // 更健壮地查找包含图片信息的脚本
+        let scriptContent = '';
+        let scripts = document.querySelectorAll("script");
+        let foundPattern = '';
+        
+        // 增加更多搜索模式
+        const patterns = [
+          { regex: 'window\["\_INITIAL\_STATE\_"\]', name: 'INITIAL_STATE' },
+          { regex: 'eval\(function\(p,a,c,k,e,d\)', name: 'EVAL_FUNCTION' },
+          { regex: '\(function\(p,a,c,k,e,d\)', name: 'FUNCTION' },
+          { regex: 'chapterImages', name: 'CHAPTER_IMAGES' },
+          { regex: 'imageList', name: 'IMAGE_LIST' },
+          { regex: 'pic_url', name: 'PIC_URL' },
+          { regex: 'imgDomain', name: 'IMG_DOMAIN' }
+        ];
+        
+        // 尝试匹配模式
+        for (let { regex, name } of patterns) {
+          for (let i = 0; i < scripts.length; i++) {
+            let script = scripts[i];
+            if (script.innerHTML && script.innerHTML.includes(regex)) {
+              scriptContent = script.innerHTML;
+              foundPattern = name;
+              console.log(`找到匹配模式 ${name} 的脚本，索引: ${i}`);
+              break;
+            }
+          }
+          if (scriptContent) break;
+        }
+        
+        // 如果没有找到特定模式的脚本，尝试其他策略
+        if (!scriptContent) {
+          console.warn("未找到匹配特定模式的脚本，尝试备选策略");
+          
+          // 策略1: 查找最后一个非空脚本
+          for (let i = scripts.length - 1; i >= 0; i--) {
+            let script = scripts[i];
+            if (script.innerHTML && script.innerHTML.length > 100) {
+              scriptContent = script.innerHTML;
+              console.log(`使用最后一个非空脚本，索引: ${i}`);
+              break;
+            }
+          }
+          
+          // 策略2: 查找包含大量字符的脚本
+          if (!scriptContent) {
+            let maxLength = 0;
+            let maxIndex = -1;
+            for (let i = 0; i < scripts.length; i++) {
+              let script = scripts[i];
+              if (script.innerHTML && script.innerHTML.length > maxLength) {
+                maxLength = script.innerHTML.length;
+                maxIndex = i;
+              }
+            }
+            if (maxIndex !== -1) {
+              scriptContent = scripts[maxIndex].innerHTML;
+              console.log(`使用最长脚本，索引: ${maxIndex}，长度: ${maxLength}`);
+            }
+          }
+          
+          if (!scriptContent) {
+            console.error("未找到包含图片信息的脚本");
+            // 记录所有脚本的特征，便于调试
+            console.error(`脚本总数: ${scripts.length}`);
+            scripts.forEach((script, index) => {
+              if (script.innerHTML) {
+                console.error(`脚本 ${index}: 长度=${script.innerHTML.length}, 包含eval=${script.innerHTML.includes('eval')}, 包含function=${script.innerHTML.includes('function')}`);
+              }
+            });
+            return { images: [] };
+          }
+        }
+        
+        // 输出找到的脚本信息
+        console.log(`成功找到脚本，模式: ${foundPattern || '未知'}, 长度: ${scriptContent.length}`);
+      
+      let infos = this.getImgInfos(scriptContent);
 
+      // 确保infos和infos.files存在
+      if (!infos || !infos.files || !Array.isArray(infos.files)) {
+        console.error("未能正确提取图片信息");
+        return { images: [] };
+      }
+      
       // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
       let imgDomain = `https://us.hamreus.com`;
       let images = [];
       for (let f of infos.files) {
-        let imgUrl =
-          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
-        images.push(imgUrl);
+        // 确保infos.path和infos.sl存在
+        if (infos.path && infos.sl && infos.sl.e && infos.sl.m) {
+          let imgUrl = 
+            imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
+          images.push(imgUrl);
+        } else {
+          console.error("图片信息不完整");
+        }
       }
       // log("warning", this.name, images);
       return {
@@ -939,24 +1129,13 @@ class ManHuaGui extends ComicSource {
      * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
      */
     onImageLoad: (url, comicId, epId) => {
+      // 简化headers配置，避免复杂字段可能导致的类型转换问题
       return {
         headers: {
-          accept:
-            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-          "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-          "cache-control": "no-cache",
-          pragma: "no-cache",
-          priority: "i",
-          "sec-ch-ua":
-            '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
-          "sec-ch-ua-mobile": "?0",
-          "sec-ch-ua-platform": '"Windows"',
-          "sec-fetch-dest": "image",
-          "sec-fetch-mode": "no-cors",
-          "sec-fetch-site": "cross-site",
-          "sec-fetch-storage-access": "active",
+          accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
           Referer: "https://www.manhuagui.com/",
-          "Referrer-Policy": "strict-origin-when-cross-origin",
+          cookie: "country=US", // 添加cookie以保持一致性
         },
       };
     },
@@ -969,28 +1148,17 @@ class ManHuaGui extends ComicSource {
      * They are not supported for thumbnails.
      */
     onThumbnailLoad: (url) => {
+      // 简化headers配置，避免复杂字段可能导致的类型转换问题
       let headers = {
-        accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-        "cache-control": "no-cache",
-        pragma: "no-cache",
-        priority: "u=0, i",
-        "sec-ch-ua":
-          '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"Windows"',
-        "sec-fetch-dest": "document",
-        "sec-fetch-mode": "navigate",
-        "sec-fetch-site": "none",
-        "sec-fetch-user": "?1",
-        "upgrade-insecure-requests": "1",
-        "Referrer-Policy": "strict-origin-when-cross-origin",
+        accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+        Referer: "https://www.manhuagui.com/",
+        cookie: "country=US", // 添加cookie以保持一致性
       };
 
       return {
-        headers,
+        headers
       };
-    },
+    }
   };
 }
