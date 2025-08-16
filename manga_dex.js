@@ -180,21 +180,27 @@ class MangaDex extends ComicSource {
             // title is used to identify the page, it should be unique
             title: "Manga Dex",
 
-            /// singlePageWithMultiPart or multiPageComicList
+            /// singlePageWithMultiPart type is supported
             type: "singlePageWithMultiPart",
 
             load: async () => {
+                // For singlePageWithMultiPart, we don't use page parameter
+                // Just load the first page
                 let res = await Promise.all([
                     this.api.getPopular(1),
                     this.api.getRecent(1),
                     this.api.getUpdated(1)
                 ])
-                let data = {
-                    "Popular": res[0].comics,
-                    "Recent": res[1].comics,
-                    "Updated": res[2].comics
+                let titles = ["Popular", "Recent", "Updated"]
+                let parts = []
+                for (let i = 0; i < res.length; i++) {
+                    let part = res[i]
+                    parts.push({
+                        title: titles[i],
+                        comics: part.comics
+                    })
                 }
-                return data
+                return parts
             },
         }
     ]
