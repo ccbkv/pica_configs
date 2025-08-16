@@ -401,7 +401,8 @@ class Comick extends ComicSource {
                 ? "https://comick.io/home2"
                 : this.baseUrl;
 
-            let res = await Network.get(url);
+            let headers = Comick.getRandomHeaders();
+            let res = await Network.get(url, { headers });
             if (res.status !== 200) throw "Request Error: " + res.status;
 
             let document = new HtmlDocument(res.body);
@@ -457,7 +458,8 @@ class Comick extends ComicSource {
 
             url += params.join('&');
 
-            let res = await Network.get(url);
+            let headers = Comick.getRandomHeaders();
+            let res = await Network.get(url, { headers });
             if (res.status !== 200) throw "Request Error: " + res.status;
 
             let mangaList = JSON.parse(res.body);
@@ -479,7 +481,8 @@ class Comick extends ComicSource {
     search = {
         load: async (keyword, options, page) => {
             let url = `https://api.comick.io/v1.0/search?q=${keyword}&limit=49&page=${page}`;
-            let res = await Network.get(url);
+            let headers = Comick.getRandomHeaders();
+            let res = await Network.get(url, { headers });
             if (res.status !== 200) throw "Request Error: " + res.status;
 
             let mangaList = JSON.parse(res.body);
