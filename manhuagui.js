@@ -321,11 +321,6 @@ class ManHuaGui extends ComicSource {
     })();
 
     function splitParams(str) {
-      // 检查str参数是否为undefined或空字符串
-      if (!str) {
-        console.error("splitParams输入字符串为空或undefined");
-        return [];
-      }
       let params = [];
       let currentParam = "";
       let stack = [];
@@ -361,9 +356,8 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
-      // 检查参数是否为undefined或空字符串
       if (!str) {
-        console.error("extractParams输入字符串为空或undefined");
+        console.error("输入字符串为空");
         return [];
       }
       let splitResult = str.split("}(");
@@ -415,11 +409,6 @@ class ManHuaGui extends ComicSource {
     }
 
     function formatData(p, a, c, k, e, d) {
-      // 检查参数是否为undefined
-      if (p === undefined || a === undefined || c === undefined || k === undefined || e === undefined || d === undefined) {
-        console.error("formatData参数为undefined:", { p, a, c, k, e, d });
-        return "";
-      }
       e = function (c) {
         return (
           (c < a ? "" : e(parseInt(c / a))) +
@@ -443,11 +432,6 @@ class ManHuaGui extends ComicSource {
       return p;
     }
     function extractFields(text) {
-      // 检查参数是否为undefined或空字符串
-      if (!text) {
-        console.error("extractFields输入字符串为空或undefined");
-        return {};
-      }
       // 创建一个对象存储提取的结果
       const result = {};
 
@@ -487,30 +471,8 @@ class ManHuaGui extends ComicSource {
       return result;
     }
     this.getImgInfos = function (script) {
-      // 检查script参数是否为undefined或空字符串
-      if (!script) {
-        console.error("getImgInfos输入字符串为空或undefined");
-        return {};
-      }
       let params = extractParams(script);
-      // 检查params是否为空或长度不足
-      if (!params || params.length < 6) {
-        console.error("extractParams返回的参数不足:", params);
-        return {};
-      }
-      // 检查params中的每个元素是否为undefined
-      for (let i = 0; i < params.length; i++) {
-        if (params[i] === undefined) {
-          console.error(`params[${i}] is undefined`);
-          return {};
-        }
-      }
       let imgData = formatData(...params);
-      // 检查imgData是否为undefined或空字符串
-      if (!imgData) {
-        console.error("formatData返回的数据为空或undefined");
-        return {};
-      }
       let imgInfos = extractFields(imgData);
       return imgInfos;
     };
@@ -1038,30 +1000,8 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      // 检查document是否为undefined
-      if (!document) {
-        console.error("无法获取章节页面");
-        return { images: [] };
-      }
-      let scripts = document.querySelectorAll("script");
-      // 检查scripts是否为空或长度不足
-      if (!scripts || scripts.length < 5) {
-        console.error("页面中script标签数量不足");
-        return { images: [] };
-      }
-      let script = scripts[4].innerHTML; // 使用第5个script标签(索引为4)
-      // 检查script是否为undefined或空字符串
-      if (!script) {
-        console.error("无法获取script内容");
-        return { images: [] };
-      }
+      let script = document.querySelectorAll("script")[4].innerHTML;
       let infos = this.getImgInfos(script);
-      
-      // 检查infos是否为undefined或infos.files是否为undefined
-      if (!infos || !infos.files) {
-        console.error("infos或infos.files为undefined:", infos);
-        return { images: [] };
-      }
 
       // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
       let imgDomain = `https://us.hamreus.com`;
