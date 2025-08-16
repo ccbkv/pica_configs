@@ -17,7 +17,7 @@ class YKMHSource extends ComicSource {
     explore = [
         {
             title: "优酷漫画",
-            type: "multiPartPage",
+            type: "multiPageComicList",
 
             load: async (page) => {
                 let res = await Network.get("https://www.ykmh.net", {
@@ -83,19 +83,12 @@ class YKMHSource extends ComicSource {
                     return latestComics.slice(0, 15) 
                 }
 
-                let hotComics = parseHotCarousel(res.body)
-                let latestComics = parseLatestComics(res.body)
-
-                return [
-                    {
-                        title: "热门推荐",
-                        comics: hotComics
-                    },
-                    {
-                        title: "最新更新",
-                        comics: latestComics
-                    }
-                ]
+                let comics = parseLatestComics(res.body)
+                let maxPage = 1
+                return {
+                    comics: comics,
+                    maxPage: maxPage
+                }
             }
         }
     ]
