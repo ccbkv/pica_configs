@@ -357,12 +357,56 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
-      let params_part = str.split("}(")[1].split("))")[0];
+      // 增强错误处理，确保始终返回一个有效的参数数组
+      if (!str) {
+        console.error("输入字符串为空");
+        return ['', 0, 0, [], {}, {}]; // 返回默认参数
+      }
+      let splitResult = str.split("}(");
+      if (splitResult.length < 2) {
+        console.error("无法正确分割字符串");
+        return ['', 0, 0, [], {}, {}]; // 返回默认参数
+      }
+      let params_part = splitResult[1].split("))")[0];
+      if (!params_part) {
+        console.error("无法提取参数部分");
+        return ['', 0, 0, [], {}, {}]; // 返回默认参数
+      }
       let params = splitParams(params_part);
+      if (!params || params.length === 0) {
+        console.error("splitParams返回空数组");
+        return ['', 0, 0, [], {}, {}]; // 返回默认参数
+      }
       params[5] = {};
-      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
-        "|"
-      );
+      try {
+        if (params.length > 3 && params[3]) {
+          // 确保params[3]是字符串类型
+          if (typeof params[3] !== 'string') {
+            console.error("params[3]不是字符串类型:", typeof params[3]);
+            params[3] = [];
+          } else {
+            let compressedData = params[3].split("'");
+            if (compressedData.length < 2) {
+              console.error("无法提取压缩数据");
+              params[3] = [];
+            } else {
+              let decompressed = LZString.decompressFromBase64(compressedData[1]);
+              // 确保解压后的数据是字符串类型
+              if (typeof decompressed !== 'string') {
+                console.error("解压后的数据不是字符串类型:", typeof decompressed);
+                params[3] = [];
+              } else {
+                params[3] = decompressed.split("|");
+              }
+            }
+          }
+        } else {
+          params[3] = [];
+        }
+      } catch (e) {
+        console.error("解压params[3]失败:", e);
+        params[3] = [];
+      }
       return params;
     }
 
@@ -958,44 +1002,100 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      let scripts = document.querySelectorAll("script");
       
-      // 优先使用参考实现的第 5 个 script 节点
+      // 寻找包含图片信息的脚本
+      let scripts = document.querySelectorAll("script");
       let scriptContent = null;
-      if (scripts.length > 4) {
-        scriptContent = scripts[4].innerHTML;
-      }
-
-      // 回退：尝试查找包含 'p,a,c,k,e,d' 的脚本
-      if (!scriptContent) {
-        for (let i = 0; i < scripts.length; i++) {
-          const html = scripts[i].innerHTML;
-          if (html && html.includes('p,a,c,k,e,d')) {
-            scriptContent = html;
-            break;
-          }
+      let validScripts = [];
+      
+      console.log(`找到 ${scripts.length} 个脚本标签`);
+      
+      // 策略1: 尝试寻找包含window["_INITIAL_STATE_"]的脚本
+      for (let i = 0; i < scripts.length; i++) {
+        let script = scripts[i].innerHTML;
+        if (script && script.includes("window['_INITIAL_STATE_']")) {
+          console.log(`策略1: 在索引 ${i} 找到包含window['_INITIAL_STATE_']的脚本`);
+          validScripts.push({index: i, content: script, strategy: "window_INITIAL_STATE"});
         }
       }
-
-      // 仍然没有：将所有非空脚本合并后尝试一次
-      if (!scriptContent) {
-        scriptContent = scripts.map(s => s.innerHTML).filter(Boolean).join('\n');
+      
+      // 策略2: 寻找包含关键图片信息字段的脚本
+      for (let i = 0; i < scripts.length; i++) {
+        let script = scripts[i].innerHTML;
+        if (script && (script.includes("files") && script.includes("path") && script.includes("sl"))) {
+          console.log(`策略2: 在索引 ${i} 找到包含图片信息字段的脚本`);
+          validScripts.push({index: i, content: script, strategy: "image_fields"});
+        }
       }
-
-      const infos = this.getImgInfos(scriptContent);
-      if (!infos || !infos.files || infos.files.length === 0) {
-        throw "No image script found";
+      
+      // 策略3: 参考參考.js使用第4个脚本
+      if (scripts.length >= 5) {
+        let script = scripts[4].innerHTML;
+        if (script) {
+          console.log("策略3: 使用第4个脚本");
+          validScripts.push({index: 4, content: script, strategy: "reference_4th"});
+        }
       }
-
-      // 与參考.js 保持一致的图片域名
-      const imgDomain = `https://us.hamreus.com`;
-      const images = [];
-      for (const f of infos.files) {
-        if (!f) continue;
-        const query = (infos.sl && infos.sl.e && infos.sl.m) ? `?e=${infos.sl.e}&m=${infos.sl.m}` : '';
-        images.push(`${imgDomain}${infos.path}${f}${query}`);
+      
+      // 策略4: 尝试所有非空脚本
+      for (let i = 0; i < scripts.length; i++) {
+        let script = scripts[i].innerHTML;
+        if (script && script.trim().length > 0 && !validScripts.some(s => s.index === i)) {
+          console.log(`策略4: 添加索引 ${i} 的非空脚本`);
+          validScripts.push({index: i, content: script, strategy: "non_empty"});
+        }
       }
-      return { images };
+      
+      // 尝试所有有效脚本直到成功
+      for (let {content, index, strategy} of validScripts) {
+        try {
+          console.log(`尝试使用索引 ${index} 的脚本 (策略: ${strategy})`);
+          let infos = this.getImgInfos(content);
+          
+          // 验证infos是否有效，添加更详细的日志输出
+          if (infos) {
+            console.log(`从索引 ${index} 的脚本中提取到infos对象`);
+            console.log(`infos.files: ${infos.files ? '存在' : '不存在'}, 类型: ${Array.isArray(infos.files) ? '数组' : typeof infos.files}`);
+            console.log(`infos.path: ${infos.path ? '存在' : '不存在'}`);
+            console.log(`infos.sl: ${infos.sl ? '存在' : '不存在'}`);
+            
+            if (infos.files && Array.isArray(infos.files) && infos.files.length > 0) {
+              // 放宽验证条件，只要求基本字段存在
+              if (infos.path && infos.sl) {
+                console.log(`成功从索引 ${index} 的脚本中提取图片信息`);
+                let imgDomain = `https://us.hamreus.com`;
+                let images = [];
+                for (let f of infos.files) {
+                  // 确保文件名不为空
+                  if (f) {
+                    let imgUrl = 
+                      imgDomain + infos.path + f + (infos.sl.e && infos.sl.m ? `?e=${infos.sl.e}&m=${infos.sl.m}` : '');
+                    images.push(imgUrl);
+                  }
+                }
+                if (images.length > 0) {
+                  return {
+                    images,
+                  };
+                } else {
+                  console.warn(`索引 ${index} 的脚本生成的图片URL列表为空`);
+                }
+              } else {
+                console.warn(`索引 ${index} 的脚本缺少必要的图片信息字段 (path或sl)`);
+              }
+            } else {
+              console.warn(`无法从索引 ${index} 的脚本中提取有效图片信息 (files字段无效)`);
+            }
+          } else {
+            console.warn(`无法从索引 ${index} 的脚本中提取infos对象`);
+          }
+        } catch (e) {
+          console.error(`处理索引 ${index} 的脚本时出错:`, e);
+        }
+      }
+      
+      console.error("所有脚本尝试均失败，未能找到有效的图片信息");
+      return { images: [] };
     },
     /**
      * [Optional] provide configs for an image loading
