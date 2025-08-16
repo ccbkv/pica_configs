@@ -39,7 +39,7 @@ class ManHuaGui extends ComicSource {
 
   version = "1.0.1";
 
-  minAppVersion = "3.1.0";
+  minAppVersion = "1.4.0";
 
   // 更新链接
   url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
@@ -1002,8 +1002,26 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      let script = document.querySelectorAll("script")[4].innerHTML;
-      let infos = this.getImgInfos(script);
+      let scripts = document.querySelectorAll("script");
+let script = null;
+for (let s of scripts) {
+  if (s.innerHTML.includes('p,a,c,k,e,d')) {
+    script = s.innerHTML;
+    break;
+  }
+}
+if (!script) throw "No image script found";
+      let infos;
+try {
+  infos = this.getImgInfos(script);
+} catch (e) {
+  console.error('Failed to get image infos:', e);
+  return { images: [] };
+}
+if (!infos || !infos.files) {
+  console.error('Invalid image infos');
+  return { images: [] };
+}
 
       // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
       let imgDomain = `https://us.hamreus.com`;
