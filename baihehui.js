@@ -178,9 +178,9 @@ explore = [
                 // 4. 抓「编辑推荐」
                 let editor = [];
                 let editorEls = doc.querySelectorAll(".recommend-list .media-cell.horizontal");
-                for (let el of editorEls) {
+                Array.from(editorEls).forEach(el => {
                     editor.push(parseItem(el));
-                }
+                });
 
                 // 5. 抓「最近更新」
                 let latest = [];
@@ -191,7 +191,9 @@ explore = [
                     let ul = latestTitle.nextElementSibling;
                     if (ul) {
                         let items = ul.querySelectorAll(".media-cell.vertical");
-                        for (let el of items) latest.push(parseItem(el));
+                        Array.from(items).forEach(el => {
+                            latest.push(parseItem(el));
+                        });
                     }
                 }
 
@@ -203,7 +205,9 @@ explore = [
                     let ul = originalTitle.nextElementSibling;
                     if (ul) {
                         let items = ul.querySelectorAll(".media-cell.vertical");
-                        for (let el of items) original.push(parseItem(el));
+                        Array.from(items).forEach(el => {
+                            original.push(parseItem(el));
+                        });
                     }
                 }
 
@@ -215,7 +219,9 @@ explore = [
                     let ul = fanTitle.nextElementSibling;
                     if (ul) {
                         let items = ul.querySelectorAll(".media-cell.vertical");
-                        for (let el of items) fan.push(parseItem(el));
+                        Array.from(items).forEach(el => {
+                            fan.push(parseItem(el));
+                        });
                     }
                 }
 
@@ -300,7 +306,7 @@ explore = [
                 // 获取所有漫画行
                 let rows = document.querySelectorAll('tr[data-key]');
 
-                rows.forEach(row => {
+            Array.from(rows).forEach(row => {
                     // 提取信息
                     let href = row.querySelector('a').attributes['href'];
                     // 提取最后的数字作为 id
@@ -340,7 +346,7 @@ explore = [
                 let mangaList = [];
                 // 获取所有漫画行
                 let rows = document.querySelectorAll('tr[data-key]');
-                rows.forEach(row => {
+                Array.from(rows).forEach(row => {
                     // 提取信息
                     let href = row.querySelector('a').attributes['href'];
                     // 提取最后的数字作为 id
@@ -382,7 +388,7 @@ explore = [
                 let mangaList = [];
                 // 获取所有漫画行
                 let rows = document.querySelectorAll('tr[data-key]');
-                rows.forEach(row => {
+                Array.from(rows).forEach(row => {
                     // 提取信息
                     let href = row.querySelector('a').attributes['href'];
                     // 提取最后的数字作为 id
@@ -446,7 +452,7 @@ explore = [
     let mangaList = [];
                 // 获取所有漫画行
                 let rows = document.querySelectorAll('tr[data-key]');
-                rows.forEach(row => {
+                Array.from(rows).forEach(row => {
                     // 提取信息
                     let href = row.querySelector('a').attributes['href'];
                     // 提取最后的数字作为 id
@@ -641,54 +647,62 @@ explore = [
 
         loadEp: async (comicId, epId) => {
             let baseUrl = `https://www.yamibo.com/manga/view-chapter?id=${epId}`;
-    let res = await Network.get(`${baseUrl}&page=1`, {
-        headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
-        }
-    });
+            let res = await Network.get(`${baseUrl}&page=1`, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+                }
+            });
 
-    if (res.status !== 200) {
-        throw `Invalid status code: ${res.status}`;
-    }
-
-    let document = new HtmlDocument(res.body);
-
-    // 提取最大页数
-    let lastPageElement = document.querySelector("li.last > a");
-    let maxPage = 1;
-    if (lastPageElement && lastPageElement.attributes['data-page']) {
-        maxPage = parseInt(lastPageElement.attributes['data-page']) + 1;
-    }
-
-    let images = [];
-
-    // 循环抓取所有页面的图片
-    for (let page = 1; page <= maxPage; page++) {
-        let pageUrl = `${baseUrl}&page=${page}`;
-        let pageRes = await Network.get(pageUrl, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
             }
-        });
 
-        if (pageRes.status !== 200) {
-            throw `Invalid status code on page ${page}: ${pageRes.status}`;
-        }
+            if (!res.body) {
+                throw "Empty response body when fetching chapter.";
+            }
 
-        let pageDocument = new HtmlDocument(pageRes.body);
+            let document = new HtmlDocument(res.body);
 
-        // 提取图片 URL
-        let imageElement = pageDocument.querySelector("img#imgPic");
-        if (!imageElement) {
-            throw `Image not found on page ${page}.`;
-        }
-        let srcAttr = imageElement.attributes['src'];
-        if (!srcAttr) {
-            throw `Image src attribute not found on page ${page}.`;
-        }
-        let imageUrl = srcAttr;
-        images.push(imageUrl);
-    }
+            // 提取最大页数
+            let lastPageElement = document.querySelector("li.last > a");
+            let maxPage = 1;
+            if (lastPageElement && lastPageElement.attributes['data-page']) {
+                maxPage = parseInt(lastPageElement.attributes['data-page']) + 1;
+            }
+
+            let images = [];
+
+            // 循环抓取所有页面的图片
+            for (let page = 1; page <= maxPage; page++) {
+                let pageUrl = `${baseUrl}&page=${page}`;
+                let pageRes = await Network.get(pageUrl, {
+                    headers: {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+                    }
+                });
+
+                if (pageRes.status !== 200) {
+                    throw `Invalid status code on page ${page}: ${pageRes.status}`;
+                }
+
+                if (!pageRes.body) {
+                    throw `Empty response body on page ${page}.`;
+                }
+
+                let pageDocument = new HtmlDocument(pageRes.body);
+
+                // 提取图片 URL
+                let imageElement = pageDocument.querySelector("img#imgPic");
+                if (!imageElement) {
+                    throw `Image not found on page ${page}.`;
+                }
+                let srcAttr = imageElement.attributes['src'];
+                if (!srcAttr) {
+                    throw `Image src attribute not found on page ${page}.`;
+                }
+                let imageUrl = srcAttr;
+                images.push(imageUrl);
+            }
 
     return {
         images: images, // 所有页面的图片 URL
