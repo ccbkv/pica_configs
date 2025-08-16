@@ -252,7 +252,6 @@ class ShonenJumpPlus extends ComicSource {
     };
     const response = await Network.post(
       `${this.apiBase}/graphql?opname=${operationName}`,
-      JSON.stringify(payload),
       {
         headers: {
           ...this.headers,
@@ -261,11 +260,17 @@ class ShonenJumpPlus extends ComicSource {
           "X-APOLLO-OPERATION-NAME": operationName,
           "Content-Type": "application/json",
         }
-      }
+      },
+      JSON.stringify(payload)
     );
 
     if (response.status !== 200) throw `Invalid status: ${response.status}`;
-    return JSON.parse(response.body);
+    try {
+      return JSON.parse(response.body);
+    } catch (e) {
+      console.error('Failed to parse GraphQL response:', e);
+      throw 'Invalid response format from GraphQL endpoint';
+    }
   }
 
   normalizeEpisodeId(epId) {
@@ -286,18 +291,21 @@ class ShonenJumpPlus extends ComicSource {
   async fetchBearerToken() {
     const response = await Network.post(
       `${this.apiBase}/user_account/access_token`,
-      '',
       {
         headers: this.headers
-      }
+      },
+      ''
     );
-    const { access_token, user_account_id } = JSON.parse(
-      response.body,
-    );
-    this.bearerToken = access_token;
-    this.userAccountId = user_account_id;
-    this.tokenExpiry = Date.now() + 3600000;
-  }
+    try {
+      const { access_token, user_account_id } = JSON.parse(response.body);
+      this.bearerToken = access_token;
+      this.userAccountId = user_account_id;
+      this.tokenExpiry = Date.now() + 3600000;
+    } catch (e) {
+      console.error('Failed to parse bearer token response:', e);
+      throw 'Invalid response format from access_token endpoint';
+    }
+    }
 
   async fetchSeriesDetail(id) {
     const response = await this.graphqlRequest("SeriesDetail", { id });
