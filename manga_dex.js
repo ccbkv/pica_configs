@@ -180,46 +180,21 @@ class MangaDex extends ComicSource {
             // title is used to identify the page, it should be unique
             title: "Manga Dex",
 
-            /// multiPartPage or multiPageComicList or mixed
-            type: "multiPartPage",
+            /// singlePageWithMultiPart or multiPageComicList
+            type: "singlePageWithMultiPart",
 
-            load: async (page) => {
+            load: async () => {
                 let res = await Promise.all([
-                    this.api.getPopular(page),
-                    this.api.getRecent(page),
-                    this.api.getUpdated(page)
+                    this.api.getPopular(1),
+                    this.api.getRecent(1),
+                    this.api.getUpdated(1)
                 ])
-                let titles = ["Popular", "Recent", "Updated"]
-                let viewMore = [
-                    {
-                        page: "search",
-                        attributes: {
-                            options: ["popular", "any", "any"],
-                        },
-                    },
-                    {
-                        page: "search",
-                        attributes: {
-                            options: ["recent", "any", "any"],
-                        },
-                    },
-                    {
-                        page: "search",
-                        attributes: {
-                            options: ["updated", "any", "any"],
-                        },
-                    }
-                ]
-                let parts = []
-                for (let i = 0; i < res.length; i++) {
-                    let part = res[i]
-                    parts.push({
-                        title: titles[i],
-                        comics: part.comics,
-                        viewMore: viewMore[i]
-                    })
+                let data = {
+                    "Popular": res[0].comics,
+                    "Recent": res[1].comics,
+                    "Updated": res[2].comics
                 }
-                return parts
+                return data
             },
         }
     ]
