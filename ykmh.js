@@ -457,12 +457,8 @@ class YKMHSource extends ComicSource {
                 targetUrl += '/';
             }
 
-            let res = await fetch(targetUrl, {
-                method: 'GET',
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-                },
-                credentials: 'include'
+            let res = await Network.get(targetUrl, {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
             });
             if (res.status !== 200) {
                 throw `请求失败，状态码: ${res.status}，URL: ${targetUrl}`;
