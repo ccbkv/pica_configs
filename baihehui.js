@@ -1,5 +1,8 @@
 /** @type {import('./_venera_.js')} */
 class Baihehui extends ComicSource {
+    constructor() {
+        super();
+    }
     // Note: The fields which are marked as [Optional] should be removed if not used
 
     // name of the source
@@ -13,7 +16,7 @@ class Baihehui extends ComicSource {
     minAppVersion = "1.4.0"
 
     // update url
-    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/baihehui.js"
+    url = "github.com/ccbkv/pica_configs/blob/master/baihehui.js"
 
     settings = {
         domains: {
