@@ -1,3 +1,4 @@
+
 class ManHuaGui extends ComicSource {
   // 确保Comic构造函数可用
   constructor() {
@@ -1020,79 +1021,40 @@ class ManHuaGui extends ComicSource {
         // 更健壮地查找包含图片信息的脚本
         let scriptContent = '';
         let scripts = document.querySelectorAll("script");
-        let foundPattern = '';
         
-        // 增加更多搜索模式
+        // 尝试多种模式查找脚本
         const patterns = [
-          { regex: 'window\["\_INITIAL\_STATE\_"\]', name: 'INITIAL_STATE' },
-          { regex: 'eval\(function\(p,a,c,k,e,d\)', name: 'EVAL_FUNCTION' },
-          { regex: '\(function\(p,a,c,k,e,d\)', name: 'FUNCTION' },
-          { regex: 'chapterImages', name: 'CHAPTER_IMAGES' },
-          { regex: 'imageList', name: 'IMAGE_LIST' },
-          { regex: 'pic_url', name: 'PIC_URL' },
-          { regex: 'imgDomain', name: 'IMG_DOMAIN' }
+          'window\["\_INITIAL\_STATE\_"\]',
+          'eval\(function\(p,a,c,k,e,d\)',
+          '\(function\(p,a,c,k,e,d\)' 
         ];
         
-        // 尝试匹配模式
-        for (let { regex, name } of patterns) {
+        for (let pattern of patterns) {
           for (let i = 0; i < scripts.length; i++) {
             let script = scripts[i];
-            if (script.innerHTML && script.innerHTML.includes(regex)) {
+            if (script.innerHTML && script.innerHTML.includes(pattern)) {
               scriptContent = script.innerHTML;
-              foundPattern = name;
-              console.log(`找到匹配模式 ${name} 的脚本，索引: ${i}`);
               break;
             }
           }
           if (scriptContent) break;
         }
         
-        // 如果没有找到特定模式的脚本，尝试其他策略
         if (!scriptContent) {
-          console.warn("未找到匹配特定模式的脚本，尝试备选策略");
-          
-          // 策略1: 查找最后一个非空脚本
-          for (let i = scripts.length - 1; i >= 0; i--) {
+          // 如果没有找到目标脚本，尝试所有非空脚本
+          for (let i = 0; i < scripts.length; i++) {
             let script = scripts[i];
             if (script.innerHTML && script.innerHTML.length > 100) {
               scriptContent = script.innerHTML;
-              console.log(`使用最后一个非空脚本，索引: ${i}`);
               break;
-            }
-          }
-          
-          // 策略2: 查找包含大量字符的脚本
-          if (!scriptContent) {
-            let maxLength = 0;
-            let maxIndex = -1;
-            for (let i = 0; i < scripts.length; i++) {
-              let script = scripts[i];
-              if (script.innerHTML && script.innerHTML.length > maxLength) {
-                maxLength = script.innerHTML.length;
-                maxIndex = i;
-              }
-            }
-            if (maxIndex !== -1) {
-              scriptContent = scripts[maxIndex].innerHTML;
-              console.log(`使用最长脚本，索引: ${maxIndex}，长度: ${maxLength}`);
             }
           }
           
           if (!scriptContent) {
             console.error("未找到包含图片信息的脚本");
-            // 记录所有脚本的特征，便于调试
-            console.error(`脚本总数: ${scripts.length}`);
-            scripts.forEach((script, index) => {
-              if (script.innerHTML) {
-                console.error(`脚本 ${index}: 长度=${script.innerHTML.length}, 包含eval=${script.innerHTML.includes('eval')}, 包含function=${script.innerHTML.includes('function')}`);
-              }
-            });
             return { images: [] };
           }
         }
-        
-        // 输出找到的脚本信息
-        console.log(`成功找到脚本，模式: ${foundPattern || '未知'}, 长度: ${scriptContent.length}`);
       
       let infos = this.getImgInfos(scriptContent);
 
