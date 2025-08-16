@@ -16,7 +16,7 @@ class Baihehui extends ComicSource {
     minAppVersion = "1.4.0"
 
     // update url
-    url = "github.com/ccbkv/pica_configs/blob/master/baihehui.js"
+    url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/baihehui.js"
 
     settings = {
         domains: {
@@ -63,7 +63,7 @@ class Baihehui extends ComicSource {
             Network.setCookies("https://www.yamibo.com", initialCookies);
 
             // 2. 解析 CSRF token
-            let doc = new HtmlDocument(resGet.body);
+            let doc = new Document(resGet.body);
             let csrf = doc
                 .querySelector('meta[name="csrf-token"]')
                 .attributes.content;
@@ -156,7 +156,7 @@ class Baihehui extends ComicSource {
 explore = [
     {
         title: "百合会",
-        type: "singlePageWithMultiPart",
+        type: "multiPageComicList",
         load: async (page) => {
                 // 1. 拿到 HTML
                 let res = await Network.get("https://www.yamibo.com/site/manga");
@@ -165,7 +165,7 @@ explore = [
                 }
 
                 // 2. 解析文档
-                let doc = new HtmlDocument(res.body);
+                let doc = new Document(res.body);
 
                 // 3. 通用解析单元函数
                 function parseItem(el) {
@@ -179,57 +179,52 @@ explore = [
                     return new Comic({ id, title, cover });
                 }
 
+                let allComics = [];
+
                 // 4. 抓「编辑推荐」
-                let editor = [];
                 let editorEls = doc.querySelectorAll(".recommend-list .media-cell.horizontal");
                 for (let el of editorEls) {
-                    editor.push(parseItem(el));
+                    allComics.push(parseItem(el));
                 }
 
                 // 5. 抓「最近更新」
-                let latest = [];
-                // 找到标题元素，再拿其后面的 <ul> 下的 .media-cell.vertical
                 let latestTitle = doc.querySelectorAll("h2.module-title")
                     .find(e => e.text.includes("最近更新"));
                 if (latestTitle) {
                     let ul = latestTitle.nextElementSibling;
                     if (ul) {
                         let items = ul.querySelectorAll(".media-cell.vertical");
-                        for (let el of items) latest.push(parseItem(el));
+                        for (let el of items) allComics.push(parseItem(el));
                     }
                 }
 
                 // 原创推荐
-                let original = [];
                 let originalTitle = doc.querySelectorAll("h2.module-title")
                     .find(e => e.text.includes("原创推荐"));
                 if (originalTitle) {
                     let ul = originalTitle.nextElementSibling;
                     if (ul) {
                         let items = ul.querySelectorAll(".media-cell.vertical");
-                        for (let el of items) original.push(parseItem(el));
+                        for (let el of items) allComics.push(parseItem(el));
                     }
                 }
 
                 // 6. 抓「同人推荐」
-                let fan = [];
                 let fanTitle = doc.querySelectorAll("h2.module-title")
                     .find(e => e.text.includes("同人推荐"));
                 if (fanTitle) {
                     let ul = fanTitle.nextElementSibling;
                     if (ul) {
                         let items = ul.querySelectorAll(".media-cell.vertical");
-                        for (let el of items) fan.push(parseItem(el));
+                        for (let el of items) allComics.push(parseItem(el));
                     }
                 }
 
                 // 7. 清理并返回
                 doc.dispose();
                 return {
-                    "编辑推荐": editor,
-                    "最近更新": latest,
-                    "原创推荐": original,
-                    "同人推荐": fan
+                    comics: allComics,
+                    maxPage: 1
                 };
             }
     }
@@ -291,7 +286,7 @@ explore = [
 
 
             // 解析 HTML
-            let document = new HtmlDocument(res.body);
+            let document = new Document(res.body);
 
             // 获取最大页数
             let lastPageElement = document.querySelector('li.last > a');
@@ -442,7 +437,7 @@ explore = [
         throw `Invalid status code: ${res.status}`;
     }
 
-    let document = new HtmlDocument(res.body);
+    let document = new Document(res.body);
     // 获取最大页数
     let lastPageElement = document.querySelector('li.last > a');
     let maxPage = lastPageElement ? parseInt(lastPageElement.attributes['data-page']) + 1 : 1;
@@ -515,7 +510,7 @@ explore = [
                 throw `Invalid status code: ${res.status}`;
             }
 
-            let document = new HtmlDocument(res.body);
+            let document = new Document(res.body);
 
             // 提取漫画标题
             let title = document.querySelector("h3.col-md-12").text.trim();
@@ -590,7 +585,7 @@ explore = [
                 throw `Invalid status code: ${res.status}`;
             }
 
-            let document = new HtmlDocument(res.body);
+            let document = new Document(res.body);
 
             // 提取评论总数
             let totalCommentsMatch = document.querySelector("div.panel-body").text.match(/共(\d+)篇/);
@@ -646,7 +641,7 @@ explore = [
             let match = body.match(/var pages = (.*?);/);
             if (!match || !match[1]) {
                 // Fallback to single image parsing if pages array is not found
-                let doc = new HtmlDocument(body);
+                let doc = new Document(body);
                 let imageElement = doc.querySelector("img#imgPic");
                 if (!imageElement) {
                     // try to find image in another way
