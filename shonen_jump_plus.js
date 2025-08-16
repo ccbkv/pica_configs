@@ -253,13 +253,11 @@ class ShonenJumpPlus extends ComicSource {
     const response = await Network.post(
       `${this.apiBase}/graphql?opname=${operationName}`,
       {
-        headers: {
-          ...this.headers,
-          "Authorization": `Bearer ${this.bearerToken}`,
-          "Accept": "application/json",
-          "X-APOLLO-OPERATION-NAME": operationName,
-          "Content-Type": "application/json",
-        }
+        ...this.headers,
+        "Authorization": `Bearer ${this.bearerToken}`,
+        "Accept": "application/json",
+        "X-APOLLO-OPERATION-NAME": operationName,
+        "Content-Type": "application/json",
       },
       JSON.stringify(payload)
     );
@@ -291,9 +289,7 @@ class ShonenJumpPlus extends ComicSource {
   async fetchBearerToken() {
     const response = await Network.post(
       `${this.apiBase}/user_account/access_token`,
-      {
-        headers: this.headers
-      },
+      this.headers,
       ''
     );
     try {
