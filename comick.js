@@ -5,7 +5,7 @@ class Comick extends ComicSource {
     version = "1.1.1"
     minAppVersion = "1.4.0"
     // update url
-    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/comick.js"
+    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/master/comick.js"
     settings = {
         domains: {
             title: "主页源",
