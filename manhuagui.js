@@ -1,4 +1,3 @@
-/** @type {import('./_venera_.js')} */
 class ManHuaGui extends ComicSource {
   // Note: The fields which are marked as [Optional] should be removed if not used
 
@@ -14,7 +13,7 @@ class ManHuaGui extends ComicSource {
 
   // update url
   url =
-    "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/manhuagui.js";
+    "https://raw.githubusercontent.com/ccbkv/pica_configs/master/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
 
