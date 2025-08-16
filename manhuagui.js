@@ -899,11 +899,10 @@ class ManHuaGui extends ComicSource {
       let area = parseDetail(1);
       let genre = parseDetail(3);
       let author = parseDetail(4);
-      // 增加对parseDetail函数的使用，保持代码风格一致
       // let alias = parseDetail(5);
-      // let lastChapter = parseDetail(6);
-      // 添加对detail_list元素的存在性检查
-      let status = detail_list.length > 7 ? detail_list[7].text.trim() : '未知';
+
+      //   let lastChapter = parseDetail(6);
+      let status = detail_list[7].text.trim();
 
       // 确保tags对象中的所有值都是字符串数组，与ikmmh.js保持一致
       let tags = {
@@ -913,7 +912,7 @@ class ManHuaGui extends ComicSource {
         "类型": genre.length > 0 ? genre.map(item => item.toString()) : ['未知'],
         "年代": createYear.length > 0 ? createYear.map(item => item.toString()) : ['未知'],
       };
-      let updateTime = detail_list.length > 8 ? detail_list[8].text.trim() : '';
+      let updateTime = detail_list[8].text.trim();
 
       // ANCHOR 章节信息
       // 支持多分组
@@ -996,55 +995,25 @@ class ManHuaGui extends ComicSource {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
       
-      // 查找包含配置信息的script标签
+      // 查找包含'window["\x63\x6F\x6E\x66\x69\x67"]'的script标签
       let scripts = document.querySelectorAll("script");
       let targetScript = null;
-      const searchPatterns = [
-        'window["\x63\x6F\x6E\x66\x69\x67"]',
-        'window.config',
-        'var config',
-        'book_data'
-      ];
-      
       for (let i = 0; i < scripts.length; i++) {
         try {
           let scriptContent = scripts[i].innerHTML || '';
-          // 尝试匹配多个模式
-          for (const pattern of searchPatterns) {
-            if (scriptContent.includes(pattern)) {
-              targetScript = scriptContent;
-              console.log(`找到匹配模式 '${pattern}' 的script标签`);
-              break;
-            }
+          if (scriptContent.includes('window["\x63\x6F\x6E\x66\x69\x67"]')) {
+            targetScript = scriptContent;
+            break;
           }
-          if (targetScript) break;
         } catch (e) {
           console.error(`访问script[${i}]的innerHTML时出错:`, e);
         }
       }
       
       if (!targetScript) {
-        console.error(`无法找到包含配置的script标签，共检查了${scripts.length}个script标签`);
-        
-        // 尝试使用备用方法直接从页面提取图片
-        console.log("尝试使用备用方法提取图片...");
-        let images = [];
-        try {
-          // 尝试直接查找页面中的图片
-          const imgElements = document.querySelectorAll("img.lazy, img[data-src], img[src]");
-          if (imgElements.length > 0) {
-            images = Array.from(imgElements).map(img => {
-              return img.attributes["data-src"] || img.attributes["src"] || '';
-            }).filter(src => src);
-            console.log(`备用方法成功提取到${images.length}张图片`);
-          } else {
-            console.error("备用方法也未能找到图片");
-          }
-        } catch (e) {
-          console.error("备用方法执行出错:", e);
-        }
-        
-        return { images };
+        console.error("无法找到包含配置的script标签");
+        // 尝试使用备用方法获取图片
+        return { images: [] };
       }
       
       let infos = this.getImgInfos(targetScript);
