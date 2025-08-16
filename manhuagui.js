@@ -357,56 +357,12 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
-      // 增强错误处理，确保始终返回一个有效的参数数组
-      if (!str) {
-        console.error("输入字符串为空");
-        return ['', 0, 0, [], {}, {}]; // 返回默认参数
-      }
-      let splitResult = str.split("}(");
-      if (splitResult.length < 2) {
-        console.error("无法正确分割字符串");
-        return ['', 0, 0, [], {}, {}]; // 返回默认参数
-      }
-      let params_part = splitResult[1].split("))")[0];
-      if (!params_part) {
-        console.error("无法提取参数部分");
-        return ['', 0, 0, [], {}, {}]; // 返回默认参数
-      }
+      let params_part = str.split("}(")[1].split("))")[0];
       let params = splitParams(params_part);
-      if (!params || params.length === 0) {
-        console.error("splitParams返回空数组");
-        return ['', 0, 0, [], {}, {}]; // 返回默认参数
-      }
       params[5] = {};
-      try {
-        if (params.length > 3 && params[3]) {
-          // 确保params[3]是字符串类型
-          if (typeof params[3] !== 'string') {
-            console.error("params[3]不是字符串类型:", typeof params[3]);
-            params[3] = [];
-          } else {
-            let compressedData = params[3].split("'");
-            if (compressedData.length < 2) {
-              console.error("无法提取压缩数据");
-              params[3] = [];
-            } else {
-              let decompressed = LZString.decompressFromBase64(compressedData[1]);
-              // 确保解压后的数据是字符串类型
-              if (typeof decompressed !== 'string') {
-                console.error("解压后的数据不是字符串类型:", typeof decompressed);
-                params[3] = [];
-              } else {
-                params[3] = decompressed.split("|");
-              }
-            }
-          }
-        } else {
-          params[3] = [];
-        }
-      } catch (e) {
-        console.error("解压params[3]失败:", e);
-        params[3] = [];
-      }
+      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
+        "|"
+      );
       return params;
     }
 
@@ -1003,47 +959,53 @@ class ManHuaGui extends ComicSource {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
       let scripts = document.querySelectorAll("script");
-      let script = null;
       
-      // 方法1：查找包含特定字符串的脚本
-      for (let s of scripts) {
+      const potentialScripts = [];
+
+      // Strategy 1: Find script with 'p,a,c,k,e,d'
+      for (const s of scripts) {
         if (s.innerHTML && s.innerHTML.includes('p,a,c,k,e,d')) {
-          script = s.innerHTML;
-          break;
+          potentialScripts.push(s.innerHTML);
+        }
+      }
+
+      // Strategy 2: Use script[4] based on 參考.js
+      if (scripts.length > 4 && scripts[4].innerHTML) {
+        potentialScripts.push(scripts[4].innerHTML);
+      }
+
+      // Strategy 3: Add all scripts as a fallback
+      for (const s of scripts) {
+        if (s.innerHTML) {
+          potentialScripts.push(s.innerHTML);
         }
       }
       
-      // 方法2：如果方法1失败，尝试使用第4个脚本（参考.js中的方法）
-      if (!script && scripts.length > 4) {
-        script = scripts[4].innerHTML;
-      }
-      
-      if (!script) throw "No image script found";
+      // Remove duplicates
+      const uniqueScripts = [...new Set(potentialScripts)];
 
-      let infos;
-try {
-  infos = this.getImgInfos(script);
-} catch (e) {
-  console.error('Failed to get image infos:', e);
-  return { images: [] };
-}
-if (!infos || !infos.files) {
-  console.error('Invalid image infos');
-  return { images: [] };
-}
-
-      // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
-      let imgDomain = `https://us.hamreus.com`;
-      let images = [];
-      for (let f of infos.files) {
-        let imgUrl =
-          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
-        images.push(imgUrl);
+      for (const script of uniqueScripts) {
+        try {
+          const infos = this.getImgInfos(script);
+          if (infos && infos.files && infos.files.length > 0) {
+            const images = [];
+            const imgDomain = `https://us.hamreus.com`;
+            for (const f of infos.files) {
+              if (f) {
+                const imgUrl = `${imgDomain}${infos.path}${f}?e=${infos.sl.e}&m=${infos.sl.m}`;
+                images.push(imgUrl);
+              }
+            }
+            if (images.length > 0) {
+              return { images };
+            }
+          }
+        } catch (e) {
+          // Try next script
+        }
       }
-      // log("warning", this.name, images);
-      return {
-        images,
-      };
+
+      throw "No image script found";
     },
     /**
      * [Optional] provide configs for an image loading
