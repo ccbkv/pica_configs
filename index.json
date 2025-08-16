@@ -36,18 +36,6 @@
         "version": "1.0.0"
     },
     {
-        "name": "漫蛙吧",
-        "fileName": "manwaba.js",
-        "key": "manwaba",
-        "version": "1.0.0"
-    },
-	{
-      "name": "优酷漫画",
-      "fileName": "ykmh.js",
-      "key": "ykmh",
-      "version": "1.0.0"
-    },
-    {
       "name": "漫画柜",
       "fileName": "manhuagui.js",
       "key": "ManHuaGui",
@@ -60,23 +48,10 @@
         "version": "1.0.0"
      },
     {
-        "name": "comick",
-        "fileName": "comick.js",
-        "key": "comick",
-        "version": "1.1.1"
-    },
-    {
         "name": "优酷漫画",
         "fileName": "ykmh.js",
         "key": "ykmh",
         "version": "1.0.0"
-    },
-    {
-        "name": "MangaDex",
-        "fileName": "manga_dex.js",
-        "key": "manga_dex",
-        "version": "1.0.0",
-        "description": "Account feature is not supported yet."
     },
     {
         "name": "少年ジャンプ＋",
