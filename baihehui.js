@@ -552,16 +552,17 @@ explore = [
             let description = "";
 
             // 提取章节信息
-            let chapters = new Map();
+            let chapters = {};
             document.querySelectorAll("div[data-key]").forEach(chapter => {
-                let chapterKey = chapter.attributes['data-key']; // 获取 data-key 值
-                if (!chapterKey) return;
+                let chapterKeyAttr = chapter.attributes['data-key']; // 获取 data-key 属性
+                if (!chapterKeyAttr || !chapterKeyAttr.value) return;
+                let chapterKey = chapterKeyAttr.value; // 获取属性值
                 
                 let aTag = chapter.querySelector("a");
                 if (!aTag) return;
                 let chapterTitle = aTag.text.trim(); // 获取章节标题
                 
-                chapters.set(chapterKey, chapterTitle); // 将 data-key 和章节标题存入 Map
+                chapters[chapterKey] = chapterTitle; // 将 data-key 和章节标题存入对象
             });
 
             return {
