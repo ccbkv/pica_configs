@@ -34,7 +34,7 @@ class Zaimanhua extends ComicSource {
 
         // 检查响应体是否为字符串类型
         if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
         }
         const data = JSON.parse(res.body);
         if (data.errno !== 0) throw new Error(data.errmsg);
@@ -59,6 +59,16 @@ class Zaimanhua extends ComicSource {
     }
     if (res.status !== 200) {
       throw new Error(`请求失败: ${res.status}`);
+    }
+    // 检查响应体是否为字符串类型
+    if (typeof res.body !== 'string') {
+      throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
+    }
+    // 检查响应体是否为有效的JSON格式
+    try {
+      JSON.parse(res.body);
+    } catch (e) {
+      throw new Error(`响应体不是有效的JSON格式: ${res.body}`);
     }
   }
 
@@ -101,7 +111,7 @@ class Zaimanhua extends ComicSource {
         );
         // 检查响应体是否为字符串类型
         if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
         }
         const data = JSON.parse(res.body).data;
         return {
@@ -196,6 +206,10 @@ class Zaimanhua extends ComicSource {
           ),
           this.headers
         );
+        // 检查响应体是否为字符串类型
+        if (typeof res.body !== 'string') {
+          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
+        }
         return {
           comics: JSON.parse(res.body).data.map((item) =>
             this.parseComic(item)
@@ -212,7 +226,7 @@ class Zaimanhua extends ComicSource {
         );
         // 检查响应体是否为字符串类型
         if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
         }
         const data = JSON.parse(res.body).data;
         return {
@@ -277,7 +291,7 @@ class Zaimanhua extends ComicSource {
       );
       // 检查响应体是否为字符串类型
       if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
       }
       const data = JSON.parse(res.body).data.list;
       return {
@@ -298,7 +312,7 @@ class Zaimanhua extends ComicSource {
       );
       // 检查响应体是否为字符串类型
       if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
       }
       const data = JSON.parse(res.body);
       if (data.errno !== 0) {
@@ -314,7 +328,7 @@ class Zaimanhua extends ComicSource {
         );
         // 检查响应体是否为字符串类型
         if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
         }
         const data = JSON.parse(res.body).data;
         return {
@@ -345,7 +359,7 @@ class Zaimanhua extends ComicSource {
         this.checkResponseStatus(res);
         // 检查响应体是否为字符串类型
         if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
         }
         return JSON.parse(res.body).data.isSub;
       };
@@ -358,7 +372,7 @@ class Zaimanhua extends ComicSource {
       ]);
       // 检查响应体是否为字符串类型
       if (typeof results[0].body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof results[0].body}`);
+        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof results[0].body}`);
       }
       const response = JSON.parse(results[0].body);
       if (response.errno !== 0) throw new Error(response.errmsg || "加载失败");
@@ -404,7 +418,7 @@ class Zaimanhua extends ComicSource {
       );
       // 检查响应体是否为字符串类型
       if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
       }
       const data = JSON.parse(res.body).data.data;
       return { images: data.page_url_hd || data.page_url };
@@ -422,7 +436,7 @@ class Zaimanhua extends ComicSource {
         this.checkResponseStatus(res);
         // 检查响应体是否为字符串类型
         if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
         }
 
         const response = JSON.parse(res.body);
@@ -511,7 +525,7 @@ class Zaimanhua extends ComicSource {
       this.checkResponseStatus(res);
       // 检查响应体是否为字符串类型
       if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是 ${typeof res.body}`);
+        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
       }
       let response = JSON.parse(res.body);
       if (response.errno !== 0) throw new Error(response.errmsg || "加载失败");
@@ -528,6 +542,10 @@ class Zaimanhua extends ComicSource {
         `commentId=${commentId}&type=4`
       );
       this.checkResponseStatus(res);
+      // 检查响应体是否为字符串类型
+      if (typeof res.body !== 'string') {
+        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
+      }
       return "ok";
     },
   };
