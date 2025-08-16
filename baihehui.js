@@ -185,7 +185,7 @@ explore = [
                 // 5. 抓「最近更新」
                 let latest = [];
                 // 找到标题元素，再拿其后面的 <ul> 下的 .media-cell.vertical
-                let latestTitle = doc.querySelectorAll("h2.module-title")
+                let latestTitle = Array.from(doc.querySelectorAll("h2.module-title"))
                     .find(e => e.text.includes("最近更新"));
                 if (latestTitle) {
                     let ul = latestTitle.nextElementSibling;
@@ -197,7 +197,7 @@ explore = [
 
                 // 原创推荐
                 let original = [];
-                let originalTitle = doc.querySelectorAll("h2.module-title")
+                let originalTitle = Array.from(doc.querySelectorAll("h2.module-title"))
                     .find(e => e.text.includes("原创推荐"));
                 if (originalTitle) {
                     let ul = originalTitle.nextElementSibling;
@@ -209,7 +209,7 @@ explore = [
 
                 // 6. 抓「同人推荐」
                 let fan = [];
-                let fanTitle = doc.querySelectorAll("h2.module-title")
+                let fanTitle = Array.from(doc.querySelectorAll("h2.module-title"))
                     .find(e => e.text.includes("同人推荐"));
                 if (fanTitle) {
                     let ul = fanTitle.nextElementSibling;
@@ -581,7 +581,8 @@ explore = [
             let document = new HtmlDocument(res.body);
 
             // 提取评论总数
-            let totalCommentsMatch = document.querySelector("div.panel-body").text.match(/共(\d+)篇/);
+            let panelBody = document.querySelector("div.panel-body");
+            let totalCommentsMatch = panelBody ? panelBody.text.match(/共(\d+)篇/) : null;
             let totalComments = totalCommentsMatch ? parseInt(totalCommentsMatch[1]) : 0;
 
             // 提取评论列表
