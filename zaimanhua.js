@@ -5,7 +5,7 @@ class Zaimanhua extends ComicSource {
   version = "1.0.1";
   minAppVersion = "3.1.0";
   url =
-    "https://raw.githubusercontent.com/ccbkv/pica_configs/master/zaimanhua.js";
+    "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/zaimanhua.js";
 
   // 初始化请求头
   init() {
