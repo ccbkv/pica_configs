@@ -359,22 +359,26 @@ class ManHuaGui extends ComicSource {
     function extractParams(str) {
       if (!str) {
         console.error("输入字符串为空");
-        return ['', '', '', [], '', {}]; // 返回默认参数，避免formatData报错
+        // 返回包含默认值的完整参数数组
+        return ['', '', '', [], '', {}];
       }
       let splitResult = str.split("}(");
       if (splitResult.length < 2) {
         console.error("无法正确分割字符串");
-        return [];
+        // 返回包含默认值的完整参数数组
+        return ['', '', '', [], '', {}];
       }
       let params_part = splitResult[1].split("))")[0];
       if (!params_part) {
         console.error("无法提取参数部分");
-        return [];
+        // 返回包含默认值的完整参数数组
+        return ['', '', '', [], '', {}];
       }
       let params = splitParams(params_part);
       if (!params || params.length === 0) {
         console.error("splitParams返回空数组");
-        return [];
+        // 返回包含默认值的完整参数数组
+        return ['', '', '', [], '', {}];
       }
       params[5] = {};
       try {
@@ -1011,29 +1015,46 @@ class ManHuaGui extends ComicSource {
      * @returns {Promise<{images: string[]}>}
      */
     loadEp: async (comicId, epId) => {
-      let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
-      let document = await this.getHtml(url);
-      
-      // 更健壮地查找包含图片信息的脚本
-      let scriptContent = '';
-      let scripts = document.querySelectorAll("script");
-      for (let i = 0; i < scripts.length; i++) {
-        let script = scripts[i];
-        if (script.innerHTML && script.innerHTML.includes('window\["\_INITIAL\_STATE\_"\]')) {
-          scriptContent = script.innerHTML;
-          break;
+        let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
+        let document = await this.getHtml(url);
+        
+        // 更健壮地查找包含图片信息的脚本
+        let scriptContent = '';
+        let scripts = document.querySelectorAll("script");
+        
+        // 尝试多种模式查找脚本
+        const patterns = [
+          'window\["\_INITIAL\_STATE\_"\]',
+          'eval\(function\(p,a,c,k,e,d\)',
+          '\(function\(p,a,c,k,e,d\)' 
+        ];
+        
+        for (let pattern of patterns) {
+          for (let i = 0; i < scripts.length; i++) {
+            let script = scripts[i];
+            if (script.innerHTML && script.innerHTML.includes(pattern)) {
+              scriptContent = script.innerHTML;
+              break;
+            }
+          }
+          if (scriptContent) break;
         }
-      }
-      
-      if (!scriptContent) {
-        // 如果没有找到目标脚本，尝试使用第5个脚本
-        if (scripts.length > 4) {
-          scriptContent = scripts[4].innerHTML;
-        } else {
-          console.error("未找到包含图片信息的脚本");
-          return { images: [] };
+        
+        if (!scriptContent) {
+          // 如果没有找到目标脚本，尝试所有非空脚本
+          for (let i = 0; i < scripts.length; i++) {
+            let script = scripts[i];
+            if (script.innerHTML && script.innerHTML.length > 100) {
+              scriptContent = script.innerHTML;
+              break;
+            }
+          }
+          
+          if (!scriptContent) {
+            console.error("未找到包含图片信息的脚本");
+            return { images: [] };
+          }
         }
-      }
       
       let infos = this.getImgInfos(scriptContent);
 
