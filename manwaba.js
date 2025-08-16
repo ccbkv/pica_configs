@@ -40,23 +40,9 @@ class ManWaBa extends ComicSource {
           .join("&");
         url += `?${params_str}`;
       }
-      let res;
-      if (method === 'GET') {
-        res = await Network.get(url, headers || {});
-      } else if (method === 'POST') {
-        res = await Network.post(url, headers || {}, payload);
-      } else if (method === 'PUT') {
-        res = await Network.put(url, headers || {}, payload);
-      } else if (method === 'PATCH') {
-        res = await Network.patch(url, headers || {}, payload);
-      } else if (method === 'DELETE') {
-        res = await Network.delete(url, headers || {});
-      } else {
-        throw `Unsupported method: ${method}`;
-      }
-      if (!res.ok) {
-        const body = await res.text();
-        throw `Invalid status code: ${res.status}, body: ${body}`;
+      let res = await Network.sendRequest(method, url, headers, payload);
+      if (res.status !== 200) {
+        throw `Invalid status code: ${res.status}, body: ${res.body}`;
       }
       let json = JSON.parse(res.body);
       return json;
