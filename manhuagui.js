@@ -39,10 +39,10 @@ class ManHuaGui extends ComicSource {
 
   version = "1.0.1";
 
-  minAppVersion = "3.1.0";
+  minAppVersion = "1.4.0";
 
   // 更新链接
-  url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/master/manhuagui.js";
+  url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
 
@@ -1003,14 +1003,23 @@ class ManHuaGui extends ComicSource {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
       let scripts = document.querySelectorAll("script");
-let script = null;
-for (let s of scripts) {
-  if (s.innerHTML && s.innerHTML.includes('p,a,c,k,e,d')) {
-    script = s.innerHTML;
-    break;
-  }
-}
-if (!script) throw "No image script found";
+      let script = null;
+      
+      // 方法1：查找包含特定字符串的脚本
+      for (let s of scripts) {
+        if (s.innerHTML && s.innerHTML.includes('p,a,c,k,e,d')) {
+          script = s.innerHTML;
+          break;
+        }
+      }
+      
+      // 方法2：如果方法1失败，尝试使用第4个脚本（参考.js中的方法）
+      if (!script && scripts.length > 4) {
+        script = scripts[4].innerHTML;
+      }
+      
+      if (!script) throw "No image script found";
+
       let infos;
 try {
   infos = this.getImgInfos(script);
