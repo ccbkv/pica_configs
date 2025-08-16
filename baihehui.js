@@ -1,522 +1,712 @@
-class ShonenJumpPlus extends ComicSource {
+class Baihehui extends ComicSource {
   constructor() {
     super();
     this.init();
   }
+    // Note: The fields which are marked as [Optional] should be removed if not used
 
-  name = "少年ジャンプ＋";
-  key = "shonen_jump_plus";
-  version = "1.1.0";
-  minAppVersion = "1.2.1";
-  url =
-    "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/shonen_jump_plus.js";
+    // name of the source
+    name = "百合会"
 
-  deviceId = this.generateDeviceId();
-  bearerToken = null;
-  userAccountId = null;
-  tokenExpiry = 0;
-  latestVersion = "4.0.21";
+    // unique id of the source
+    key = "baihehui"
 
-  get headers() {
-    return {
-      "Origin": "https://shonenjumpplus.com",
-      "Referer": "https://shonenjumpplus.com/",
-      "X-Giga-Device-Id": this.deviceId,
-      "User-Agent": `ShonenJumpPlus-Android/${this.latestVersion}`,
-    };
-  }
+    version = "1.0.0"
 
-  apiBase = `https://shonenjumpplus.com/api/v1`;
-  generateDeviceId() {
-    let result = "";
-    const chars = "0123456789abcdef";
-    for (let i = 0; i < 16; i++) {
-      result += chars[randomInt(0, chars.length - 1)];
-    }
-    return result;
-  }
+    minAppVersion = "1.4.0"
 
-  async init() {
-    const url = "https://apps.apple.com/jp/app/少年ジャンプ-人気漫画が読める雑誌アプリ/id875750302";
-    const resp = await Network.get(url, this.headers);
-    const body = await resp.text();
-    const match = body.match(/":\[\{\"versionDisplay\":\"([\d.]+)\",\"rele/);
-    if (match) {
-      this.latestVersion = match[1];
-    }
-  }
+    // update url
+    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/baihehui.js"
 
-  explore = [
-    {
-      title: "少年ジャンプ＋",
-      type: "singlePageWithMultiPart",
-      load: async () => {
-        await this.ensureAuth();
-
-        const response = await this.graphqlRequest("HomeCacheable", {});
-
-        if (!response || !response.data || !response.data.homeSections) {
-          throw "Cannot fetch home sections";
-        }
-
-        const sections = response.data.homeSections;
-        const dailyRankingSection = sections.find((section) =>
-          section.__typename === "DailyRankingSection"
-        );
-
-        if (!dailyRankingSection || !dailyRankingSection.dailyRankings) {
-          throw "Cannot fetch daily ranking data";
-        }
-
-        const dailyRanking = dailyRankingSection.dailyRankings.find((ranking) =>
-          ranking.ranking && ranking.ranking.__typename === "DailyRanking"
-        );
-
-        if (
-          !dailyRanking || !dailyRanking.ranking ||
-          !dailyRanking.ranking.items || !dailyRanking.ranking.items.edges
-        ) {
-          throw "Cannot fetch ranking data structure";
-        }
-
-        const rankingItems = dailyRanking.ranking.items.edges.map((edge) =>
-          edge.node
-        ).filter((node) =>
-          node.__typename === "DailyRankingValidItem" && node.product
-        );
-
-        function parseComic(item) {
-          const series = item.product.series;
-          if (!series) return null;
-
-          const cover = series.squareThumbnailUriTemplate ||
-            series.horizontalThumbnailUriTemplate;
-
-          return {
-            id: series.databaseId,
-            title: series.title || "",
-            cover: cover
-              ? cover.replace("{height}", "500").replace("{width}", "500")
-              : "",
-            tags: [],
-            description: `Ranking: ${item.rank} · Views: ${
-              item.viewCount || "Unknown"
-            }`,
-          };
-        }
-
-        const comics = rankingItems.map(parseComic).filter((comic) =>
-          comic !== null
-        );
-
-        const result = {};
-        result["Daily Ranking"] = comics;
-        return result;
-      },
-    },
-  ];
-
-  search = {
-    load: async (keyword, _, page) => {
-      if (!this.bearerToken || Date.now() > this.tokenExpiry) {
-        await this.fetchBearerToken();
-      }
-
-      const operationName = "SearchResult";
-
-      const response = await this.graphqlRequest(operationName, {
-        keyword,
-      });
-      const edges = response?.data?.search?.edges || [];
-      const pageInfo = response?.data?.search?.pageInfo || {};
-
-      const comics = edges.map(({ node }) => {
-        const authors = (node.author?.name || "").split(/\s*\/\s*/).filter(
-          Boolean,
-        );
-        const cover = node.latestIssue?.thumbnailUriTemplate ||
-          node.thumbnailUriTemplate;
-        if (node.__typename === "Series") {
-          return new Comic({
-            id: node.databaseId,
-            title: node.title || "",
-            cover: this.replaceCoverUrl(cover),
-            description: node.description || "",
-            tags: authors,
-          });
-        }
-        if (node.__typename === "MagazineLabel") {
-          return new Comic({
-            id: node.databaseId,
-            title: node.title || "",
-            cover: this.replaceCoverUrl(cover),
-          });
-        }
-        return null;
-      }).filter(Boolean);
-
-      return {
-        comics,
-        maxPage: pageInfo.hasNextPage ? (page || 1) + 1 : (page || 1),
-        endCursor: pageInfo.endCursor,
-      };
-    },
-  };
-
-  comic = {
-    loadInfo: async (id) => {
-      await this.ensureAuth();
-      const seriesData = await this.fetchSeriesDetail(id);
-      const episodes = await this.fetchEpisodes(id);
-
-      const { chapters, latestPublishAt } = episodes.reduce(
-        (acc, ep) => ({
-          chapters: {
-            ...acc.chapters,
-            [ep.databaseId]: ep.title || "",
-          },
-          latestPublishAt:
-            ep.publishedAt && ep.publishedAt > acc.latestPublishAt
-              ? ep.publishedAt
-              : acc.latestPublishAt,
-        }),
-        { chapters: {}, latestPublishAt: "" },
-      );
-
-      const maxDate = latestPublishAt > seriesData.openAt
-        ? latestPublishAt
-        : seriesData.openAt;
-      const updateDate = new Date(new Date(maxDate) - 60 * 60 * 1000);
-      const authors = (seriesData.author?.name || "").split(/\s*\/\s*/).filter(
-        Boolean,
-      );
-
-      return new ComicDetails({
-        title: seriesData.title || "",
-        subtitle: authors.join(" / "),
-        cover: this.replaceCoverUrl(seriesData.thumbnailUriTemplate),
-        description: seriesData.description || "",
-        tags: {
-          "Author": authors,
-          "Update": [updateDate.toISOString().slice(0, 10)],
+    settings = {
+        domains: {
+            title: "主页源",
+            type: "select",
+            options: [
+                { value: "yamibo.com" },
+            ],
+            default: "yamibo.com"
         },
-        url: `https://shonenjumpplus.com/app/episode/${seriesData.publisherId}`,
-        chapters,
-      });
-    },
-
-    loadEp: async (comicId, epId) => {
-      await this.ensureAuth();
-      const episodeId = this.normalizeEpisodeId(epId);
-      const episodeData = await this.fetchEpisodePages(episodeId);
-
-      if (!this.isEpisodeAccessible(episodeData)) {
-        await this.handleEpisodePurchase(episodeData);
-        return this.comic.loadEp(comicId, epId);
-      }
-
-      return this.buildImageUrls(episodeData);
-    },
-
-    onImageLoad: (url) => {
-      const [cleanUrl, token] = url.split("?token=");
-      return {
-        url: cleanUrl,
-        headers: { "X-Giga-Page-Image-Auth": token },
-      };
-    },
-
-    onClickTag: (namespace, tag) => {
-      if (namespace === "Author") {
-        return {
-          action: "search",
-          keyword: `${tag}`,
-          param: null,
-        };
-      }
-      throw "Unsupported tag namespace: " + namespace;
-    },
-  };
-
-  async ensureAuth() {
-    if (!this.bearerToken || Date.now() > this.tokenExpiry) {
-      await this.fetchBearerToken();
-    }
-  }
-
-  async graphqlRequest(operationName, variables) {
-    const payload = {
-      operationName,
-      variables,
-      query: GraphQLQueries[operationName],
-    };
-    const response = await Network.post(
-      `${this.apiBase}/graphql?opname=${operationName}`,
-      {
-        headers: {
-          ...this.headers,
-          "Authorization": `Bearer ${this.bearerToken}`,
-          "Accept": "application/json",
-          "X-APOLLO-OPERATION-NAME": operationName,
-          "Content-Type": "application/json",
-        }
-      },
-      JSON.stringify(payload)
-    );
-
-    if (response.status !== 200) throw `Invalid status: ${response.status}`;
-    try {
-      return JSON.parse(response.body);
-    } catch (e) {
-      console.error('Failed to parse GraphQL response:', e);
-      throw 'Invalid response format from GraphQL endpoint';
-    }
-  }
-
-  normalizeEpisodeId(epId) {
-    if (typeof epId === "object") return epId.id;
-    if (typeof epId === "string" && epId.includes("/")) {
-      return epId.split("/").pop();
-    }
-    return epId;
-  }
-
-  replaceCoverUrl(url) {
-    return (url || "").replace("{height}", "1500").replace(
-      "{width}",
-      "1500",
-    ) || "";
-  }
-
-  async fetchBearerToken() {
-    const response = await Network.post(
-      `${this.apiBase}/user_account/access_token`,
-      {
-        headers: this.headers
-      },
-      ''
-    );
-    try {
-      const { access_token, user_account_id } = JSON.parse(response.body);
-      this.bearerToken = access_token;
-      this.userAccountId = user_account_id;
-      this.tokenExpiry = Date.now() + 3600000;
-    } catch (e) {
-      console.error('Failed to parse bearer token response:', e);
-      throw 'Invalid response format from access_token endpoint';
-    }
     }
 
-  async fetchSeriesDetail(id) {
-    const response = await this.graphqlRequest("SeriesDetail", { id });
-    return response?.data?.series || {};
-  }
-
-  async fetchEpisodes(id) {
-    const response = await this.graphqlRequest(
-      "SeriesDetailEpisodeList",
-      { id, episodeOffset: 0, episodeFirst: 1500, episodeSort: "NUMBER_ASC" },
-    );
-    const episodes = (response?.data?.series?.episodes?.edges || []).map(
-      (edge) => edge.node
-    );
-    return episodes;
-  }
-
-  async fetchEpisodePages(episodeId) {
-    const response = await this.graphqlRequest(
-      "EpisodeViewerConditionallyCacheable",
-      { episodeID: episodeId },
-    );
-    return response?.data?.episode || {};
-  }
-
-  isEpisodeAccessible({ purchaseInfo }) {
-    return purchaseInfo?.isFree || purchaseInfo?.hasPurchased ||
-      purchaseInfo?.hasRented;
-  }
-
-  async handleEpisodePurchase(episodeData) {
-    const { id, purchaseInfo } = episodeData;
-    const { purchasableViaOnetimeFree, rentable, unitPrice } = purchaseInfo ||
-      {};
-
-    if (purchasableViaOnetimeFree) await this.consumeOnetimeFree(id);
-    if (rentable) await this.rentChapter(id, unitPrice);
-  }
-
-  buildImageUrls({ pageImages, pageImageToken }) {
-    const validImages = pageImages.edges.flatMap((edge) => edge.node?.src)
-      .filter(Boolean);
-    return {
-      images: validImages.map((url) => `${url}?token=${pageImageToken}`),
-    };
-  }
-
-  async consumeOnetimeFree(episodeId) {
-    const response = await this.graphqlRequest("ConsumeOnetimeFree", {
-      input: { id: episodeId },
-    });
-    return response?.data?.consumeOnetimeFree?.isSuccess;
-  }
-
-  async rentChapter(episodeId, unitPrice, retryCount = 0) {
-    if (retryCount > 3) {
-      throw "Failed to rent chapter after multiple attempts.";
-    }
-    const response = await this.graphqlRequest("Rent", {
-      input: { id: episodeId, unitPrice },
-    });
-
-    if (response.errors?.[0]?.extensions?.code === "FAILED_TO_USE_POINT") {
-      await this.refreshAccount();
-      return this.rentChapter(episodeId, unitPrice, retryCount + 1);
+    get baseUrl() {
+        return `https://www.${this.loadSetting('domains')}`;
     }
 
-    this.userAccountId = response?.data?.rent?.userAccount?.databaseId;
-    return true;
-  }
+    /**
+     * [Optional] init function
+     */
+    init() {
 
-  async refreshAccount() {
-    this.deviceId = this.generateDeviceId();
-    this.bearerToken = this.userAccountId = null;
-    this.tokenExpiry = 0;
-    await this.fetchBearerToken();
-    await this.addUserDevice();
-  }
+    }
 
-  async addUserDevice() {
-    await this.graphqlRequest("AddUserDevice", {
-      input: {
-        deviceName: `Android ${21 + Math.floor(Math.random() * 14)}`,
-        modelName: `Device-${Math.random().toString(36).slice(2, 10)}`,
-        osName: `Android ${9 + Math.floor(Math.random() * 6)}`,
-      },
-    });
-    this.addUserDeviceCalled = true;
-  }
-}
+    account = {
+        login: async (username, password) => {
+            Network.deleteCookies("https://www.yamibo.com");
+            // 1. GET 登录页，保存 PHPSESSID 和 _csrf-frontend
+            let resGet = await Network.get("https://www.yamibo.com/user/login", {
+                "User-Agent": "Mozilla/5.0"
+            });
+            if (resGet.status !== 200) throw "无法打开登录页";
 
-const GraphQLQueries = {
-  "SearchResult": `query SearchResult($after: String, $keyword: String!) {
-        search(after: $after, first: 50, keyword: $keyword, types: [SERIES,MAGAZINE_LABEL]) {
-            pageInfo { hasNextPage endCursor }
-            edges {
-                node {
-                    __typename
-                    ... on Series { id databaseId title thumbnailUriTemplate author { name } description }
-                    ... on MagazineLabel { id databaseId title thumbnailUriTemplate latestIssue { thumbnailUriTemplate } }
+            // 1.1 提取并保存 GET 返回的 Set-Cookie
+            let sc1 = resGet.headers["set-cookie"] || resGet.headers["Set-Cookie"] || [];
+            let initialCookies = [];
+            for (let line of Array.isArray(sc1) ? sc1 : [sc1]) {
+                let [pair] = line.split(";");
+                let [name, value] = pair.split("=");
+                name = name.trim(); value = value.trim();
+                if (name === "PHPSESSID" || name === "_csrf-frontend") {
+                    initialCookies.push(new Cookie({ name, value, domain: "www.yamibo.com" }));
                 }
             }
-        }
-    }`,
-  "SeriesDetail": `query SeriesDetail($id: String!) {
-        series(databaseId: $id) {
-            id databaseId title thumbnailUriTemplate
-            author { name }
-            description
-            hashtags serialUpdateScheduleLabel
-            openAt
-            publisherId
-        }
-    }`,
-  "SeriesDetailEpisodeList":
-    `query SeriesDetailEpisodeList($id: String!, $episodeOffset: Int, $episodeFirst: Int, $episodeSort: ReadableProductSorting) {
-        series(databaseId: $id) {
-            episodes: readableProducts(types: [EPISODE], first: $episodeFirst, offset: $episodeOffset, sort: $episodeSort) {
-                edges { node { databaseId title publishedAt } }
+            Network.setCookies("https://www.yamibo.com", initialCookies);
+
+            // 2. 解析 CSRF token
+            let doc = new HtmlDocument(resGet.body);
+            let csrf = doc
+                .querySelector('meta[name="csrf-token"]')
+                .attributes.content;
+            doc.dispose();
+
+            // 3. 构造编码后的表单
+            let form = [
+                `_csrf-frontend=${encodeURIComponent(csrf)}`,
+                `LoginForm%5Busername%5D=${encodeURIComponent(username)}`,
+                `LoginForm%5Bpassword%5D=${encodeURIComponent(password)}`,
+                'LoginForm%5BrememberMe%5D=0',
+                'LoginForm%5BrememberMe%5D=1',
+                `login-button=${encodeURIComponent("登录")}`
+            ].join("&");
+
+            // 4. POST 登录（会自动带上刚才的 Cookie）
+            let resPost = await Network.post(
+                "https://www.yamibo.com/user/login",
+                {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Referer": "https://www.yamibo.com/user/login",
+                    "User-Agent": "Mozilla/5.0"
+                },
+                form
+            );
+            if (resPost.status === 400) throw "登录失败";
+            Network.deleteCookies("https://www.yamibo.com");
+
+            // …account.login 中 POST 后提取 Cookie 部分…
+            let raw = resPost.headers["set-cookie"] || resPost.headers["Set-Cookie"];
+            if (!raw) throw "未收到任何 Cookie";
+
+            // 1. 将单条字符串按“逗号+Cookie名=”拆分
+            let parts = Array.isArray(raw)
+                ? raw
+                : raw.split(/,(?=\s*(?:PHPSESSID|_identity-frontend|_csrf-frontend)=)/);
+
+            // 2. 提取目标 Cookie
+            const names = ["PHPSESSID", "_identity-frontend", "_csrf-frontend"];
+            let cookies = parts.map(line => {
+                let [pair] = line.split(";");
+                let [k, v] = pair.split("=");
+                k = k.trim(); v = v.trim();
+                if (names.includes(k)) return new Cookie({ name: k, value: v, domain: "www.yamibo.com" });
+            }).filter(Boolean);
+
+            // 3. 验证并保存
+            if (cookies.length !== names.length) {
+                throw "登录未返回完整 Cookie，实际：" + cookies.map(c => c.name).join(",");
+            }
+            Network.setCookies("https://www.yamibo.com", cookies);
+
+            return true;
+        },
+
+        logout: () => {
+            Network.deleteCookies("https://www.yamibo.com");
+        },
+
+        registerWebsite: "https://www.yamibo.com/user/signup"
+    }
+
+
+    static category_types = {
+        "全部作品": "manga/list@a@?",
+        "原创": "manga/list?q=4@a@&",
+        "同人": "manga/list?q=6@a@&",
+    }
+
+    static article_types = {
+        "翻页漫画": "search/type?type=3&tag=@b@翻页漫画",
+        "条漫": "search/type?type=3&tag=@b@条漫",
+        "四格": "search/type?type=3&tag=@b@四格",
+        "绘本": "search/type?type=3&tag=@b@绘本",
+        "杂志": "search/type?type=3&tag=@b@杂志",
+        "合志": "search/type?type=3&tag=@b@合志",
+    }
+
+    static relate_types = {
+        "编辑推荐": "manga/rcmds?type=3012@c@&",
+        "最近更新": "manga/latest@c@?",
+        "原创推荐": "manga/rcmds?type=3014@c@&",
+        "同人推荐": "manga/rcmds?type=3015@c@&",
+    }
+
+
+
+
+// explore page list
+explore = [
+    {
+        title: "百合会",
+        type: "singlePageWithMultiPart",
+        load: async (page) => {
+                // 1. 拿到 HTML
+                let res = await Network.get("https://www.yamibo.com/site/manga", {
+                    "User-Agent": "Mozilla/5.0"
+                });
+                if (res.status !== 200) {
+                    throw `Invalid status code: ${res.status}`;
+                }
+
+                // 2. 解析文档
+                let doc = new HtmlDocument(res.body);
+
+                // 3. 通用解析单元函数
+                function parseItem(el) {
+                    let a = el.querySelector(".media-img") || el.querySelector("a.media-img");
+                    let href = a.attributes.href;
+                    let id = href.match(/\/manga\/(\d+)/)[1];
+                    // 从 style 中提取 url
+                    let style = a.attributes.style || "";
+                    let cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
+                    let title = el.querySelector("h3 a").text.trim();
+                    return new Comic({ id, title, cover });
+                }
+
+                // 4. 抓「编辑推荐」
+                let editor = [];
+                let editorEls = doc.querySelectorAll(".recommend-list .media-cell.horizontal");
+                for (let el of editorEls) {
+                    editor.push(parseItem(el));
+                }
+
+                // 5. 抓「最近更新」
+                let latest = [];
+                // 找到标题元素，再拿其后面的 <ul> 下的 .media-cell.vertical
+                let latestTitle = Array.from(doc.querySelectorAll("h2.module-title"))
+                    .find(e => e.text.includes("最近更新"));
+                if (latestTitle) {
+                    let ul = latestTitle.nextElementSibling;
+                    if (ul) {
+                        let items = ul.querySelectorAll(".media-cell.vertical");
+                        for (let el of items) latest.push(parseItem(el));
+                    }
+                }
+
+                // 原创推荐
+                let original = [];
+                let originalTitle = Array.from(doc.querySelectorAll("h2.module-title"))
+                    .find(e => e.text.includes("原创推荐"));
+                if (originalTitle) {
+                    let ul = originalTitle.nextElementSibling;
+                    if (ul) {
+                        let items = ul.querySelectorAll(".media-cell.vertical");
+                        for (let el of items) original.push(parseItem(el));
+                    }
+                }
+
+                // 6. 抓「同人推荐」
+                let fan = [];
+                let fanTitle = Array.from(doc.querySelectorAll("h2.module-title"))
+                    .find(e => e.text.includes("同人推荐"));
+                if (fanTitle) {
+                    let ul = fanTitle.nextElementSibling;
+                    if (ul) {
+                        let items = ul.querySelectorAll(".media-cell.vertical");
+                        for (let el of items) fan.push(parseItem(el));
+                    }
+                }
+
+                // 7. 清理并返回
+                doc.dispose();
+                return {
+                    "编辑推荐": editor,
+                    "最近更新": latest,
+                    "原创推荐": original,
+                    "同人推荐": fan
+                };
+            }
+    }
+];
+
+    // categories
+    category = {
+        /// title of the category page, used to identify the page, it should be unique
+        title: "百合会",
+        parts: [
+            {
+                name: "分类",
+                type: "fixed",
+                categories: Object.keys(Baihehui.category_types),
+                itemType: "category",
+                categoryParams: Object.values(Baihehui.category_types),
+            },
+            {
+                name: "作品类型（需要登陆）",
+                type: "fixed",
+                categories: Object.keys(Baihehui.article_types),
+                itemType: "category",
+                categoryParams: Object.values(Baihehui.article_types),
+            },
+            {
+                name: "更多推荐",
+                type: "fixed",
+                categories: Object.keys(Baihehui.relate_types),
+                itemType: "category",
+                categoryParams: Object.values(Baihehui.relate_types),
+            },
+        ],
+        // enable ranking page
+        enableRankingPage: false,
+    }
+
+    /// category comic loading related
+    categoryComics = {
+        load: async (category, params, options, page) => {
+            let param = params.split('@')[0];
+            let type = params.split('@')[1];
+            let type_options = params.split('@')[2];
+            let url = ""
+            if (type == "b") {
+                url = `${this.baseUrl}/${param}${encodeURIComponent(type_options)}&sort=updated_at`;
+                url += `&page=${page}&per-page=50`;
+            } else {
+                url = `${this.baseUrl}/${param}${type_options}sort=updated_at`;
+                url += `&page=${page}&per-page=50`;
+            }
+
+            // 发起请求
+            let res = await Network.get(url, {
+                "User-Agent": "Mozilla/5.0"
+            });
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
+            }
+
+
+            // 解析 HTML
+            let document = new HtmlDocument(res.body);
+
+            // 获取最大页数
+            let lastPageElement = document.querySelector('li.last > a');
+            let maxPage = lastPageElement ? parseInt(lastPageElement.attributes['data-page']) + 1 : 1;
+
+
+            // 分类解析、
+            if (type == "a") {
+                let mangaList = [];
+                // 获取所有漫画行
+                let rows = document.querySelectorAll('tr[data-key]');
+
+                rows.forEach(row => {
+                    // 提取信息
+                    let href = row.querySelector('a').attributes['href'];
+                    // 提取最后的数字作为 id
+                    let matchResult = href.match(/\/manga\/(\d+)$/);
+                    if (!matchResult) return; // 如果没有匹配到，跳过当前项
+                    let rawId = matchResult[1];
+
+                    // 补零处理 - 确保id是3位数
+                    let id = rawId.padStart(3, '0');
+                    let title = row.querySelector('a').text;
+                    let author = row.querySelectorAll('td')[2].text;
+
+                    // 获取标签
+                    let tags = [
+                        row.querySelectorAll('td')[4].text, // 作品分类(原创/同人)
+                        row.querySelectorAll('td')[5].text  // 连载状态
+                    ];
+
+                    // 获取更新时间作为描述
+                    let updateTime = row.querySelectorAll('td')[8].text;
+
+                    // 构建漫画对象
+                    let manga = {
+                        id: id,
+                        title: title,
+                        cover: `https://www.yamibo.com/coverm/000/000/${id}.jpg`, // 默认封面
+                        tags: tags,
+                        description: `更新于: ${updateTime}`
+                    };
+
+                    mangaList.push(manga);
+                });
+
+                return {
+                    comics: mangaList,
+                    maxPage: maxPage // 从分页信息可以看出总共5页
+                };
+            } else if (type == "b") {
+                let mangaList = [];
+                // 获取所有漫画行
+                let rows = document.querySelectorAll('tr[data-key]');
+                rows.forEach(row => {
+                    // 提取信息
+                    let href = row.querySelector('a').attributes['href'];
+                    // 提取最后的数字作为 id
+                    let matchResult = href.match(/\/manga\/(\d+)$/);
+                    if (!matchResult) return; // 如果没有匹配到，跳过当前项
+                    let rawId = matchResult[1];
+                    // 补零处理 - 确保id是3位数
+                    let id = rawId.padStart(3, '0');
+                    let title = row.querySelector('a').text;
+                    let author = row.querySelectorAll('td')[2].text;
+
+                    // 获取标签
+                    let tags = [
+                        row.querySelectorAll('td')[3].text.replace(/\[|\]/g, ''), // 作品分类 (去掉方括号)
+                        row.querySelectorAll('td')[4].text // 连载状态
+                    ];
+
+                    // 获取更新时间作为描述
+                    let updateTime = row.querySelectorAll('td')[6].text;
+
+                    // 构建封面 URL
+                    let cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
+
+                    // 构建漫画对象
+                    let manga = {
+                        id: id,
+                        title: title,
+                        cover: cover, // 使用有效封面或默认封面
+                        tags: tags,
+                        description: `${updateTime}`
+                    };
+
+                    mangaList.push(manga);
+                });
+
+                return {
+                    comics: mangaList,
+                    maxPage: maxPage // 从分页信息可以看出总共8页
+                };
+            } else {
+                let mangaList = [];
+                // 获取所有漫画行
+                let rows = document.querySelectorAll('tr[data-key]');
+                rows.forEach(row => {
+                    // 提取信息
+                    let href = row.querySelector('a').attributes['href'];
+                    // 提取最后的数字作为 id
+                    let matchResult = href.match(/\/manga\/(\d+)$/);
+                    if (!matchResult) return; // 如果没有匹配到，跳过当前项
+                    let rawId = matchResult[1];
+                    // 补零处理 - 确保id是3位数
+                    let id = rawId.padStart(3, '0');
+                    let title = row.querySelector('a').text;
+
+                    // 获取更新时间作为描述
+                    let updateTime = row.querySelector('td:last-child').text.trim();
+
+                    // 构建封面 URL
+                    let cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
+
+                    // 构建漫画对象
+                    let manga = {
+                        id: id,
+                        title: title,
+                        cover: cover, // 使用有效封面或默认封面
+                        tags: [],
+                        description: `更新于: ${updateTime}`
+                    };
+
+                    mangaList.push(manga);
+                });
+
+                return {
+                    comics: mangaList,
+                    maxPage: maxPage // 从分页信息可以看出总共8页
+                };
             }
         }
-    }`,
-  "EpisodeViewerConditionallyCacheable":
-    `query EpisodeViewerConditionallyCacheable($episodeID: String!) {
-        episode(databaseId: $episodeID) {
-            id pageImages { edges { node { src } } } pageImageToken
-            purchaseInfo {
-                isFree hasPurchased hasRented
-                purchasableViaOnetimeFree rentable unitPrice
+    }
+
+    /// search related
+    search = {
+        /**
+         * load search result
+         * @param keyword {string}
+         * @param options {string[]} - options from optionList
+         * @param page {number}
+         * @returns {Promise<{comics: Comic[], maxPage: number}>}
+         */
+        load: async (keyword, options, page) => {
+            let url = `https://www.yamibo.com/search/manga?SearchForm%5Bkeyword%5D=${encodeURIComponent(keyword)}&page=${page}`;
+    let res = await Network.get(url, {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+    });
+
+    if (res.status !== 200) {
+        throw `Invalid status code: ${res.status}`;
+    }
+
+    let document = new HtmlDocument(res.body);
+    // 获取最大页数
+    let lastPageElement = document.querySelector('li.last > a');
+    let maxPage = lastPageElement ? parseInt(lastPageElement.attributes['data-page']) + 1 : 1;
+    // 提取漫画列表
+    let mangaList = [];
+                // 获取所有漫画行
+                let rows = document.querySelectorAll('tr[data-key]');
+                rows.forEach(row => {
+                    // 提取信息
+                    let href = row.querySelector('a').attributes['href'];
+                    // 提取最后的数字作为 id
+                    let matchResult = href.match(/\/manga\/(\d+)$/);
+                    if (!matchResult) return; // 如果没有匹配到，跳过当前项
+                    let rawId = matchResult[1];
+                    // 补零处理 - 确保id是3位数
+                    let id = rawId.padStart(3, '0');
+                    let title = row.querySelector('a').text;
+
+                    // 获取更新时间作为描述
+                    let updateTime = row.querySelector('td:last-child').text.trim();
+
+                    // 构建封面 URL
+                    let cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
+
+                    // 构建漫画对象
+                    let manga = {
+                        id: id,
+                        title: title,
+                        cover: cover, // 使用有效封面或默认封面
+                        tags: [],
+                        description: `更新于: ${updateTime}`
+                    };
+
+                    mangaList.push(manga);
+                });
+
+                return {
+                    comics: mangaList,
+                    maxPage: maxPage // 从分页信息可以看出总共8页
+                };
+        },
+
+        /**
+         * load search result with next page token.
+         * The field will be ignored if `load` function is implemented.
+         * @param keyword {string}
+         * @param options {(string)[]} - options from optionList
+         * @param next {string | null}
+         * @returns {Promise<{comics: Comic[], maxPage: number}>}
+         */
+        loadNext: async (keyword, options, next) => {
+
+        },
+
+        // provide options for search
+        optionList: [],
+
+        // enable tags suggestions
+        enableTagsSuggestions: false,
+    }
+
+    /// single comic related
+    comic = {
+        /**
+         * load comic info
+         * @param id {string}
+         * @returns {Promise<ComicDetails>}
+         */
+        loadInfo: async (id) => {
+            let res = await Network.get(`${this.baseUrl}/manga/${id}`);
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
             }
+
+            let document = new HtmlDocument(res.body);
+
+            // 提取漫画标题
+            let titleElement = document.querySelector("h3.col-md-12");
+            if (!titleElement) throw "无法找到漫画标题"; // 或者设置默认值
+            let title = titleElement.text.trim();
+
+            // 提取封面图片
+            let cover = "https://www.yamibo.com/coverm/000/000/" + id + ".jpg";
+
+            // 提取作者信息
+            let author = "";
+            document.querySelectorAll("p").forEach(p => {
+                if (p.text.includes("作者：")) {
+                    author = p.text.replace("作者：", "").trim();
+                }
+            });
+
+            // 提取标签
+            let tags = [];
+            document.querySelectorAll("a.label.label-ntype").forEach(tag => {
+                tags.push(tag.text.trim());
+            });
+
+            // 提取更新时间
+            let updateTime = "";
+            document.querySelectorAll("p").forEach(p => {
+                if (p.text.includes("更新时间：")) {
+                    updateTime = p.text.replace("更新时间：", "").trim();
+                }
+            });
+
+            // 提取简介
+            //let description = document.querySelector("div.panel-body > div.panel-collapse > div.panel-body").text.trim();
+            let description = "";
+
+            // 提取章节信息
+            let chapters = new Map();
+            document.querySelectorAll("div[data-key]").forEach(chapter => {
+                let chapterKey = chapter.attributes['data-key']; // 获取 data-key 值
+                if (!chapterKey) return; // 如果没有 data-key 属性，跳过当前项
+                let chapterTitleElement = chapter.querySelector("a");
+                if (!chapterTitleElement) return; // 如果没有找到 a 标签，跳过当前项
+                let chapterTitle = chapterTitleElement.text.trim(); // 获取章节标题
+                chapters.set(chapterKey, chapterTitle); // 将 data-key 和章节标题存入 Map
+            });
+
+            return {
+                title: title,
+                cover: cover,
+                description: description,
+                tags: {
+                    "作者": [author],
+                    "更新": [updateTime],
+                    "标签": tags
+                },
+                chapters: chapters
+            };
+
+        },
+        loadComments: async (comicId, subId, page, replyTo) => {
+            let url = `${this.baseUrl}/manga/${comicId}?dp-1-page=${page}`;
+            let res = await Network.get(url, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+                }
+            });
+
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
+            }
+
+            let document = new HtmlDocument(res.body);
+
+            // 提取评论总数
+            let totalCommentsMatch = document.querySelector("div.panel-body").text.match(/共(\d+)篇/);
+            let totalComments = totalCommentsMatch ? parseInt(totalCommentsMatch[1]) : 0;
+
+            // 提取评论列表
+            let comments = [];
+            document.querySelectorAll("div.post.row").forEach(post => {
+                // 提取用户名
+                let userNameElement = post.querySelector("span.cmt-username > a");
+                if (!userNameElement) return; // 如果找不到，跳过当前项
+                let userName = userNameElement.text.trim();
+
+                // 提取头像
+                let avatarElement = post.querySelector("a > img.cmt-avatar");
+                if (!avatarElement || !avatarElement.attributes['src']) return;
+                let avatar = "https://www.yamibo.com/" + avatarElement.attributes['src'];
+
+                // 提取评论内容
+                let contentElement = post.querySelector("div.row > p");
+                if (!contentElement) return;
+                let content = contentElement.text.trim();
+
+                // 提取时间
+                let timeElement = post.querySelector("span.description");
+                if (!timeElement) return;
+                let time = timeElement.text.replace("在 ", "").trim();
+
+                // 提取回复数量
+                let replyCountElement = post.querySelector("a.btn.btn-sm");
+                let replyCountMatch = replyCountElement ? replyCountElement.text.match(/(\d+) 条回复/) : null;
+                let replyCount = replyCountMatch ? parseInt(replyCountMatch[1]) : 0;
+
+                // 提取ID
+                let idElement = post.querySelector("button.btn_reply");
+                if (!idElement || !idElement.attributes['pid']) return;
+                let id = idElement.attributes['pid'];
+
+                comments.push({
+                    userName: userName,
+                    avatar: avatar,
+                    content: content,
+                    time: time,
+                    replyCount: replyCount,
+                    id: id
+                });
+            });
+
+            // 计算最大页数
+            let maxPageElement = document.querySelector("li.last > a");
+            let maxPage = maxPageElement ? parseInt(maxPageElement.attributes['data-page']) + 1 : 1;
+
+            return {
+                comments: comments,
+                totalComments: totalComments,
+                maxPage: maxPage
+            };
+        },
+
+        loadEp: async (comicId, epId) => {
+            let baseUrl = `https://www.yamibo.com/manga/view-chapter?id=${epId}`;
+    let res = await Network.get(`${baseUrl}&page=1`, {
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
         }
-    }`,
-  "ConsumeOnetimeFree":
-    `mutation ConsumeOnetimeFree($input: ConsumeOnetimeFreeInput!) {
-        consumeOnetimeFree(input: $input) { isSuccess }
-    }`,
-  "Rent": `mutation Rent($input: RentInput!) {
-        rent(input: $input) {
-            userAccount { databaseId }
+    });
+
+    if (res.status !== 200) {
+        throw `Invalid status code: ${res.status}`;
+    }
+
+    let document = new HtmlDocument(res.body);
+
+    // 提取最大页数
+    let lastPageElement = document.querySelector("li.last > a");
+    let maxPage = lastPageElement ? parseInt(lastPageElement.attributes['data-page']) + 1 : 1;
+
+    let images = [];
+
+    // 循环抓取所有页面的图片
+    for (let page = 1; page <= maxPage; page++) {
+        let pageUrl = `${baseUrl}&page=${page}`;
+        let pageRes = await Network.get(pageUrl, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+            }
+        });
+
+        if (pageRes.status !== 200) {
+            throw `Invalid status code on page ${page}: ${pageRes.status}`;
         }
-    }`,
-  "AddUserDevice": `mutation AddUserDevice($input: AddUserDeviceInput!) {
-        addUserDevice(input: $input) { isSuccess }
-    }`,
-  "HomeCacheable": `query HomeCacheable {
-    homeSections {
-      __typename
-      ...DailyRankingSection
-    }
-  }
-  fragment DesignSectionImage on DesignSectionImage {
-    imageUrl width height
-  }
-  fragment SerialInfoIcon on SerialInfo {
-    isOriginal isIndies
-  }
-  fragment DailyRankingSeries on Series {
-    id databaseId publisherId title
-    horizontalThumbnailUriTemplate: subThumbnailUri(type: HORIZONTAL_WITH_LOGO)
-    squareThumbnailUriTemplate: subThumbnailUri(type: SQUARE_WITHOUT_LOGO)
-    isNewOngoing supportsOnetimeFree
-    serialInfo {
-      __typename ...SerialInfoIcon
-      status isTrial
-    }
-    jamEpisodeWorkType
-  }
-  fragment DailyRankingItem on DailyRankingItem {
-    __typename
-    ... on DailyRankingValidItem {
-      product {
-        __typename
-        ... on Episode {
-          id databaseId publisherId commentCount
-          series {
-            __typename ...DailyRankingSeries
-          }
+
+        let pageDocument = new HtmlDocument(pageRes.body);
+
+        // 提取图片 URL
+        let imageElement = pageDocument.querySelector("img#imgPic");
+        if (!imageElement) {
+            throw `Image not found on page ${page}.`;
         }
-        ... on SpecialContent {
-          publisherId linkUrl
-          series {
-            __typename ...DailyRankingSeries
-          }
-        }
-      }
-      badge { name label }
-      label rank viewCount
+        let imageSrc = imageElement.attributes['src'];
+        if (!imageSrc) throw `Image src not found on page ${page}.`;
+        images.push(imageSrc);
     }
-    ... on DailyRankingInvalidItem {
-      publisherWorkId
+
+    return {
+        images: images, // 所有页面的图片 URL
+        maxPage: maxPage
+    };
+        },
+
+        // enable tags translate
+        enableTagsTranslate: false,
     }
-  }
-  fragment DailyRanking on DailyRanking {
-    date firstPositionSeriesId
-    items {
-      edges {
-        node {
-          __typename ...DailyRankingItem
-        }
-      }
-    }
-  }
-  fragment DailyRankingSection on DailyRankingSection {
-    title
-    titleImage {
-      __typename ...DesignSectionImage
-    }
-    dailyRankings {
-      ranking {
-        __typename ...DailyRanking
-      }
-    }
-  }`,
-};
+}
