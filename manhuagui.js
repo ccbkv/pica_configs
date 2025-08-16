@@ -39,7 +39,7 @@ class ManHuaGui extends ComicSource {
 
   version = "1.0.1";
 
-  minAppVersion = "3.1.0";
+  minAppVersion = "1.4.0";
 
   // 更新链接
   url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
@@ -964,20 +964,25 @@ class ManHuaGui extends ComicSource {
 
       // Strategy 1: Find script with 'p,a,c,k,e,d'
       for (const s of scripts) {
-        if (s.innerHTML && s.innerHTML.includes('p,a,c,k,e,d')) {
-          potentialScripts.push(s.innerHTML);
+        const html = await s.innerHTML;
+        if (html && html.includes('p,a,c,k,e,d')) {
+          potentialScripts.push(html);
         }
       }
 
       // Strategy 2: Use script[4] based on 參考.js
-      if (scripts.length > 4 && scripts[4].innerHTML) {
-        potentialScripts.push(scripts[4].innerHTML);
+      if (scripts.length > 4) {
+        const html = await scripts[4].innerHTML;
+        if (html) {
+          potentialScripts.push(html);
+        }
       }
 
       // Strategy 3: Add all scripts as a fallback
       for (const s of scripts) {
-        if (s.innerHTML) {
-          potentialScripts.push(s.innerHTML);
+        const html = await s.innerHTML;
+        if (html) {
+          potentialScripts.push(html);
         }
       }
       
