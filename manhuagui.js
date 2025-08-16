@@ -1006,51 +1006,79 @@ class ManHuaGui extends ComicSource {
       // 寻找包含图片信息的脚本
       let scripts = document.querySelectorAll("script");
       let scriptContent = null;
+      let validScripts = [];
       
-      // 尝试寻找包含window["_INITIAL_STATE_"]的脚本
+      console.log(`找到 ${scripts.length} 个脚本标签`);
+      
+      // 策略1: 尝试寻找包含window["_INITIAL_STATE_"]的脚本
       for (let i = 0; i < scripts.length; i++) {
         let script = scripts[i].innerHTML;
         if (script && script.includes("window['_INITIAL_STATE_']")) {
-          scriptContent = script;
-          break;
+          console.log(`策略1: 在索引 ${i} 找到包含window['_INITIAL_STATE_']的脚本`);
+          validScripts.push({index: i, content: script, strategy: "window_INITIAL_STATE"});
         }
       }
       
-      // 如果没找到，尝试使用第4个脚本（旧方法）
-      if (!scriptContent && scripts.length >= 5) {
-        scriptContent = scripts[4].innerHTML;
-        console.warn("未找到包含window['_INITIAL_STATE_']的脚本，使用第4个脚本");
+      // 策略2: 寻找包含关键图片信息字段的脚本
+      for (let i = 0; i < scripts.length; i++) {
+        let script = scripts[i].innerHTML;
+        if (script && (script.includes("files") && script.includes("path") && script.includes("sl"))) {
+          console.log(`策略2: 在索引 ${i} 找到包含图片信息字段的脚本`);
+          validScripts.push({index: i, content: script, strategy: "image_fields"});
+        }
       }
       
-      if (!scriptContent) {
-        console.error("未能找到有效的脚本内容");
-        return { images: [] };
+      // 策略3: 参考參考.js使用第4个脚本
+      if (scripts.length >= 5) {
+        let script = scripts[4].innerHTML;
+        if (script) {
+          console.log("策略3: 使用第4个脚本");
+          validScripts.push({index: 4, content: script, strategy: "reference_4th"});
+        }
       }
       
-      let infos = this.getImgInfos(scriptContent);
-      
-      // 验证infos是否有效
-      if (!infos || !infos.files || !Array.isArray(infos.files) || infos.files.length === 0) {
-        console.error("未能正确提取图片信息");
-        return { images: [] };
+      // 策略4: 尝试所有非空脚本
+      for (let i = 0; i < scripts.length; i++) {
+        let script = scripts[i].innerHTML;
+        if (script && script.trim().length > 0 && !validScripts.some(s => s.index === i)) {
+          console.log(`策略4: 添加索引 ${i} 的非空脚本`);
+          validScripts.push({index: i, content: script, strategy: "non_empty"});
+        }
       }
       
-      if (!infos.path || !infos.sl || !infos.sl.e || !infos.sl.m) {
-        console.error("图片信息不完整");
-        return { images: [] };
+      // 尝试所有有效脚本直到成功
+      for (let {content, index, strategy} of validScripts) {
+        try {
+          console.log(`尝试使用索引 ${index} 的脚本 (策略: ${strategy})`);
+          let infos = this.getImgInfos(content);
+          
+          // 验证infos是否有效
+          if (infos && infos.files && Array.isArray(infos.files) && infos.files.length > 0) {
+            if (infos.path && infos.sl && infos.sl.e && infos.sl.m) {
+              console.log(`成功从索引 ${index} 的脚本中提取图片信息`);
+              let imgDomain = `https://us.hamreus.com`;
+              let images = [];
+              for (let f of infos.files) {
+                let imgUrl = 
+                  imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
+                images.push(imgUrl);
+              }
+              return {
+                images,
+              };
+            } else {
+              console.warn(`索引 ${index} 的脚本缺少必要的图片信息字段`);
+            }
+          } else {
+            console.warn(`无法从索引 ${index} 的脚本中提取有效图片信息`);
+          }
+        } catch (e) {
+          console.error(`处理索引 ${index} 的脚本时出错:`, e);
+        }
       }
       
-      let imgDomain = `https://us.hamreus.com`;
-      let images = [];
-      for (let f of infos.files) {
-        let imgUrl = 
-          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
-        images.push(imgUrl);
-      }
-      // log("warning", this.name, images);
-      return {
-        images,
-      };
+      console.error("所有脚本尝试均失败，未能找到有效的图片信息");
+      return { images: [] };
     },
     /**
      * [Optional] provide configs for an image loading
