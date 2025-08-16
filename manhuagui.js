@@ -1010,7 +1010,7 @@ class ManHuaGui extends ComicSource {
       // 尝试寻找包含window["_INITIAL_STATE_"]的脚本
       for (let i = 0; i < scripts.length; i++) {
         let script = scripts[i].innerHTML;
-        if (script.includes("window['_INITIAL_STATE_']")) {
+        if (script && script.includes("window['_INITIAL_STATE_']")) {
           scriptContent = script;
           break;
         }
