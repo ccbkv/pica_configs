@@ -38,24 +38,24 @@ class YKMHSource extends ComicSource {
                             cover = 'https://www.ykmh.net' + (cover.startsWith('/') ? cover : '/' + cover)
                         }
                         
-                        hotComics.push(new Comic({
+                        hotComics.push({
                             id: match[1], 
                             title: match[3].trim(), 
                             cover: cover, 
                             tags: [`热门推荐`],
                             description: "热门推荐漫画"
-                        }))
+                        })
                     }
                     if (hotComics.length === 0) {
                         let keywordPattern = /<li data-key="(\d+)"><a href="(https:\/\/www\.ykmh\.net\/manhua\/[^"]+)"[^>]*>([^<]+)<\/a><\/li>/g
                         while ((match = keywordPattern.exec(html)) !== null) {
-                            hotComics.push(new Comic({
+                            hotComics.push({
                                 id: match[2], 
                                 title: match[3],
                                 cover: "https://www.ykmh.net/images/default/cover.png", 
                                 tags: [`热门关键词`],
                                 description: ""
-                            }))
+                            })
                         }
                     }
                     
@@ -72,13 +72,13 @@ class YKMHSource extends ComicSource {
                             cover = 'https://www.ykmh.net' + (cover.startsWith('/') ? cover : '/' + cover)
                         }
                         
-                        latestComics.push(new Comic({
+                        latestComics.push({
                             id: match[2], 
                             title: match[3], 
                             cover: cover, 
                             tags: [match[5]], 
                             description: `更新至：${match[5]}`
-                        }))
+                        })
                     }
                     return latestComics.slice(0, 15) 
                 }
@@ -327,13 +327,13 @@ class YKMHSource extends ComicSource {
                         cover = 'https://www.ykmh.net' + (cover.startsWith('/') ? cover : '/' + cover)
                     }
                     
-                    comics.push(new Comic({
+                    comics.push({
                         id: match[2],
                         title: match[5] || match[4], 
                         cover: cover,
                         tags: [],
                         description: ""
-                    }))
+                    })
                 }
                 
                 return comics
@@ -399,13 +399,13 @@ class YKMHSource extends ComicSource {
                     if (!cover.startsWith('http')) {
                         cover = 'https://www.ykmh.net' + (cover.startsWith('/') ? cover : '/' + cover)
                     }
-                    comics.push(new Comic({
+                    comics.push({
                         id: match[2], 
                         title: match[3], 
                         cover: cover, 
                         tags: [match[6] || "未知作者", match[7] || ""], 
                         description: `作者：${match[6] || "未知作者"} | 更新至：${match[7] || "未知"}`
-                    }))
+                    })
                 }
                 
                 return comics
@@ -687,11 +687,11 @@ class YKMHSource extends ComicSource {
                                 let recUrl = match[1];
                                 let recCover = match[2];
                                 let recTitle = (match[4] && match[4].trim()) || (match[3] && match[3].trim()) || "未知标题";              
-                                recommends.push(new Comic({
+                                recommends.push({
                                     id: recUrl,
                                     title: recTitle,
                                     cover: recCover
-                                }));
+                                });
                                 count++;
                             }
                         } catch (e) {
