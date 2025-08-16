@@ -71,31 +71,20 @@ class ManHuaGui extends ComicSource {
 
   // 获取HTML内容并处理响应
   async getHtml(url) {
-    // 简化headers配置，与ikmmh.js保持一致
+    // 与參考.js保持完全一致的headers配置
     let headers = {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-      "Referer": "https://www.manhuagui.com/",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "cache-control": "no-cache",
+      cookie: "country=US", 
+      pragma: "no-cache",
+      priority: "u=0, i",
+      Referer: "https://www.manhuagui.com/",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
     };
     let res = await Network.get(url, headers);
-    
-    // 只检查status状态
-    if (res.status !== 200) {
-      throw `Network error: Status code ${res.status}`;
-    }
-    
-    // 确保body不为null或空
-    let body = res.body || '';
-    if (!body.trim()) {
-      console.warn('Response body is empty');
-      body = '<!DOCTYPE html><html><head><title>Empty Response</title></head><body></body></html>';
-    }
-    
-    try {
-      return new HtmlDocument(body);
-    } catch (e) {
-      console.error('Failed to parse HTML:', e);
-      throw "Failed to parse HTML content";
-    }
+    return new HtmlDocument(res.body);
   }
   parseSimpleComic(e) {
     let url = e.querySelector(".ell > a").attributes["href"];
@@ -357,12 +346,15 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
+      if (!str || typeof str !== "string") {
+        throw "Empty image script";
+      }
+      
+      // 使用与參考.js完全一致的简单实现
       let params_part = str.split("}(")[1].split("))")[0];
       let params = splitParams(params_part);
       params[5] = {};
-      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
-        "|"
-      );
+      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split("|");
       return params;
     }
 
