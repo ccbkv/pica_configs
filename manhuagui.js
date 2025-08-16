@@ -42,7 +42,7 @@ class ManHuaGui extends ComicSource {
   minAppVersion = "1.4.0";
 
   // 更新链接
-  url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/manhuagui.js";
+  url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/master/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
 
@@ -1002,100 +1002,21 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      
-      // 寻找包含图片信息的脚本
-      let scripts = document.querySelectorAll("script");
-      let scriptContent = null;
-      let validScripts = [];
-      
-      console.log(`找到 ${scripts.length} 个脚本标签`);
-      
-      // 策略1: 尝试寻找包含window["_INITIAL_STATE_"]的脚本
-      for (let i = 0; i < scripts.length; i++) {
-        let script = scripts[i].innerHTML;
-        if (script && script.includes("window['_INITIAL_STATE_']")) {
-          console.log(`策略1: 在索引 ${i} 找到包含window['_INITIAL_STATE_']的脚本`);
-          validScripts.push({index: i, content: script, strategy: "window_INITIAL_STATE"});
-        }
+      let script = document.querySelectorAll("script")[4].innerHTML;
+      let infos = this.getImgInfos(script);
+
+      // https://us.hamreus.com/ps3/y/yiquanchaoren/第190话重制版/003.jpg.webp?e=1754143606&m=DPpelwkhr-pS3OXJpS6VkQ
+      let imgDomain = `https://us.hamreus.com`;
+      let images = [];
+      for (let f of infos.files) {
+        let imgUrl =
+          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
+        images.push(imgUrl);
       }
-      
-      // 策略2: 寻找包含关键图片信息字段的脚本
-      for (let i = 0; i < scripts.length; i++) {
-        let script = scripts[i].innerHTML;
-        if (script && (script.includes("files") && script.includes("path") && script.includes("sl"))) {
-          console.log(`策略2: 在索引 ${i} 找到包含图片信息字段的脚本`);
-          validScripts.push({index: i, content: script, strategy: "image_fields"});
-        }
-      }
-      
-      // 策略3: 参考參考.js使用第4个脚本
-      if (scripts.length >= 5) {
-        let script = scripts[4].innerHTML;
-        if (script) {
-          console.log("策略3: 使用第4个脚本");
-          validScripts.push({index: 4, content: script, strategy: "reference_4th"});
-        }
-      }
-      
-      // 策略4: 尝试所有非空脚本
-      for (let i = 0; i < scripts.length; i++) {
-        let script = scripts[i].innerHTML;
-        if (script && script.trim().length > 0 && !validScripts.some(s => s.index === i)) {
-          console.log(`策略4: 添加索引 ${i} 的非空脚本`);
-          validScripts.push({index: i, content: script, strategy: "non_empty"});
-        }
-      }
-      
-      // 尝试所有有效脚本直到成功
-      for (let {content, index, strategy} of validScripts) {
-        try {
-          console.log(`尝试使用索引 ${index} 的脚本 (策略: ${strategy})`);
-          let infos = this.getImgInfos(content);
-          
-          // 验证infos是否有效，添加更详细的日志输出
-          if (infos) {
-            console.log(`从索引 ${index} 的脚本中提取到infos对象`);
-            console.log(`infos.files: ${infos.files ? '存在' : '不存在'}, 类型: ${Array.isArray(infos.files) ? '数组' : typeof infos.files}`);
-            console.log(`infos.path: ${infos.path ? '存在' : '不存在'}`);
-            console.log(`infos.sl: ${infos.sl ? '存在' : '不存在'}`);
-            
-            if (infos.files && Array.isArray(infos.files) && infos.files.length > 0) {
-              // 放宽验证条件，只要求基本字段存在
-              if (infos.path && infos.sl) {
-                console.log(`成功从索引 ${index} 的脚本中提取图片信息`);
-                let imgDomain = `https://us.hamreus.com`;
-                let images = [];
-                for (let f of infos.files) {
-                  // 确保文件名不为空
-                  if (f) {
-                    let imgUrl = 
-                      imgDomain + infos.path + f + (infos.sl.e && infos.sl.m ? `?e=${infos.sl.e}&m=${infos.sl.m}` : '');
-                    images.push(imgUrl);
-                  }
-                }
-                if (images.length > 0) {
-                  return {
-                    images,
-                  };
-                } else {
-                  console.warn(`索引 ${index} 的脚本生成的图片URL列表为空`);
-                }
-              } else {
-                console.warn(`索引 ${index} 的脚本缺少必要的图片信息字段 (path或sl)`);
-              }
-            } else {
-              console.warn(`无法从索引 ${index} 的脚本中提取有效图片信息 (files字段无效)`);
-            }
-          } else {
-            console.warn(`无法从索引 ${index} 的脚本中提取infos对象`);
-          }
-        } catch (e) {
-          console.error(`处理索引 ${index} 的脚本时出错:`, e);
-        }
-      }
-      
-      console.error("所有脚本尝试均失败，未能找到有效的图片信息");
-      return { images: [] };
+      // log("warning", this.name, images);
+      return {
+        images,
+      };
     },
     /**
      * [Optional] provide configs for an image loading
