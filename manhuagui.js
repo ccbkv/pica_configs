@@ -960,57 +960,42 @@ class ManHuaGui extends ComicSource {
       let document = await this.getHtml(url);
       let scripts = document.querySelectorAll("script");
       
-      const potentialScripts = [];
-
-      // Strategy 1: Find script with 'p,a,c,k,e,d'
-      for (const s of scripts) {
-        const html = await s.innerHTML;
-        if (html && html.includes('p,a,c,k,e,d')) {
-          potentialScripts.push(html);
-        }
-      }
-
-      // Strategy 2: Use script[4] based on 參考.js
+      // 优先使用参考实现的第 5 个 script 节点
+      let scriptContent = null;
       if (scripts.length > 4) {
-        const html = await scripts[4].innerHTML;
-        if (html) {
-          potentialScripts.push(html);
-        }
+        scriptContent = scripts[4].innerHTML;
       }
 
-      // Strategy 3: Add all scripts as a fallback
-      for (const s of scripts) {
-        const html = await s.innerHTML;
-        if (html) {
-          potentialScripts.push(html);
-        }
-      }
-      
-      // Remove duplicates
-      const uniqueScripts = [...new Set(potentialScripts)];
-
-      for (const script of uniqueScripts) {
-        try {
-          const infos = this.getImgInfos(script);
-          if (infos && infos.files && infos.files.length > 0) {
-            const images = [];
-            const imgDomain = `https://us.hamreus.com`;
-            for (const f of infos.files) {
-              if (f) {
-                const imgUrl = `${imgDomain}${infos.path}${f}?e=${infos.sl.e}&m=${infos.sl.m}`;
-                images.push(imgUrl);
-              }
-            }
-            if (images.length > 0) {
-              return { images };
-            }
+      // 回退：尝试查找包含 'p,a,c,k,e,d' 的脚本
+      if (!scriptContent) {
+        for (let i = 0; i < scripts.length; i++) {
+          const html = scripts[i].innerHTML;
+          if (html && html.includes('p,a,c,k,e,d')) {
+            scriptContent = html;
+            break;
           }
-        } catch (e) {
-          // Try next script
         }
       }
 
-      throw "No image script found";
+      // 仍然没有：将所有非空脚本合并后尝试一次
+      if (!scriptContent) {
+        scriptContent = scripts.map(s => s.innerHTML).filter(Boolean).join('\n');
+      }
+
+      const infos = this.getImgInfos(scriptContent);
+      if (!infos || !infos.files || infos.files.length === 0) {
+        throw "No image script found";
+      }
+
+      // 与參考.js 保持一致的图片域名
+      const imgDomain = `https://us.hamreus.com`;
+      const images = [];
+      for (const f of infos.files) {
+        if (!f) continue;
+        const query = (infos.sl && infos.sl.e && infos.sl.m) ? `?e=${infos.sl.e}&m=${infos.sl.m}` : '';
+        images.push(`${imgDomain}${infos.path}${f}${query}`);
+      }
+      return { images };
     },
     /**
      * [Optional] provide configs for an image loading
