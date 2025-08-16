@@ -43,7 +43,12 @@ class Zaimanhua extends ComicSource {
         this.headers.authorization = `Bearer ${data.data.user.token}`;
         return true;
       } catch (e) {
-        UI.showMessage(`登录失败: ${e.message}`);
+        // 使用this.UI或降级到console.log
+        if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
+          this.UI.showMessage(`登录失败: ${e.message}`);
+        } else {
+          console.log(`登录失败: ${e.message}`);
+        }
         throw e;
       }
     },
@@ -440,7 +445,12 @@ class Zaimanhua extends ComicSource {
 
         /* 空数据检查 */
         if (!data || !data.commentIdList || !data.commentList) {
-          UI.showMessage("暂时没有评论，快来发表第一条吧~");
+          // 使用this.UI或降级到console.log
+          if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
+            this.UI.showMessage("暂时没有评论，快来发表第一条吧~");
+          } else {
+            console.log("暂时没有评论，快来发表第一条吧~");
+          }
           return { comments: [], maxPage: 0 };
         }
 
@@ -489,7 +499,12 @@ class Zaimanhua extends ComicSource {
         // 当没有有效评论时显示提示
         const comments = processComments();
         if (comments.length === 0) {
-          UI.showMessage(replyTo ? "该评论暂无回复" : "这里还没有评论哦~");
+          // 使用this.UI或降级到console.log
+          if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
+            this.UI.showMessage(replyTo ? "该评论暂无回复" : "这里还没有评论哦~");
+          } else {
+            console.log(replyTo ? "该评论暂无回复" : "这里还没有评论哦~");
+          }
         }
 
         return {
@@ -498,7 +513,12 @@ class Zaimanhua extends ComicSource {
         };
       } catch (e) {
         console.error("评论加载失败:", e);
-        UI.showMessage(`加载评论失败: ${e.message}`);
+        // 使用this.UI或降级到console.log
+        if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
+          this.UI.showMessage(`加载评论失败: ${e.message}`);
+        } else {
+          console.log(`加载评论失败: ${e.message}`);
+        }
         return { comments: [], maxPage: 0 };
       }
     },
