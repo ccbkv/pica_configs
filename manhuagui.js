@@ -950,44 +950,29 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
+      let script = "";
       let scripts = document.querySelectorAll("script");
-      
-      // 优先使用参考实现的第 5 个 script 节点
-      let scriptContent = null;
-      if (scripts.length > 4) {
-        scriptContent = scripts[4].innerHTML;
-      }
-
-      // 回退：尝试查找包含 'p,a,c,k,e,d' 的脚本
-      if (!scriptContent) {
-        for (let i = 0; i < scripts.length; i++) {
-          const html = scripts[i].innerHTML;
-          if (html && html.includes('p,a,c,k,e,d')) {
-            scriptContent = html;
-            break;
-          }
+      for (const s of scripts) {
+        const html = s.innerHTML;
+        if (html.includes("eval(function(p,a,c,k,e,d)")) {
+          script = html;
+          break;
         }
       }
-
-      // 仍然没有：将所有非空脚本合并后尝试一次
-      if (!scriptContent) {
-        scriptContent = scripts.map(s => s.innerHTML).filter(Boolean).join('\n');
+      if (!script) {
+        throw "Network: Empty image script";
       }
-
-      const infos = this.getImgInfos(scriptContent);
-      if (!infos || !infos.files || infos.files.length === 0) {
-        throw "No image script found";
+      let infos = this.getImgInfos(script);
+      let imgDomain = `https://i.hamreus.com`;
+      let images = [];
+      for (let f of infos.files) {
+        let imgUrl =
+          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
+        images.push(imgUrl);
       }
-
-      // 与參考.js 保持一致的图片域名
-      const imgDomain = `https://us.hamreus.com`;
-      const images = [];
-      for (const f of infos.files) {
-        if (!f) continue;
-        const query = (infos.sl && infos.sl.e && infos.sl.m) ? `?e=${infos.sl.e}&m=${infos.sl.m}` : '';
-        images.push(`${imgDomain}${infos.path}${f}${query}`);
-      }
-      return { images };
+      return {
+        images,
+      };
     },
     /**
      * [Optional] provide configs for an image loading
