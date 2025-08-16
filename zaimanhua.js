@@ -379,20 +379,20 @@ class Zaimanhua extends ComicSource {
       const data = response.data.data;
 
       function processChapters(groups) {
-        return (groups || []).reduce((result, group) => {
+        const result = new Map();
+        (groups || []).forEach((group) => {
           const groupTitle = group.title || "默认";
-          const chapters = (group.data || [])
-            .reverse()
-            .map((ch) => [
-              String(ch.chapter_id),
-              `${ch.chapter_title.replace(
-                /^(?:连载版?)?(\d+\.?\d*)([话卷])?$/,
-                (_, n, t) => `第${n}${t || "话"}`
-              )}`,
-            ]);
-          result.set(groupTitle, new Map(chapters));
-          return result;
-        }, new Map());
+          (group.data || []).reverse().forEach((ch, index) => {
+            const chapterId = String(ch.chapter_id);
+            const chapterTitle = `${ch.chapter_title.replace(
+              /^(?:连载版?)?(\d+\.?\d*)([话卷])?$/,
+              (_, n, t) => `第${n}${t || "话"}`
+            )}`;
+            // 使用组合键确保唯一性
+            result.set(chapterId, chapterTitle);
+          });
+        });
+        return result;
       }
       // 分类标签
       const { authors, status, types } = data;
