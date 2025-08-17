@@ -17,16 +17,6 @@ class Baihehui extends ComicSource {
     // update url
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/master/baihehui.js"
 
-    settings = {
-        domains: {
-            title: "主页源",
-            type: "select",
-            options: [
-                { value: "yamibo.com" },
-            ],
-            default: "yamibo.com"
-        },
-    }
 
     get baseUrl() {
         return `https://www.${this.loadSetting('domains')}`;
