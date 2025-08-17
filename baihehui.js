@@ -12,7 +12,7 @@ class Baihehui extends ComicSource {
 
     version = "1.0.0"
 
-    minAppVersion = "3.1.0"
+    minAppVersion = "1.4.0"
 
     // update url
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/master/baihehui.js"
@@ -176,7 +176,7 @@ explore = [
                     if (!a || !a.attributes.href) return null;
 
                     const href = a.attributes.href;
-                    const rawIdMatch = href.match(/\/manga\/(\\d+)/);
+                    const rawIdMatch = href.match(/\/manga\/(\d+)/);
                     if (!rawIdMatch || !rawIdMatch[1]) return null;
                     
                     const rawId = rawIdMatch[1];
@@ -199,10 +199,11 @@ explore = [
 
             const processElements = (elements) => {
                 if (!elements) return;
-                for (const el of elements) {
+                for (let i = 0; i < elements.length; i++) {
+                    const el = elements[i];
                     const comicData = parseItem(el);
                     if (comicData) {
-                        allComics.push(new Comic(comicData));
+                        allComics.push(comicData);
                     }
                 }
             };
@@ -219,7 +220,8 @@ explore = [
             try {
                 const titleElements = doc.querySelectorAll("h2.module-title");
                 if (titleElements) {
-                    for (const titleEl of titleElements) {
+                    for (let i = 0; i < titleElements.length; i++) {
+                        const titleEl = titleElements[i];
                         try {
                             const titleText = titleEl.text;
                             if (titleText.includes("最近更新") || titleText.includes("原创推荐") || titleText.includes("同人推荐")) {
@@ -317,16 +319,17 @@ explore = [
                 // 获取所有漫画行
                 let rows = document.querySelectorAll('tr[data-key]');
 
-                rows.forEach(row => {
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
                     try {
                         let anchor = row.querySelector('a');
-                        if (!anchor) return;
+                        if (!anchor) continue;
 
                         let href = anchor.attributes['href'];
-                        if (!href) return;
+                        if (!href) continue;
 
                         let rawIdMatch = href.match(/\/manga\/(\d+)$/);
-                        if (!rawIdMatch || !rawIdMatch[1]) return;
+                        if (!rawIdMatch || !rawIdMatch[1]) continue;
 
                         let rawId = rawIdMatch[1];
                         let id = rawId.padStart(3, '0');
@@ -354,7 +357,7 @@ explore = [
                     } catch (e) {
                         console.log(`Error parsing a row in categoryComics.load (type a): ${e}`);
                     }
-                });
+                }
 
                 return {
                     comics: mangaList,
@@ -364,16 +367,17 @@ explore = [
                 let mangaList = [];
                 // 获取所有漫画行
                 let rows = document.querySelectorAll('tr[data-key]');
-                rows.forEach(row => {
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
                     try {
                         let anchor = row.querySelector('a');
-                        if (!anchor) return;
+                        if (!anchor) continue;
 
                         let href = anchor.attributes['href'];
-                        if (!href) return;
+                        if (!href) continue;
 
                         let rawIdMatch = href.match(/\/manga\/(\d+)$/);
-                        if (!rawIdMatch || !rawIdMatch[1]) return;
+                        if (!rawIdMatch || !rawIdMatch[1]) continue;
 
                         let rawId = rawIdMatch[1];
                         let id = rawId.padStart(3, '0');
@@ -404,7 +408,7 @@ explore = [
                     } catch (e) {
                         console.log(`Error parsing a row in categoryComics.load (type b): ${e}`);
                     }
-                });
+                }
 
                 return {
                     comics: mangaList,
@@ -414,16 +418,17 @@ explore = [
                 let mangaList = [];
                 // 获取所有漫画行
                 let rows = document.querySelectorAll('tr[data-key]');
-                rows.forEach(row => {
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
                     try {
                         let anchor = row.querySelector('a');
-                        if (!anchor) return;
+                        if (!anchor) continue;
 
                         let href = anchor.attributes['href'];
-                        if (!href) return;
+                        if (!href) continue;
 
                         let rawIdMatch = href.match(/\/manga\/(\d+)$/);
-                        if (!rawIdMatch || !rawIdMatch[1]) return;
+                        if (!rawIdMatch || !rawIdMatch[1]) continue;
 
                         let rawId = rawIdMatch[1];
                         let id = rawId.padStart(3, '0');
@@ -448,7 +453,7 @@ explore = [
                     } catch (e) {
                         console.log(`Error parsing a row in categoryComics.load (type c): ${e}`);
                     }
-                });
+                }
 
                 return {
                     comics: mangaList,
@@ -486,16 +491,17 @@ explore = [
             let mangaList = [];
             let rows = document.querySelectorAll('tr[data-key]');
 
-            rows.forEach(row => {
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
                 try {
                     let anchor = row.querySelector('a');
-                    if (!anchor) return;
+                    if (!anchor) continue;
 
                     let href = anchor.attributes['href'];
-                    if (!href) return;
+                    if (!href) continue;
 
                     let rawIdMatch = href.match(/\/manga\/(\d+)$/);
-                    if (!rawIdMatch || !rawIdMatch[1]) return;
+                    if (!rawIdMatch || !rawIdMatch[1]) continue;
 
                     let rawId = rawIdMatch[1];
                     let id = rawId.padStart(3, '0');
@@ -518,7 +524,7 @@ explore = [
                 } catch (e) {
                     console.log(`Error parsing a row in search.load: ${e}`);
                 }
-            });
+            }
 
             return {
                 comics: mangaList,
@@ -570,31 +576,39 @@ explore = [
 
             let author = "未知作者";
             try {
-                document.querySelectorAll("p").forEach(p => {
+                let paragraphs = document.querySelectorAll("p");
+                for (let i = 0; i < paragraphs.length; i++) {
+                    const p = paragraphs[i];
                     if (p.text.includes("作者：")) {
                         author = p.text.replace("作者：", "").trim();
+                        break; // 找到后即可退出循环
                     }
-                });
+                }
             } catch (e) {
                 console.log(`Error parsing author: ${e}`);
             }
 
             let tags = [];
             try {
-                document.querySelectorAll("a.label.label-ntype").forEach(tag => {
+                let tagElements = document.querySelectorAll("a.label.label-ntype");
+                for (let i = 0; i < tagElements.length; i++) {
+                    const tag = tagElements[i];
                     tags.push(tag.text.trim());
-                });
+                }
             } catch (e) {
                 console.log(`Error parsing tags: ${e}`);
             }
 
             let updateTime = "未知时间";
             try {
-                document.querySelectorAll("p").forEach(p => {
+                let paragraphs = document.querySelectorAll("p");
+                for (let i = 0; i < paragraphs.length; i++) {
+                    const p = paragraphs[i];
                     if (p.text.includes("更新时间：")) {
                         updateTime = p.text.replace("更新时间：", "").trim();
+                        break; // 找到后即可退出循环
                     }
-                });
+                }
             } catch (e) {
                 console.log(`Error parsing updateTime: ${e}`);
             }
@@ -611,7 +625,9 @@ explore = [
 
             let chapters = [];
             try {
-                document.querySelectorAll("div[data-key]").forEach(chapter => {
+                let chapterElements = document.querySelectorAll("div[data-key]");
+                for (let i = 0; i < chapterElements.length; i++) {
+                    const chapter = chapterElements[i];
                     let chapterKey = chapter.attributes['data-key'];
                     let chapterAnchor = chapter.querySelector("a");
                     if (chapterKey && chapterAnchor) {
@@ -621,7 +637,7 @@ explore = [
                             title: chapterTitle,
                         }));
                     }
-                });
+                }
             } catch (e) {
                 console.log(`Error parsing chapters: ${e}`);
             }
@@ -663,7 +679,9 @@ explore = [
 
             let comments = [];
             try {
-                document.querySelectorAll("div.post.row").forEach(post => {
+                let posts = document.querySelectorAll("div.post.row");
+                for (let i = 0; i < posts.length; i++) {
+                    const post = posts[i];
                     try {
                         let userName = post.querySelector("span.cmt-username > a").text.trim();
                         let avatar = "https://www.yamibo.com/" + post.querySelector("a > img.cmt-avatar").attributes['src'];
@@ -684,7 +702,7 @@ explore = [
                     } catch (e) {
                         console.log(`Error parsing a comment: ${e}`);
                     }
-                });
+                }
             } catch (e) {
                 console.log(`Error parsing comments: ${e}`);
             }
