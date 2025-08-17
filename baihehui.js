@@ -157,75 +157,94 @@ explore = [
         title: "百合会",
         type: "multiPageComicList",
         load: async (page) => {
-                // 1. 拿到 HTML
-                let res = await Network.get("https://www.yamibo.com/site/manga");
-                if (res.status !== 200) {
-                    throw `Invalid status code: ${res.status}`;
-                }
-
-                // 2. 解析文档
-                let doc = new Document(res.body);
-
-                // 3. 通用解析单元函数
-                function parseItem(el) {
-                    let a = el.querySelector(".media-img") || el.querySelector("a.media-img");
-                    let href = a.attributes.href;
-                    let id = href.match(/\/manga\/(\d+)/)[1];
-                    // 从 style 中提取 url
-                    let style = a.attributes.style || "";
-                    let cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
-                    let title = el.querySelector("h3 a").text.trim();
-                    return new Comic({ id, title, cover });
-                }
-
-                let allComics = [];
-
-                // 4. 抓「编辑推荐」
-                let editorEls = doc.querySelectorAll(".recommend-list .media-cell.horizontal");
-                for (let el of editorEls) {
-                    allComics.push(parseItem(el));
-                }
-
-                // 5. 抓「最近更新」
-                let latestTitle = doc.querySelectorAll("h2.module-title")
-                    .find(e => e.text.includes("最近更新"));
-                if (latestTitle) {
-                    let ul = latestTitle.nextElementSibling;
-                    if (ul) {
-                        let items = ul.querySelectorAll(".media-cell.vertical");
-                        for (let el of items) allComics.push(parseItem(el));
-                    }
-                }
-
-                // 原创推荐
-                let originalTitle = doc.querySelectorAll("h2.module-title")
-                    .find(e => e.text.includes("原创推荐"));
-                if (originalTitle) {
-                    let ul = originalTitle.nextElementSibling;
-                    if (ul) {
-                        let items = ul.querySelectorAll(".media-cell.vertical");
-                        for (let el of items) allComics.push(parseItem(el));
-                    }
-                }
-
-                // 6. 抓「同人推荐」
-                let fanTitle = doc.querySelectorAll("h2.module-title")
-                    .find(e => e.text.includes("同人推荐"));
-                if (fanTitle) {
-                    let ul = fanTitle.nextElementSibling;
-                    if (ul) {
-                        let items = ul.querySelectorAll(".media-cell.vertical");
-                        for (let el of items) allComics.push(parseItem(el));
-                    }
-                }
-
-                // 7. 清理并返回
-                doc.dispose();
-                return {
-                    comics: allComics,
-                    maxPage: 1
-                };
+            if (page > 1) {
+                return { comics: [], maxPage: 1 };
             }
+            // 1. 拿到 HTML
+            let res = await Network.get("https://www.yamibo.com/site/manga");
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
+            }
+
+            // 2. 解析文档
+            let doc = new Document(res.body);
+
+            // 3. 通用解析单元函数
+            function parseItem(el) {
+                try {
+                    const a = el.querySelector(".media-img") || el.querySelector("a.media-img");
+                    if (!a || !a.attributes.href) return null;
+
+                    const href = a.attributes.href;
+                    const rawIdMatch = href.match(/\/manga\/(\\d+)/);
+                    if (!rawIdMatch || !rawIdMatch[1]) return null;
+                    
+                    const rawId = rawIdMatch[1];
+                    const id = rawId.padStart(3, '0');
+
+                    const titleEl = el.querySelector("h3 a");
+                    if (!titleEl || !titleEl.text) return null;
+                    const title = titleEl.text.trim();
+                    
+                    const cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
+
+                    return { id, title, cover };
+                } catch (e) {
+                    console.log(`Error parsing an item in explore.load: ${e}`);
+                    return null;
+                }
+            }
+
+            let allComics = [];
+
+            const processElements = (elements) => {
+                if (!elements) return;
+                for (const el of elements) {
+                    const comicData = parseItem(el);
+                    if (comicData) {
+                        allComics.push(new Comic(comicData));
+                    }
+                }
+            };
+
+            // 4. 抓「编辑推荐」
+            try {
+                const editorEls = doc.querySelectorAll(".recommend-list .media-cell.horizontal");
+                processElements(editorEls);
+            } catch (e) {
+                console.log(`Error parsing editor picks: ${e}`);
+            }
+
+            // 5. 抓取其他分区
+            try {
+                const titleElements = doc.querySelectorAll("h2.module-title");
+                if (titleElements) {
+                    for (const titleEl of titleElements) {
+                        try {
+                            const titleText = titleEl.text;
+                            if (titleText.includes("最近更新") || titleText.includes("原创推荐") || titleText.includes("同人推荐")) {
+                                const ul = titleEl.nextElementSibling;
+                                if (ul) {
+                                    const items = ul.querySelectorAll(".media-cell.vertical");
+                                    processElements(items);
+                                }
+                            }
+                        } catch(e) {
+                            console.log(`Error processing section: ${e}`);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log(`Error processing module titles: ${e}`);
+            }
+
+            // 7. 清理并返回
+            doc.dispose();
+            return {
+                comics: allComics,
+                maxPage: 1
+            };
+        }
     }
 ];
 
