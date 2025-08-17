@@ -1,4 +1,3 @@
-/** @type {import('./_venera_.js')} */
 class Baihehui extends ComicSource {
     constructor() {
         super();
