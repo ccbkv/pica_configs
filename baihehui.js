@@ -500,7 +500,7 @@ search = {
      * @param page {number}
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
-    load: async (keyword, options, page) => {
+    load: async function(keyword, options, page) {
         let url = `https://www.yamibo.com/search/manga?SearchForm%5Bkeyword%5D=${encodeURIComponent(keyword)}&page=${page}`;
         let res = await Network.get(url, {
             headers: {
@@ -579,7 +579,7 @@ search = {
      * @param next {string | null}
      * @returns {Promise<{comics: Comic[], maxPage: number}>}
      */
-    loadNext: async (keyword, options, next) => {
+    loadNext: async function(keyword, options, next) {
 
     },
 
@@ -597,7 +597,7 @@ comic = {
      * @param id {string}
      * @returns {Promise<ComicDetails>}
      */
-    loadInfo: async (id) => {
+    loadInfo: async function(id) {
         let res = await Network.get(`${this.baseUrl}/manga/${id}`);
         if (res.status !== 200) {
             throw `Invalid status code: ${res.status}`;
@@ -695,7 +695,7 @@ comic = {
             chapters: chapters
         };
     },
-    loadComments: async (comicId, subId, page, replyTo) => {
+    loadComments: async function(comicId, subId, page, replyTo) {
         let url = `${this.baseUrl}/manga/${comicId}?dp-1-page=${page}`;
         let res = await Network.get(url, {
             headers: {
@@ -763,7 +763,7 @@ comic = {
         };
     },
 
-    loadEp: async (comicId, epId) => {
+    loadEp: async function(comicId, epId) {
         let url = `https://www.yamibo.com/manga/view-chapter?id=${epId}`;
         let res = await Network.get(url, {
             headers: {
