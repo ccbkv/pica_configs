@@ -1,3 +1,33 @@
+// 引入crypto模块用于加密操作
+const crypto = require('crypto');
+
+/**
+ * Generate a random integer between min and max (inclusive)
+ * @param min {number}
+ * @param max {number}
+ * @returns {number}
+ */
+function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// 定义全局Convert对象
+const Convert = {
+    encodeUtf8: (str) => {
+        return Buffer.from(str, 'utf8');
+    },
+    
+    decodeBase64: (value) => {
+        return Buffer.from(value, 'base64');
+    },
+    
+    hmacString: (key, value, hash) => {
+        const hmac = crypto.createHmac(hash, key);
+        hmac.update(value);
+        return hmac.digest('hex');
+    }
+};
+
 class CopyManga extends ComicSource {
 
     name = "拷贝漫画"
