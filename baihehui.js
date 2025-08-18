@@ -1,6 +1,27 @@
 class Baihehui extends ComicSource {
     constructor() {
         super();
+        // 检查Comic是否已定义
+        if (typeof Comic === 'undefined') {
+            // 尝试从父类获取
+            if (this.constructor.Comic) {
+                this.Comic = this.constructor.Comic;
+            } else {
+                // 创建一个有效构造函数代替
+                this.Comic = function(options) {
+                    return {
+                        id: options.id || '',
+                        title: options.title || '',
+                        cover: options.cover || '',
+                        description: options.description || '',
+                        tags: options.tags || [],
+                        author: options.author || ''
+                    };
+                };
+            }
+        } else {
+            this.Comic = Comic;
+        }
     }
     // Note: The fields which are marked as [Optional] should be removed if not used
 
