@@ -214,16 +214,17 @@ explore = [
                     if (!a || !a.attributes?.href) return null;
 
                     const href = a.attributes.href;
-                    const rawIdMatch = href?.match(/\/manga\/(\d+)/);
+                    // 使用可选链和空值合并运算符确保安全访问
+                    const rawIdMatch = href?.match(/\/manga\/(\d+)/) ?? null;
                     if (!rawIdMatch || !rawIdMatch[1]) return null;
-                    
+                      
                     const rawId = rawIdMatch[1];
                     const id = rawId.padStart(3, '0');
 
                     const titleEl = el.querySelector("h3 a");
                     if (!titleEl || !titleEl.text) return null;
                     const title = titleEl.text.trim();
-                    
+                      
                     const cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
 
                     return new this.Comic({ id, title, cover });
@@ -236,7 +237,7 @@ explore = [
             let allComics = [];
 
             const processElements = (elements) => {
-                if (!elements || elements.length === 0) return;
+                if (!elements || !Array.isArray(elements) || elements.length === 0) return;
                 for (let i = 0; i < elements.length; i++) {
                     const el = elements[i];
                     const comicData = parseItem(el);
@@ -322,6 +323,7 @@ category = {
 /// category comic loading related
 categoryComics = {
     load: async function(category, params, options, page) {
+        // Ensure proper this context by using regular function
         let param = params.split('@')[0];
         let type = params.split('@')[1];
         let type_options = params.split('@')[2];
