@@ -22,6 +22,23 @@ class Baihehui extends ComicSource {
         } else {
             this.Comic = Comic;
         }
+        // 检查Chapter是否已定义
+        if (typeof Chapter === 'undefined') {
+            // 尝试从父类获取
+            if (this.constructor.Chapter) {
+                this.Chapter = this.constructor.Chapter;
+            } else {
+                // 创建一个有效构造函数代替
+                this.Chapter = function(options) {
+                    return {
+                        id: options.id || '',
+                        title: options.title || ''
+                    };
+                };
+            }
+        } else {
+            this.Chapter = Chapter;
+        }
     }
     // Note: The fields which are marked as [Optional] should be removed if not used
 
