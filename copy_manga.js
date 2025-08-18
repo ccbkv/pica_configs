@@ -137,7 +137,7 @@ class CopyManga extends ComicSource {
         return defaultValue;
     }
 
-    get apiUrl() {
+    getApiUrl() {
         return `https://${this.safeLoadSetting('base_url', CopyManga.defaultApiUrl)}`;
     }
 
@@ -164,7 +164,8 @@ class CopyManga extends ComicSource {
             let salt = randomInt(1000, 9999)
             let base64 = Convert.encodeBase64(Convert.encodeUtf8(`${pwd}-${salt}`))
             let res = await Network.post(
-                `${this.apiUrl}/api/v3/login`,
+                `${this.getApiUrl()}/api/v3/login`,
+
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
@@ -194,7 +195,8 @@ class CopyManga extends ComicSource {
             type: "singlePageWithMultiPart",
             load: async () => {
                 let dataStr = await Network.get(
-                    `${this.apiUrl}/api/v3/h5/homeIndex`,
+                    `${this.getApiUrl()}/api/v3/h5/homeIndex`,
+
                     this.headers
                 )
 
@@ -330,7 +332,7 @@ class CopyManga extends ComicSource {
             let category_url;
             // 分类-排行
             if (category === "排行" || param === "ranking") {
-                category_url = `${this.apiUrl}/api/v3/ranks?limit=30&offset=${(page - 1) * 30}&_update=true&type=1&audience_type=${options[0]}&date_type=${options[1]}`
+                category_url = `${this.getApiUrl()}/api/v3/ranks?limit=30&offset=${(page - 1) * 30}&_update=true&type=1&audience_type=${options[0]}&date_type=${options[1]}`
             } else {
                 // 分类-主题
                 if (category !== undefined && category !== null) {
@@ -338,7 +340,7 @@ class CopyManga extends ComicSource {
                     param = CopyManga.category_param_dict[category] || "";
                 }
                 options = options.map(e => e.replace("*", "-"))
-                category_url = `${this.apiUrl}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=${options[1]}&theme=${param}&top=${options[0]}`
+                category_url = `${this.getApiUrl()}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=${options[1]}&theme=${param}&top=${options[0]}`
             }
 
 
@@ -461,9 +463,9 @@ class CopyManga extends ComicSource {
             if (author && author in this.author_path_word_dict) {
                 let path_word = encodeURIComponent(this.author_path_word_dict[author]);
                 res = await Network.get(
-                    `${this.apiUrl}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=-datetime_updated&author=${path_word}`,
-                    this.headers
-                )
+                `${this.getApiUrl()}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=-datetime_updated&author=${path_word}`,
+                this.headers
+            )
             }
             // 一般的搜索情况
             else {
@@ -473,8 +475,8 @@ class CopyManga extends ComicSource {
                 }
                 keyword = encodeURIComponent(keyword)
                 let search_url = this.safeLoadSetting('search_api', "webAPI") === "webAPI"
-    ? `${this.apiUrl}${CopyManga.searchApi}`
-    : `${this.apiUrl}/api/v3/search/comic`
+    ? `${this.getApiUrl()}${CopyManga.searchApi}`
+    : `${this.getApiUrl()}/api/v3/search/comic`
                 res = await Network.get(
                     `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}`,
                     this.headers
@@ -535,7 +537,7 @@ class CopyManga extends ComicSource {
             let is_collect = isAdding ? 1 : 0
             let token = this.loadData("token");
             let comicData = await Network.get(
-                `${this.apiUrl}/api/v3/comic2/${comicId}?in_mainland=true&request_id=&platform=3`,
+                `${this.getApiUrl()}/api/v3/comic2/${comicId}?in_mainland=true&request_id=&platform=3`,
                 this.headers
             )
             if (comicData.status !== 200) {
@@ -543,7 +545,7 @@ class CopyManga extends ComicSource {
             }
             let comic_id = JSON.parse(comicData.body).results.comic.uuid
             let res = await Network.post(
-                `${this.apiUrl}/api/v3/member/collect/comic`,
+                `${this.getApiUrl()}/api/v3/member/collect/comic`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
@@ -560,7 +562,7 @@ class CopyManga extends ComicSource {
         },
         loadComics: async (page, folder) => {
             var res = await Network.get(
-                `${this.apiUrl}/api/v3/member/collect/comics?limit=30&offset=${(page - 1) * 30}&free_type=1&ordering=-datetime_updated`,
+                `${this.getApiUrl()}/api/v3/member/collect/comics?limit=30&offset=${(page - 1) * 30}&free_type=1&ordering=-datetime_updated`,
                 this.headers
             )
 
@@ -610,7 +612,7 @@ class CopyManga extends ComicSource {
             let getChapters = async (id, groups) => {
                 let fetchSingle = async (id, path) => {
                     let res = await Network.get(
-                        `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=0&in_mainland=true&request_id=`,
+                        `${this.getApiUrl()}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=0&in_mainland=true&request_id=`,
                         this.headers
                     );
                     if (res.status !== 200) {
@@ -628,7 +630,7 @@ class CopyManga extends ComicSource {
                         let offset = 500;
                         while (offset < maxChapter) {
                             res = await Network.get(
-                                `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=${offset}`,
+                                `${this.getApiUrl()}/api/v3/comic/${id}/group/${path}/chapters?limit=500&offset=${offset}`,
                                 this.headers
                             );
                             if (res.status !== 200) {
@@ -676,7 +678,7 @@ class CopyManga extends ComicSource {
             }
 
             let getFavoriteStatus = async (id) => {
-                let res = await Network.get(`${this.apiUrl}/api/v3/comic2/${id}/query`, this.headers);
+                let res = await Network.get(`${this.getApiUrl()}/api/v3/comic2/${id}/query`, this.headers);
                 if (res.status !== 200) {
                     throw `Invalid status code: ${res.status}`;
                 }
@@ -685,7 +687,7 @@ class CopyManga extends ComicSource {
 
             let results = await Promise.all([
                 Network.get(
-                    `${this.apiUrl}/api/v3/comic2/${id}?in_mainland=true&request_id=&platform=3`,
+                    `${this.getApiUrl()}/api/v3/comic2/${id}?in_mainland=true&request_id=&platform=3`,
                     this.headers
                 ),
                 getFavoriteStatus.bind(this)(id)
@@ -737,7 +739,7 @@ class CopyManga extends ComicSource {
             while (attempt < maxAttempts) {
                 try {
                     res = await Network.get(
-                        `${this.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}?in_mainland=true&request_id=`,
+                        `${this.getApiUrl()}/api/v3/comic/${comicId}/chapter2/${epId}?in_mainland=true&request_id=`,
                         {
                             ...this.headers
                         }
@@ -804,7 +806,7 @@ class CopyManga extends ComicSource {
             }
         },
         loadComments: async (comicId, subId, page, replyTo) => {
-            let url = `${this.apiUrl}/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page - 1) * 20}`;
+            let url = `${this.getApiUrl()}/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page - 1) * 20}`;
             if (replyTo) {
                 url = url + `&reply_id=${replyTo}&_update=true`;
             }
@@ -847,7 +849,7 @@ class CopyManga extends ComicSource {
                 replyTo = '';
             }
             let res = await Network.post(
-                `${this.apiUrl}/api/v3/member/comment`,
+                `${this.getApiUrl()}/api/v3/member/comment`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
