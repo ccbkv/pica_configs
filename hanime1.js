@@ -1,4 +1,9 @@
 class Hanime1 extends ComicSource {
+    constructor() {
+        super();
+        // 初始化 website 属性
+        this.website = 'https://hanime1.me/';
+    }
     // Note: The fields which are marked as [Optional] should be removed if not used
 
     // name of the source
@@ -33,9 +38,7 @@ class Hanime1 extends ComicSource {
         },
 
         // {string?} - register url
-        register: {
-            url: "https://hanime1.me/register/"
-        }
+        registerWebsite: "https://hanime1.me/register/"
     }
 
     /**
