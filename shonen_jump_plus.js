@@ -1,6 +1,26 @@
 class ShonenJumpPlus extends ComicSource {
   constructor() {
     super();
+    // 检查Comic是否已定义
+    if (typeof Comic === 'undefined') {
+        // 尝试从父类获取
+        if (this.constructor.Comic) {
+            this.Comic = this.constructor.Comic;
+        } else {
+            // 创建一个有效构造函数代替
+            this.Comic = function(options) {
+                return {
+                    id: options.id || '',
+                    title: options.title || '',
+                    cover: options.cover || '',
+                    description: options.description || '',
+                    tags: options.tags || []
+                };
+            };
+        }
+    } else {
+        this.Comic = Comic;
+    }
     this.init();
   }
 
@@ -137,7 +157,7 @@ class ShonenJumpPlus extends ComicSource {
         const cover = node.latestIssue?.thumbnailUriTemplate ||
           node.thumbnailUriTemplate;
         if (node.__typename === "Series") {
-          return new Comic({
+          return new this.Comic({
             id: node.databaseId,
             title: node.title || "",
             cover: this.replaceCoverUrl(cover),
@@ -146,7 +166,7 @@ class ShonenJumpPlus extends ComicSource {
           });
         }
         if (node.__typename === "MagazineLabel") {
-          return new Comic({
+          return new this.Comic({
             id: node.databaseId,
             title: node.title || "",
             cover: this.replaceCoverUrl(cover),
