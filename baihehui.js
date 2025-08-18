@@ -198,31 +198,104 @@ explore = [
             let doc = new Document(res.body);
 
             // 3. 通用解析单元函数
-            // 在 explore 的 parseItem 函数中修改
-            function parseItem(el) {
-                try {
-                    const a = el.querySelector(".media-img") || el.querySelector("a.media-img");
-                    if (!a || !a.attributes.href) return null;
+            // 在explore的load函数中，修改parseItem
+            explore = [
+                {
+                    title: "百合会",
+                    type: "multiPageComicList",
+                    load: async (page) => {
+                        if (page > 1) {
+                            return { comics: [], maxPage: 1 };
+                        }
+                        // 1. 拿到 HTML
+                        let res = await Network.get("https://www.yamibo.com/site/manga");
+                        if (res.status !== 200) {
+                            throw `Invalid status code: ${res.status}`;
+                        }
 
-                    const href = a.attributes.href;
-                    const rawIdMatch = href.match(/\/manga\/(\d+)/);
-                    if (!rawIdMatch || !rawIdMatch[1]) return null;
-                    
-                    const rawId = rawIdMatch[1];
-                    const id = rawId.padStart(3, '0');
+                        // 2. 解析文档
+                        let doc = new Document(res.body);
 
-                    const titleEl = el.querySelector("h3 a");
-                    if (!titleEl || !titleEl.text) return null;
-                    const title = titleEl.text.trim();
-                    
-                    const cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
+                        // 3. 通用解析单元函数
+                        function parseItem(el) {
+                            try {
+                                const a = el.querySelector(".media-img") || el.querySelector("a.media-img");
+                                if (!a || !a.attributes.href) return null;
 
-                    return new this.Comic({ id, title, cover });
-                } catch (e) {
-                    console.log(`Error parsing an item in explore.load: ${e}`);
-                    return null;
+                                const href = a.attributes.href;
+                                const rawIdMatch = href.match(/\/manga\/(\d+)/);
+                                if (!rawIdMatch || !rawIdMatch[1]) return null;
+                                
+                                const rawId = rawIdMatch[1];
+                                const id = rawId.padStart(3, '0');
+
+                                const titleEl = el.querySelector("h3 a");
+                                if (!titleEl || !titleEl.text) return null;
+                                const title = titleEl.text.trim();
+                                
+                                const cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
+
+                                return new this.Comic({ id, title, cover });
+                            } catch (e) {
+                                console.log(`Error parsing an item in explore.load: ${e}`);
+                                return null;
+                            }
+                        }
+
+                        let allComics = [];
+
+                        const processElements = (elements) => {
+                            if (!elements) return;
+                            for (let i = 0; i < elements.length; i++) {
+                                const el = elements[i];
+                                const comicData = parseItem(el);
+                                if (comicData) {
+                                    allComics.push(comicData);
+                                }
+                            };
+                        };
+
+                        // 4. 抓「编辑推荐」
+                        try {
+                            const editorEls = doc.querySelectorAll(".recommend-list .media-cell.horizontal");
+                            processElements(editorEls);
+                        } catch (e) {
+                            console.log(`Error parsing editor picks: ${e}`);
+                        }
+
+                        // 5. 抓取其他分区
+                        try {
+                            const titleElements = doc.querySelectorAll("h2.module-title");
+                            if (titleElements) {
+                                for (let i = 0; i < titleElements.length; i++) {
+                                    const titleEl = titleElements[i];
+                                    try {
+                                        const titleText = titleEl.text;
+                                        if (titleText.includes("最近更新") || titleText.includes("原创推荐") || titleText.includes("同人推荐")) {
+                                            const ul = titleEl.nextElementSibling;
+                                            if (ul) {
+                                                const items = ul.querySelectorAll(".media-cell.vertical");
+                                                processElements(items);
+                                            }
+                                        }
+                                    } catch(e) {
+                                        console.log(`Error processing section: ${e}`);
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.log(`Error processing module titles: ${e}`);
+                        }
+
+                        // 7. 清理并返回
+                        doc.dispose();
+                        return {
+                            comics: allComics,
+                            maxPage: 1
+                        };
+                    }
                 }
-            }
+            ];
 
             let allComics = [];
 
@@ -544,7 +617,8 @@ explore = [
                     let manga = new this.Comic({
                         id: id,
                         title: title,
-                        cover: cover,
+                        cover: `https://www.yamibo.com/coverm/000/000/${id}.jpg`,
+                        tags: tags,
                         description: `更新于: ${updateTime}`
                     });
 
