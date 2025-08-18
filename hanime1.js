@@ -1,9 +1,4 @@
 class Hanime1 extends ComicSource {
-  constructor() {
-    super();
-    // 初始化 website 属性
-    this.website = 'https://hanime1.me/';
-  }
     // Note: The fields which are marked as [Optional] should be removed if not used
 
     // name of the source
@@ -38,7 +33,9 @@ class Hanime1 extends ComicSource {
         },
 
         // {string?} - register url
-        registerWebsite: "https://hanime1.me/register/"
+        register: {
+            url: "https://hanime1.me/register/"
+        }
     }
 
     /**
@@ -509,7 +506,7 @@ class Hanime1 extends ComicSource {
             throw "Not implemented"
         },
         // {string?} - regex string, used to identify comic id from user input
-        idMatch: "^(\\d+|nh\\d+|nhentai\\d+)$",
+        idMatch: "^(\\d+|ha\\d+|hanime1\\d+)$",
         /**
          * [Optional] Handle tag click event
          * @param namespace {string}
