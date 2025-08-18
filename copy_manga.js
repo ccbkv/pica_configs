@@ -220,13 +220,13 @@ class CopyManga extends ComicSource {
                 }
 
                 let res = {}
-                res["推荐"] = data["results"]["recComics"]["list"].map(parseComic)
-                res["热门"] = data["results"]["hotComics"].map(parseComic)
-                res["最新"] = data["results"]["newComics"].map(parseComic)
-                res["完结"] = data["results"]["finishComics"]["list"].map(parseComic)
-                res["今日排行"] = data["results"]["rankDayComics"]["list"].map(parseComic)
-                res["本周排行"] = data["results"]["rankWeekComics"]["list"].map(parseComic)
-                res["本月排行"] = data["results"]["rankMonthComics"]["list"].map(parseComic)
+            res["推荐"] = data["results"]["recComics"]?.["list"]?.map(parseComic) ?? []
+            res["热门"] = data["results"]["hotComics"]?.map(parseComic) ?? []  // 注意：hotComics 直接是数组，无 list
+            res["最新"] = data["results"]["newComics"]?.map(parseComic) ?? []  // 同上
+            res["完结"] = data["results"]["finishComics"]?.["list"]?.map(parseComic) ?? []
+            res["今日排行"] = data["results"]["rankDayComics"]?.["list"]?.map(parseComic) ?? []
+            res["本周排行"] = data["results"]["rankWeekComics"]?.["list"]?.map(parseComic) ?? []
+            res["本月排行"] = data["results"]["rankMonthComics"]?.["list"]?.map(parseComic) ?? []
 
                 return res
             }
