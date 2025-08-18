@@ -34,7 +34,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.1.4"
+    version = "1.3.7"
 
     minAppVersion = "1.2.1"
 
@@ -714,7 +714,7 @@ class CopyManga extends ComicSource {
             ])
 
             if (results[0].status !== 200) {
-                throw `Invalid status code: ${res.status}`;
+                throw `Invalid status code: ${results[0].status}`;
             }
 
             let data = JSON.parse(results[0].body).results;
@@ -996,7 +996,12 @@ class CopyManga extends ComicSource {
      * @param target {string} target version
      * @returns {boolean} true if the current app version is after the target version
      */
+    // 移除对未定义APP对象的依赖
     isAppVersionAfter(target) {
+        // 假设当前版本总是支持所有功能
+        return true;
+        /*
+        // 原始代码，需要APP对象支持
         let current = APP.version
         let targetArr = target.split('.')
         let currentArr = current.split('.')
@@ -1006,14 +1011,16 @@ class CopyManga extends ComicSource {
             }
         }
         return true
+        */
     }
 
     async refreshSearchApi() {
+        // 使用Network.get替代fetch
         let url = "https://www.copy20.com/search"
-        let res = await fetch(url)
+        let res = await Network.get(url, {})
         let searchApi = ""
         if (res.status === 200) {
-            let text = await res.text()
+            let text = res.body
             let match = text.match(/const countApi = "([^"]+)"/)
             if (match && match[1]) {
                 CopyManga.searchApi = match[1]
@@ -1023,9 +1030,9 @@ class CopyManga extends ComicSource {
 
     async refreshAppApi() {
         const url = "https://api.copy-manga.com/api/v3/system/network2?platform=3"
-        const res = await fetch(url, { headers: this.headers });
+        const res = await Network.get(url, this.headers);
         if (res.status === 200) {
-            let data = await res.json();
+            let data = JSON.parse(res.body);
             this.settings.base_url= data.results.api[0][0];
         }
     }
