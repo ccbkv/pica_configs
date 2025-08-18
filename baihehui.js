@@ -198,6 +198,7 @@ explore = [
             let doc = new Document(res.body);
 
             // 3. 通用解析单元函数
+            // 在 explore 的 parseItem 函数中修改
             function parseItem(el) {
                 try {
                     const a = el.querySelector(".media-img") || el.querySelector("a.media-img");
@@ -216,7 +217,7 @@ explore = [
                     
                     const cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
 
-                    return { id, title, cover };
+                    return new this.Comic({ id, title, cover });
                 } catch (e) {
                     console.log(`Error parsing an item in explore.load: ${e}`);
                     return null;
@@ -373,13 +374,13 @@ explore = [
                         let updateTime = cells.length > 8 ? cells[8].text : '';
 
                         // 构建漫画对象
-                        let manga = {
+                        let manga = new this.Comic({
                             id: id,
                             title: title,
                             cover: `https://www.yamibo.com/coverm/000/000/${id}.jpg`, // 默认封面
                             tags: tags,
                             description: `更新于: ${updateTime}`
-                        };
+                        });
 
                         mangaList.push(manga);
                     } catch (e) {
@@ -424,13 +425,13 @@ explore = [
                         let cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
 
                         // 构建漫画对象
-                        let manga = {
+                        let manga = new this.Comic({
                             id: id,
                             title: title,
                             cover: cover, // 使用有效封面或默认封面
                             tags: tags,
                             description: `${updateTime}`
-                        };
+                        });
 
                         mangaList.push(manga);
                     } catch (e) {
@@ -469,13 +470,13 @@ explore = [
                         let cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
 
                         // 构建漫画对象
-                        let manga = {
+                        let manga = new this.Comic({
                             id: id,
                             title: title,
                             cover: cover, // 使用有效封面或默认封面
                             tags: [],
                             description: `更新于: ${updateTime}`
-                        };
+                        });
 
                         mangaList.push(manga);
                     } catch (e) {
@@ -540,13 +541,12 @@ explore = [
 
                     let cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
 
-                    let manga = {
+                    let manga = new this.Comic({
                         id: id,
                         title: title,
                         cover: cover,
-                        tags: [],
                         description: `更新于: ${updateTime}`
-                    };
+                    });
 
                     mangaList.push(manga);
                 } catch (e) {
