@@ -8,11 +8,11 @@ class CopyManga extends ComicSource {
 
     minAppVersion = "3.1.0"
 
-    url = "https://raw.githubusercontent.com/wgh136/pica_configs/master/copy_manga.js"
+    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/copy_manga.js"
 
     headers = {}
 
-    static copyVersion = "2.2.0"
+    static copyVersion = "3.0.0"
 
     init() {
         let token = this.loadData("token");
