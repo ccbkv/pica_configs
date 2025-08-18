@@ -8,7 +8,7 @@ class CopyManga extends ComicSource {
 
     minAppVersion = "1.2.1"
 
-    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/master/copy_manga.js"
+    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/master/copy_manga.jss"
 
     get headers() {
         let token = this.loadData("token");
@@ -129,16 +129,24 @@ class CopyManga extends ComicSource {
         return pseudoid;
     }
 
+    // 添加一个辅助方法来安全加载设置
+    safeLoadSetting(key, defaultValue) {
+        if (typeof this.loadSetting === 'function') {
+            return this.loadSetting(key) || defaultValue;
+        }
+        return defaultValue;
+    }
+
     get apiUrl() {
-        return `https://${this.loadSetting('base_url')}`
+        return `https://${this.safeLoadSetting('base_url', CopyManga.defaultApiUrl)}`;
     }
 
     get copyRegion() {
-        return this.loadSetting('region') || this.defaultCopyRegion
+        return this.safeLoadSetting('region', CopyManga.defaultCopyRegion);
     }
 
     get imageQuality() {
-        return this.loadSetting('image_quality') || this.defaultImageQuality
+        return this.safeLoadSetting('image_quality', CopyManga.defaultImageQuality);
     }
 
     init() {
@@ -464,9 +472,9 @@ class CopyManga extends ComicSource {
                     q_type = options[0];
                 }
                 keyword = encodeURIComponent(keyword)
-                let search_url = this.loadSetting('search_api') === "webAPI"
-                    ? `${this.apiUrl}${CopyManga.searchApi}`
-                    : `${this.apiUrl}/api/v3/search/comic`
+                let search_url = this.safeLoadSetting('search_api', "webAPI") === "webAPI"
+    ? `${this.apiUrl}${CopyManga.searchApi}`
+    : `${this.apiUrl}/api/v3/search/comic`
                 res = await Network.get(
                     `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}`,
                     this.headers
