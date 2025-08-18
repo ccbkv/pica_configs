@@ -2,7 +2,7 @@ class Hanime1 extends ComicSource {
     // Note: The fields which are marked as [Optional] should be removed if not used
 
     // name of the source
-    name = "hanime1漫畫"
+    name = "hanime1漫画"
 
     // unique id of the source
     key = "hanime1"
