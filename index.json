@@ -24,12 +24,6 @@
         "version": "1.0.0"
     },
     {
-        "name": "hanime1漫画",
-        "fileName": "hanime1.js",
-        "key": "hanime1",
-        "version": "1.0.5"
-    },
-    {
         "name": "NoyAcg",
         "fileName": "noyacg.js",
         "key": "noyacg",
