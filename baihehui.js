@@ -540,6 +540,17 @@ search = {
 
                 let cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
 
+                let tags = [];
+                try {
+                    // 尝试从当前行获取标签
+                    let tagCell = row.querySelector('td:nth-child(5)');
+                    if (tagCell) {
+                        tags.push(tagCell.text.trim());
+                    }
+                } catch (e) {
+                    console.log(`Error parsing tags in search.load: ${e}`);
+                }
+
                 let manga = new this.Comic({
                     id: id,
                     title: title,
