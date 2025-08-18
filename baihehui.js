@@ -549,7 +549,8 @@ comic = {
 
         let author = "未知作者";
         try {
-            let paragraphs = document.querySelectorAll("p");
+            let paragraphs = document.querySelectorAll("p") || [];
+        if (Array.isArray(paragraphs) || paragraphs instanceof NodeList) {
             for (let i = 0; i < paragraphs.length; i++) {
                 const p = paragraphs[i];
                 if (p.text.includes("作者：")) {
@@ -557,24 +558,28 @@ comic = {
                     break; // 找到后即可退出循环
                 }
             }
+        }
         } catch (e) {
             console.log(`Error parsing author: ${e}`);
         }
 
         let tags = [];
         try {
-            let tagElements = document.querySelectorAll("a.label.label-ntype");
+            let tagElements = document.querySelectorAll("a.label.label-ntype") || [];
+        if (Array.isArray(tagElements) || tagElements instanceof NodeList) {
             for (let i = 0; i < tagElements.length; i++) {
                 const tag = tagElements[i];
                 tags.push(tag.text.trim());
             }
+        }
         } catch (e) {
             console.log(`Error parsing tags: ${e}`);
         }
 
         let updateTime = "未知时间";
         try {
-            let paragraphs = document.querySelectorAll("p");
+            let paragraphs = document.querySelectorAll("p") || [];
+        if (Array.isArray(paragraphs) || paragraphs instanceof NodeList) {
             for (let i = 0; i < paragraphs.length; i++) {
                 const p = paragraphs[i];
                 if (p.text.includes("更新时间：")) {
@@ -582,6 +587,7 @@ comic = {
                     break; // 找到后即可退出循环
                 }
             }
+        }
         } catch (e) {
             console.log(`Error parsing updateTime: ${e}`);
         }
@@ -598,7 +604,8 @@ comic = {
 
         let chapters = [];
         try {
-            let chapterElements = document.querySelectorAll("div[data-key]");
+            let chapterElements = document.querySelectorAll("div[data-key]") || [];
+        if (Array.isArray(chapterElements) || chapterElements instanceof NodeList) {
             for (let i = 0; i < chapterElements.length; i++) {
                 const chapter = chapterElements[i];
                 let chapterKey = chapter.attributes['data-key'];
@@ -611,6 +618,7 @@ comic = {
                     }));
                 }
             }
+        }
         } catch (e) {
             console.log(`Error parsing chapters: ${e}`);
         }
@@ -652,17 +660,20 @@ comic = {
 
         let comments = [];
         try {
-            let posts = document.querySelectorAll("div.post.row");
+            let posts = document.querySelectorAll("div.post.row") || [];
+        if (Array.isArray(posts) || posts instanceof NodeList) {
             for (let i = 0; i < posts.length; i++) {
                 const post = posts[i];
                 try {
-                    let userName = post.querySelector("span.cmt-username > a").text.trim();
-                    let avatar = "https://www.yamibo.com/" + post.querySelector("a > img.cmt-avatar").attributes['src'];
-                    let content = post.querySelector("div.row > p").text.trim();
-                    let time = post.querySelector("span.description").text.replace("在 ", "").trim();
-                    let replyCountMatch = post.querySelector("a.btn.btn-sm").text.match(/(\d+) 条回复/);
+                    let userName = post.querySelector("span.cmt-username > a")?.text.trim() || "未知用户";
+                    let avatarEl = post.querySelector("a > img.cmt-avatar");
+                    let avatar = avatarEl ? "https://www.yamibo.com/" + avatarEl.attributes['src'] : "";
+                    let content = post.querySelector("div.row > p")?.text.trim() || "";
+                    let time = post.querySelector("span.description")?.text.replace("在 ", "").trim() || "";
+                    let replyCountMatch = post.querySelector("a.btn.btn-sm")?.text.match(/(\d+) 条回复/);
                     let replyCount = replyCountMatch ? parseInt(replyCountMatch[1]) : 0;
-                    let id = post.querySelector("button.btn_reply").attributes['pid'];
+                    let idEl = post.querySelector("button.btn_reply");
+                    let id = idEl ? idEl.attributes['pid'] : "";
 
                     comments.push({
                         userName: userName,
@@ -676,6 +687,7 @@ comic = {
                     console.log(`Error parsing a comment: ${e}`);
                 }
             }
+        }
         } catch (e) {
             console.log(`Error parsing comments: ${e}`);
         }
@@ -714,8 +726,11 @@ comic = {
             let match = body.match(/var pages = (.*?);/);
             if (match && match[1]) {
                 let pagesData = JSON.parse(match[1]);
-                let images = pagesData.map(p => p.url);
-                return { images: images };
+                // Ensure pagesData is an array before using map
+                if (Array.isArray(pagesData)) {
+                    let images = pagesData.map(p => p?.url || "");
+                    return { images: images };
+                }
             }
         } catch (e) {
             console.log(`Error parsing pages array: ${e}`);
