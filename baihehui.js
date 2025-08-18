@@ -237,7 +237,14 @@ explore = [
             let allComics = [];
 
             const processElements = (elements) => {
-                if (!elements || !Array.isArray(elements) || elements.length === 0) return;
+                // 确保elements是可迭代的
+                if (!elements) return;
+                // 处理NodeList或数组
+                if (elements instanceof NodeList) {
+                    elements = Array.from(elements);
+                }
+                if (!Array.isArray(elements) || elements.length === 0) return;
+                
                 for (let i = 0; i < elements.length; i++) {
                     const el = elements[i];
                     const comicData = parseItem(el);
@@ -356,9 +363,13 @@ categoryComics = {
         // 分类解析
         let mangaList = [];
         // 获取所有漫画行
-        let rows = document.querySelectorAll('tr[data-key]');
+        let rows = document.querySelectorAll('tr[data-key]') || [];
+            // 确保rows是可迭代的
+            if (!Array.isArray(rows) && !(rows instanceof NodeList)) {
+                rows = [];
+            }
 
-        for (let i = 0; i < rows.length; i++) {
+            for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             try {
                 let anchor = row.querySelector('a');
@@ -451,9 +462,13 @@ search = {
         let maxPage = lastPageElement ? parseInt(lastPageElement.attributes['data-page']) + 1 : 1;
 
         let mangaList = [];
-        let rows = document.querySelectorAll('tr[data-key]');
+        let rows = document.querySelectorAll('tr[data-key]') || [];
+            // 确保rows是可迭代的
+            if (!Array.isArray(rows) && !(rows instanceof NodeList)) {
+                rows = [];
+            }
 
-        for (let i = 0; i < rows.length; i++) {
+            for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             try {
                 let anchor = row.querySelector('a');
@@ -604,21 +619,28 @@ comic = {
 
         let chapters = [];
         try {
+            // 确保查询结果不为null且可迭代
             let chapterElements = document.querySelectorAll("div[data-key]") || [];
-        if (Array.isArray(chapterElements) || chapterElements instanceof NodeList) {
-            for (let i = 0; i < chapterElements.length; i++) {
-                const chapter = chapterElements[i];
-                let chapterKey = chapter.attributes['data-key'];
-                let chapterAnchor = chapter.querySelector("a");
-                if (chapterKey && chapterAnchor) {
-                    let chapterTitle = chapterAnchor.text.trim();
-                    chapters.push(new Chapter({
-                        id: chapterKey,
-                        title: chapterTitle,
-                    }));
+            // 统一转换为数组进行处理
+            if (chapterElements instanceof NodeList) {
+                chapterElements = Array.from(chapterElements);
+            }
+            // 确保是数组且不为空
+            if (Array.isArray(chapterElements) && chapterElements.length > 0) {
+                for (let i = 0; i < chapterElements.length; i++) {
+                    const chapter = chapterElements[i];
+                    // 安全获取属性和元素
+                    let chapterKey = chapter?.attributes?.['data-key'];
+                    let chapterAnchor = chapter?.querySelector("a");
+                    if (chapterKey && chapterAnchor) {
+                        let chapterTitle = chapterAnchor.text?.trim() || '';
+                        chapters.push(new Chapter({
+                            id: chapterKey,
+                            title: chapterTitle,
+                        }));
+                    }
                 }
             }
-        }
         } catch (e) {
             console.log(`Error parsing chapters: ${e}`);
         }
@@ -660,28 +682,35 @@ comic = {
 
         let comments = [];
         try {
+            // 确保查询结果不为null且可迭代
             let posts = document.querySelectorAll("div.post.row") || [];
-        if (Array.isArray(posts) || posts instanceof NodeList) {
-            for (let i = 0; i < posts.length; i++) {
-                const post = posts[i];
-                try {
-                    let userName = post.querySelector("span.cmt-username > a")?.text.trim() || "未知用户";
-                    let avatarEl = post.querySelector("a > img.cmt-avatar");
-                    let avatar = avatarEl ? "https://www.yamibo.com/" + avatarEl.attributes['src'] : "";
-                    let content = post.querySelector("div.row > p")?.text.trim() || "";
-                    let time = post.querySelector("span.description")?.text.replace("在 ", "").trim() || "";
-                    let replyCountMatch = post.querySelector("a.btn.btn-sm")?.text.match(/(\d+) 条回复/);
-                    let replyCount = replyCountMatch ? parseInt(replyCountMatch[1]) : 0;
-                    let idEl = post.querySelector("button.btn_reply");
-                    let id = idEl ? idEl.attributes['pid'] : "";
+            // 统一转换为数组进行处理
+            if (posts instanceof NodeList) {
+                posts = Array.from(posts);
+            }
+            // 确保是数组且不为空
+            if (Array.isArray(posts) && posts.length > 0) {
+                for (let i = 0; i < posts.length; i++) {
+                    const post = posts[i];
+                    try {
+                        // 安全获取元素和属性
+                        let userName = post?.querySelector("span.cmt-username > a")?.text?.trim() || "未知用户";
+                        let avatarEl = post?.querySelector("a > img.cmt-avatar");
+                        let avatar = avatarEl ? "https://www.yamibo.com/" + avatarEl.attributes['src'] : "";
+                        let content = post?.querySelector("div.row > p")?.text?.trim() || "";
+                        let time = post?.querySelector("span.description")?.text?.replace("在 ", "")?.trim() || "";
+                        let replyCountMatch = post?.querySelector("a.btn.btn-sm")?.text?.match(/(\d+) 条回复/);
+                        let replyCount = replyCountMatch ? parseInt(replyCountMatch[1]) : 0;
+                        let idEl = post?.querySelector("button.btn_reply");
+                        let id = idEl ? idEl.attributes['pid'] : "";
 
-                    comments.push({
-                        userName: userName,
-                        avatar: avatar,
-                        content: content,
-                        time: time,
-                        replyCount: replyCount,
-                        id: id
+                        comments.push({
+                            userName: userName,
+                            avatar: avatar,
+                            content: content,
+                            time: time,
+                            replyCount: replyCount,
+                            id: id
                     });
                 } catch (e) {
                     console.log(`Error parsing a comment: ${e}`);
