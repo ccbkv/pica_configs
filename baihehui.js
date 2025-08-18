@@ -206,7 +206,7 @@ explore = [
             let doc = new Document(res.body);
 
             // 3. 通用解析单元函数
-            const parseItem = (el) => {
+            const parseItem = function(el) {
                 try {
                     if (!el) return null;
 
@@ -226,7 +226,6 @@ explore = [
                     
                     const cover = `https://www.yamibo.com/coverm/000/000/${id}.jpg`;
 
-                    // 使用that代替this，确保正确的上下文
                     return new this.Comic({ id, title, cover });
                 } catch (e) {
                     console.log(`Error parsing an item in explore.load: ${e}`);
