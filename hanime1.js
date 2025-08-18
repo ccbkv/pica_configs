@@ -25,15 +25,15 @@ class Hanime1 extends ComicSource {
     account = {
         loginWithWebview: {
             url: "https://hanime1.me/login/?next=/",
-            checkStatus: (url, title) => {
-                return url === "https://hanime1.me/"
-            },
+            checkStatus: function(url, title) {
+            return url === "https://hanime1.me/"
+        },
         },
 
         /**
          * logout function, clear account related data
          */
-        logout: () => {
+        logout: function() {
             Network.deleteCookies('https://hanime1.me')
         },
 
@@ -516,7 +516,7 @@ class Hanime1 extends ComicSource {
          * @param tag {string}
          * @returns {{action: string, keyword: string, param: string?}}
          */
-        onClickTag: (namespace, tag) => {
+        onClickTag: function(namespace, tag) {
             return {
                 action: 'category',
                 keyword: tag,
@@ -527,14 +527,14 @@ class Hanime1 extends ComicSource {
             domains: [
                 'https://hanime1.me/comics',
             ],
-            linkToId: (url) => {
-                let regex = /\/g\/(\d+)\//g
-                let match = regex.exec(url)
-                if(match) {
-                    return match[1]
-                }
-                return null
+            linkToId: function(url) {
+            let regex = /\/g\/(\d+)\//g
+            let match = regex.exec(url)
+            if(match) {
+                return match[1]
             }
+            return null
+        }
         },
         enableTagsTranslate: true,
     }
