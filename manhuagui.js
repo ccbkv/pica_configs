@@ -674,7 +674,17 @@ class ManHuaGui extends ComicSource {
     try {
       // 获取漫画链接和ID
       let linkElement = item.querySelector(".book-detail dl dt a");
-      if (!linkElement) return null;
+      if (!linkElement) {
+        console.warn('无法解析搜索项:', item);
+        return new this.Comic({
+          id: '',
+          title: '未知漫画',
+          cover: '',
+          description: '',
+          tags: [],
+          author: ''
+        });
+      }
       
       let url = linkElement.attributes["href"];
       let id = url.split("/")[2];
@@ -720,7 +730,7 @@ class ManHuaGui extends ComicSource {
         if (updateTime) description += `, 更新: ${updateTime}`;
       }
       
-      return new Comic({
+      return new this.Comic({
         id,
         title,
         cover,
@@ -731,7 +741,14 @@ class ManHuaGui extends ComicSource {
       });
     } catch (error) {
       console.error("解析搜索结果项时出错:", error);
-      return null;
+      return new this.Comic({
+        id: '',
+        title: '未知漫画',
+        cover: '',
+        description: '',
+        tags: [],
+        author: ''
+      });
     }
   }
 
@@ -783,9 +800,9 @@ class ManHuaGui extends ComicSource {
       }
       
       // 使用专门的搜索解析函数解析每个漫画项
-      let comics = comicList.querySelectorAll("li.cf")
-        .map(item => this.parseSearchComic(item))
-        .filter(comic => comic !== null); // 过滤掉解析失败的项
+  let comics = document
+        .querySelectorAll(".book-result > ul > li")
+        .map((e) => this.parseSearchComic(e));
       
       return {
         comics,
