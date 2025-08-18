@@ -73,7 +73,7 @@ class CopyManga extends ComicSource {
         logout: () => {
             this.deleteData('token')
         },
-        registerWebsite: "https://www.copymanga.com/web/login/loginByAccount"
+        registerWebsite: "https://www.mangacopy.com/web/login/loginByAccount"
     }
 
     /// explore pages
