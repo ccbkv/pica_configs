@@ -321,7 +321,7 @@ category = {
 
 /// category comic loading related
 categoryComics = {
-    load: async (category, params, options, page) => {
+    load: async function(category, params, options, page) {
         let param = params.split('@')[0];
         let type = params.split('@')[1];
         let type_options = params.split('@')[2];
