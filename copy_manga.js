@@ -12,7 +12,7 @@ class CopyManga extends ComicSource {
 
     minAppVersion = "3.1.0"
 
-    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/master/copy_manga.js"
+    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/copy_manga.js"
 
     headers = {}
 
