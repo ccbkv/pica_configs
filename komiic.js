@@ -6,12 +6,12 @@ class Komiic extends ComicSource {
     // 唯一标识符
     key = "Komiic"
 
-    version = "1.0.4"
+    version = "1.0.5"
 
-    minAppVersion = "3.1.0"
+    minAppVersion = "1.0.0"
 
     // 更新链接
-    url = "https://raw.githubusercontent.com/wgh136/pica_configs/master/komiic.js"
+    url = "https://raw.githubusercontent.com/ccbkv/pica_configs/master/komiic.js"
 
     get headers() {
         let token = this.loadData('token')
@@ -85,6 +85,7 @@ class Komiic extends ComicSource {
 
             let updateTime = new Date(comic.dateUpdated)
             let description = getTimeDifference(updateTime)
+            let formatedTime = `${updateTime.getFullYear()}-${updateTime.getMonth() + 1}-${updateTime.getDate()}`
 
             return {
                 id: comic.id,
@@ -92,7 +93,8 @@ class Komiic extends ComicSource {
                 subTitle: author,
                 cover: comic.imageUrl,
                 tags: tags,
-                description: description
+                description: description,
+                updateTime: formatedTime
             }
         }
 
@@ -173,7 +175,63 @@ class Komiic extends ComicSource {
     /// 分类漫画页面, 即点击分类标签后进入的页面
     categoryComics = {
         load: async (category, param, options, page) => {
-            return await this.queryComics({ "operationName": "comicByCategory", "variables": { "categoryId": param, "pagination": { "limit": 30, "offset": (page - 1) * 30, "orderBy": options[0], "asc": false, "status": options[1] } }, "query": "query comicByCategory($categoryId: ID!, $pagination: Pagination!) {\n  comicByCategory(categoryId: $categoryId, pagination: $pagination) {\n    id\n    title\n    status\n    year\n    imageUrl\n    authors {\n      id\n      name\n      __typename\n    }\n    categories {\n      id\n      name\n      __typename\n    }\n    dateUpdated\n    monthViews\n    views\n    favoriteCount\n    lastBookUpdate\n    lastChapterUpdate\n    __typename\n  }\n}" })
+            // 规范化状态选项：'-全部' -> ''
+            let status = options && options[1] ? options[1] : '';
+            if (status === '-全部') status = '';
+
+            // 规范化分类ID：确保传递的是数字ID或空数组表示全部
+            let categoryIdList = [];
+            if (param === '0' || param === '全部' || param === '' || param == null) {
+                categoryIdList = [];
+            } else if (/^\d+$/.test(param)) {
+                categoryIdList = [param];
+            } else {
+                // 如果传入的是分类名称，按索引映射到 categoryParams
+                try {
+                    const part = this.category.parts && this.category.parts[0];
+                    if (part && Array.isArray(part.categories)) {
+                        const idx = part.categories.indexOf(param);
+                        if (idx >= 0 && Array.isArray(part.categoryParams)) {
+                            const mapped = part.categoryParams[idx];
+                            categoryIdList = (mapped && mapped !== '0') ? [mapped] : [];
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            let variables = {
+                categoryId: categoryIdList,
+                pagination: {
+                    limit: 30,
+                    offset: (page - 1) * 30,
+                    orderBy: options && options[0] ? options[0] : 'DATE_UPDATED',
+                    asc: false,
+                    status: status
+                }
+            };
+
+            return await this.queryComics({
+                operationName: "comicByCategories",
+                variables: variables,
+                query: `query comicByCategories($categoryId: [ID!]!, $pagination: Pagination!) {
+                    comicByCategories(categoryId: $categoryId, pagination: $pagination) {
+                        id
+                        title
+                        status
+                        year
+                        imageUrl
+                        authors { id name __typename }
+                        categories { id name __typename }
+                        dateUpdated
+                        monthViews
+                        views
+                        favoriteCount
+                        lastBookUpdate
+                        lastChapterUpdate
+                        __typename
+                    }
+                }`
+            })
         },
         // 提供选项
         optionList: [
@@ -342,7 +400,7 @@ class Komiic extends ComicSource {
                 let all = json.data.chaptersByComicId
                 let books = [], chapters = []
                 all.forEach((c) => {
-                    if(c.type == 'book') {
+                    if(c.type === 'book') {
                         books.push(c)
                     } else {
                         chapters.push(c)
@@ -375,12 +433,12 @@ class Komiic extends ComicSource {
                 // map<string, string[]> 标签
                 tags: {
                     "作者": [info.subTitle],
-                    "更新": [info.description],
                     "标签": info.tags
                 },
                 // map<string, string>?, key为章节id, value为章节名称
                 chapters: results[1],
-                recommend: results[0].comics
+                recommend: results[0].comics,
+                updateTime: info.updateTime,
             }
         },
         // 获取章节图片
