@@ -37,7 +37,7 @@ class ManHuaGui extends ComicSource {
 
   minAppVersion = "1.4.0";
 
-  url = "https://git.nyne.dev/nyne/venera-configs/raw/branch/main/manhuagui.js";
+  url = "view-source:https://raw.githubusercontent.com/ccbkv/pica_configs/master/manhuagui.js";
 
   baseUrl = "https://www.manhuagui.com";
 
