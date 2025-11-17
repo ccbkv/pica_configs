@@ -1,7 +1,7 @@
 class HitomiJs extends ComicSource{
   name="hitomi.la";
   key="hitomi_js";
-  version="1.1.5";
+  version="1.1.6";
   minAppVersion="0.0.0";
   url="https://raw.githubusercontent.com/ccbkv/pica_configs/master/hitomi.js";
   galleryCache=[];
