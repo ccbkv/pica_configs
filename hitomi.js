@@ -1,7 +1,7 @@
 class HitomiJs extends ComicSource{
   name="hitomi.la";
   key="hitomi_js";
-  version="1.1.7";
+  version="1.1.8";
   minAppVersion="0.0.0";
   url="https://raw.githubusercontent.com/ccbkv/pica_configs/master/hitomi.js";
   galleryCache=[];
@@ -208,7 +208,20 @@ async function get_single_galleryblock(gid){
   if(!gid||gid==="0"||gid===0){throw new Error("Invalid gallery block ID: "+gid);}
   const url="https://"+domain+"/"+`galleryblock/${gid}.html`;
   const res=await Network.get(url,{referer:refererUrl});
-  return parseGalleryBlockInfo(res.body);
+  try{
+    return parseGalleryBlockInfo(res.body);
+  }catch(e){
+    // 有时页面结构或中间层会导致缺少预期的 h1.lillie > a，降级返回最小数据以避免整页失败
+    const doc=new HtmlDocument(res.body);
+    const titleEl=doc.querySelector("h1")||doc.querySelector(".lillie")||doc.querySelector("title");
+    const title=titleEl && titleEl.text ? titleEl.text.trim() : "";
+    const thumbnail_hashs=[];
+    try{
+      const srcs=Array.from(doc.querySelectorAll("img")).map(a=>a.attributes && a.attributes["data-src"] ? a.attributes["data-src"].trim() : "").filter(src=>src);
+      srcs.forEach(src=>{const r=/\/(\w{64})\./.exec(src);if(r){thumbnail_hashs.push(r[1]);}});
+    }catch(_){/* ignore */}
+    return {gid:String(gid),title:title||"",type:"",language:"",artists:[],series:[],females:[],males:[],others:[],thumbnail_hashs:thumbnail_hashs,posted_time:new Date()};
+  }
 }
 
 async function get_galleryblocks(gids){
