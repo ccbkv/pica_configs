@@ -1,7 +1,7 @@
 class HitomiJs extends ComicSource{
   name="hitomi.la";
   key="hitomi_js";
-  version="1.1.6";
+  version="1.1.7";
   minAppVersion="0.0.0";
   url="https://raw.githubusercontent.com/ccbkv/pica_configs/master/hitomi.js";
   galleryCache=[];
@@ -19,9 +19,9 @@ class HitomiJs extends ComicSource{
   categoryComics={load:async(category,param,options,page)=>{const term=param;if(!term.includes(":")) throw new Error("不合法的标签，请使用namespace:tag的格式"); if(page===1){const option=parseInt(options[0]);const searchOptions={term,orderby:"date",orderbykey:"added",orderbydirection:"desc"};switch(option){case 1:searchOptions.orderbykey="published";break;case 2:searchOptions.orderby="popular";searchOptions.orderbykey="today";break;case 3:searchOptions.orderby="popular";searchOptions.orderbykey="week";break;case 4:searchOptions.orderby="popular";searchOptions.orderbykey="month";break;case 5:searchOptions.orderby="popular";searchOptions.orderbykey="year";break;case 6:searchOptions.orderbydirection="random";break;default:break;} const result=await search(searchOptions);if(result.type==="single"){const comics=(await get_galleryblocks(result.gids)).map(n=>this._mapGalleryBlockInfoToComic(n));this.categoryResultCache={type:"single",state:result.state,count:result.count};return {comics,maxPage:Math.ceil(result.count/25)};} else {const comics=(await get_galleryblocks(result.gids.slice(25*page-25,25*page))).map(n=>this._mapGalleryBlockInfoToComic(n));this.categoryResultCache={type:"all",gids:result.gids,count:result.count};return {comics,maxPage:Math.ceil(result.count/25)};}} else {if(this.categoryResultCache.type==="single"){const result=await getSingleTagSearchPage({state:this.categoryResultCache.state,page:page-1});const comics=(await get_galleryblocks(result.galleryids)).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(this.categoryResultCache.count/25)};} else {const comics=(await get_galleryblocks(this.categoryResultCache.gids.slice(25*page-25,25*page))).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(this.categoryResultCache.count/25)};}}},optionList:[{options:["0-添加日期","1-发布日期","2-热门|今天","3-热门|一周","4-热门|本月","5-热门|一年","随机"],notShowWhen:null,showWhen:null}],ranking:{options:["today-今天","week-一周","month-本月","year-一年"],load:async(option,page)=>{if(!page) page=1;const result=await getSingleTagSearchPage({state:{area:"all",tag:"index",language:"all",orderby:"popular",orderbykey:option,orderbydirection:"desc"},page:page-1});const comics=(await get_galleryblocks(result.galleryids)).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(result.count/25)};}}};
   search={load:async(keyword,options,page)=>{const cacheKey=(keyword||"")+"|"+options.join(",");if(page===1){const option=parseInt(options[0]);const term=keyword;const searchOptions={term,orderby:"date",orderbykey:"added",orderbydirection:"desc"};switch(option){case 1:searchOptions.orderbykey="published";break;case 2:searchOptions.orderby="popular";searchOptions.orderbykey="today";break;case 3:searchOptions.orderby="popular";searchOptions.orderbykey="week";break;case 4:searchOptions.orderby="popular";searchOptions.orderbykey="month";break;case 5:searchOptions.orderby="popular";searchOptions.orderbykey="year";break;case 6:searchOptions.orderbydirection="random";break;default:break;} const result=await search(searchOptions);if(result.type==="single"){const comics=(await get_galleryblocks(result.gids)).map(n=>this._mapGalleryBlockInfoToComic(n));this.searchResultCaches.set(cacheKey,{type:"single",state:result.state,count:result.count});return {comics,maxPage:Math.ceil(result.count/25)};} else {const comics=(await get_galleryblocks(result.gids.slice(25*page-25,25*page))).map(n=>this._mapGalleryBlockInfoToComic(n));this.searchResultCaches.set(cacheKey,{type:"all",gids:result.gids,count:result.count});return {comics,maxPage:Math.ceil(result.count/25)};}} else {const searchResultCache=this.searchResultCaches.get(cacheKey);if(searchResultCache.type==="single"){const result=await getSingleTagSearchPage({state:searchResultCache.state,page:page-1});const comics=(await get_galleryblocks(result.galleryids)).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(searchResultCache.count/25)};} else {const comics=(await get_galleryblocks(searchResultCache.gids.slice(25*page-25,25*page))).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(searchResultCache.count/25)};}}},loadNext:async(keyword,options,next)=>{},optionList:[{type:"select",options:["0-添加日期","1-发布日期","2-热门|今天","3-热门|一周","4-热门|本月","5-热门|一年","随机"],label:"sort",default:null}],enableTagsSuggestions:true,onTagSuggestionSelected:(namespace,tag)=>{let fixedNamespace=undefined;switch(namespace){case "reclass":fixedNamespace="reclass";break;case "parody":fixedNamespace="parody";break;case "other":fixedNamespace="tag";break;case "mixed":fixedNamespace="tag";break;case "temp":fixedNamespace="tag";break;case "cosplayer":fixedNamespace="tag";break;default:fixedNamespace=namespace;break;} return fixedNamespace+":"+tag.replaceAll(" ","_");}};
   enableTagsTranslate=true;
-  comic={loadInfo:async(id)=>{const data=await get_gallery_detail(id);const tagsObj={};if("type" in data&&data.type) tagsObj["reclass"]=[data.type];if(data.groups.length) tagsObj["group"]=data.groups;if(data.artists.length) tagsObj["artist"]=data.artists;if("language" in data&&data.language) tagsObj["language"]= [data.language];if(data.series.length) tagsObj["parody"]=data.series;if(data.characters.length) tagsObj["character"]=data.characters;if(data.females.length) tagsObj["female"]=data.females;if(data.males.length) tagsObj["male"]=data.males;if(data.others.length) tagsObj["tag"]=data.others;let recommend=undefined;if(data.related_gids.length){recommend=(await get_galleryblocks(data.related_gids)).map(n=>this._mapGalleryBlockInfoToComic(n));}
+  comic={loadInfo:async(id)=>{if(!id||id==="0"||id===0){throw new Error("Invalid comic ID: "+id);}const data=await get_gallery_detail(id);const tagsObj={};if("type" in data&&data.type) tagsObj["reclass"]=[data.type];if(data.groups.length) tagsObj["group"]=data.groups;if(data.artists.length) tagsObj["artist"]=data.artists;if("language" in data&&data.language) tagsObj["language"]= [data.language];if(data.series.length) tagsObj["parody"]=data.series;if(data.characters.length) tagsObj["character"]=data.characters;if(data.females.length) tagsObj["female"]=data.females;if(data.males.length) tagsObj["male"]=data.males;if(data.others.length) tagsObj["tag"]=data.others;let recommend=undefined;if(data.related_gids.length){recommend=(await get_galleryblocks(data.related_gids)).map(n=>this._mapGalleryBlockInfoToComic(n));}
     this.galleryCache=data;
-    return {title:data.title||"",cover:data.thumbnail_hash?get_thumbnail_url_from_hash(data.thumbnail_hash,true):"",tags:tagsObj,chapters:{"1":"1"},maxPage:data.files?data.files.length:0,thumbnails:data.files?data.files.map(n=>n.hash?get_thumbnail_url_from_hash(n.hash):"").filter(url=>url):[],uploadTime:formatDate(data.posted_time),url:data.url||"",recommend};},loadEp:async(comicId,epId)=>{const data=this.galleryCache;if(data.type==="anime") throw new Error("不支持视频浏览");const images=await get_image_srcs(data.files, data.gid);return {images};},onImageLoad:(url,comicId,epId)=>{const id=(comicId||"").match(/\d+/)?.[0];const ref=id?`https://hitomi.la/reader/${id}.html`:refererUrl;return {url,headers:{referer:ref,"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}};},onThumbnailLoad:(url)=>{return {url,headers:{referer:refererUrl,"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}};},onClickTag:(namespace,tag)=>{let fixedNamespace=undefined;switch(namespace){case "type":fixedNamespace="type";break;case "groups":fixedNamespace="group";break;case "artists":fixedNamespace="artist";break;case "language":fixedNamespace="language";break;case "series":fixedNamespace="parody";break;case "parody":fixedNamespace="parody";break;case "characters":fixedNamespace="character";break;case "females":fixedNamespace="female";break;case "males":fixedNamespace="male";break;case "others":fixedNamespace="tag";break;default:break;} if(!fixedNamespace){throw new Error("不支持的标签命名空间: "+namespace);} const keyword=fixedNamespace+":"+tag.replaceAll(" ","_");return {page:"search",attributes:{keyword}};},link:{domains:["hitomi.la"],linkToId:(url)=>{const reg=/https:\/\/hitomi\.la\/\w+\/[^\/]+-(\d+)\.html/;const r=reg.exec(url);if(r){return r[1];} else {throw new Error("Invalid gallery url of hitomi.la");}}}};
+    return {title:data.title||"",cover:data.thumbnail_hash?get_thumbnail_url_from_hash(data.thumbnail_hash,true):"",tags:tagsObj,chapters:{"1":"1"},maxPage:data.files?data.files.length:0,thumbnails:data.files?data.files.map(n=>n.hash?get_thumbnail_url_from_hash(n.hash):"").filter(url=>url):[],uploadTime:formatDate(data.posted_time),url:data.url||"",recommend};},loadEp:async(comicId,epId)=>{if(!comicId||comicId==="0"||comicId===0){throw new Error("Invalid comic ID: "+comicId);}const data=this.galleryCache;if(data.type==="anime") throw new Error("不支持视频浏览");const images=await get_image_srcs(data.files, data.gid);return {images};},onImageLoad:(url,comicId,epId)=>{const id=(comicId||"").match(/\d+/)?.[0];const ref=id?`https://hitomi.la/reader/${id}.html`:refererUrl;return {url,headers:{referer:ref,"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}};},onThumbnailLoad:(url)=>{return {url,headers:{referer:refererUrl,"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}};},onClickTag:(namespace,tag)=>{let fixedNamespace=undefined;switch(namespace){case "type":fixedNamespace="type";break;case "groups":fixedNamespace="group";break;case "artists":fixedNamespace="artist";break;case "language":fixedNamespace="language";break;case "series":fixedNamespace="parody";break;case "parody":fixedNamespace="parody";break;case "characters":fixedNamespace="character";break;case "females":fixedNamespace="female";break;case "males":fixedNamespace="male";break;case "others":fixedNamespace="tag";break;default:break;} if(!fixedNamespace){throw new Error("不支持的标签命名空间: "+namespace);} const keyword=fixedNamespace+":"+tag.replaceAll(" ","_");return {page:"search",attributes:{keyword}};},link:{domains:["hitomi.la"],linkToId:(url)=>{const reg=/https:\/\/hitomi\.la\/\w+\/[^\/]+-(\d+)\.html/;const r=reg.exec(url);if(r){return r[1];} else {throw new Error("Invalid gallery url of hitomi.la");}}}};
 }
 
 const domain2 = "gold-usergeneratedcontent.net";
@@ -205,6 +205,7 @@ async function get_galleryids_and_count({range,state}){
 }
 
 async function get_single_galleryblock(gid){
+  if(!gid||gid==="0"||gid===0){throw new Error("Invalid gallery block ID: "+gid);}
   const url="https://"+domain+"/"+`galleryblock/${gid}.html`;
   const res=await Network.get(url,{referer:refererUrl});
   return parseGalleryBlockInfo(res.body);
@@ -266,6 +267,7 @@ function get_thumbnail_url_from_hash(hash,bigTn){
 }
 
 async function get_gallery_detail(gid){
+  if(!gid||gid==="0"||gid===0){throw new Error("Invalid gallery ID: "+gid);}
   const resp=await Network.get("https://"+domain+"/"+`galleries/${gid}.js`,{referer:refererUrl});
   if(resp.status!==200){throw new Error(resp.status);} 
   return parseGalleryDetail(resp.body);
@@ -343,10 +345,13 @@ function parseGalleryBlockInfo(body){
   const mangaEl=new HtmlDocument(body);
   const titleLink=mangaEl.querySelector("h1.lillie > a");
   if(!titleLink){
-    return {gid:"0",title:"",type:undefined,language:undefined,artists:[],series:[],females:[],males:[],others:[],thumbnail_hashs:[],posted_time:new Date()};
+    throw new Error("Invalid gallery block: no title link found");
   }
   const m = titleLink.attributes && titleLink.attributes["href"] ? /-(\d+)\.html$/.exec(titleLink.attributes["href"]) : null;
-  const gid = m ? m[1] : "0";
+  const gid = m ? m[1] : null;
+  if(!gid||gid==="0"){
+    throw new Error("Invalid gallery block: no valid ID found");
+  }
   const title=titleLink.text || "";
   const thumbnail_hashs=[];
   const srcs=Array.from(mangaEl.querySelectorAll("img")).map(a=>a.attributes && a.attributes["data-src"] ? a.attributes["data-src"].trim() : "").filter(src=>src);
@@ -361,14 +366,22 @@ function parseGalleryBlockInfo(body){
   const postedElement=mangaEl.querySelector(".date");
   const postedRaw=postedElement && postedElement.text ? postedElement.text.trim() : "";
   const posted_time=postedRaw ? new Date(toISO8601(postedRaw)) : new Date();
-  return {gid:gid||"0",title:title||"",type:type||"",language:language||"",artists:artists||[],series:series||[],females:females||[],males:males||[],others:others||[],thumbnail_hashs:thumbnail_hashs||[],posted_time:posted_time||new Date()};
+  return {gid:gid,title:title||"",type:type||"",language:language||"",artists:artists||[],series:series||[],females:females||[],males:males||[],others:others||[],thumbnail_hashs:thumbnail_hashs||[],posted_time:posted_time||new Date()};
 }
 
 function parseGalleryDetail(text){
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   const json = start >= 0 && end > start ? text.slice(start, end + 1) : '{}';
-  const data=JSON.parse(json);
+  let data;
+  try{
+    data=JSON.parse(json);
+  }catch(e){
+    throw new Error("Invalid gallery detail JSON: "+e.message);
+  }
+  if(!data.id||data.id==="0"||data.id===0){
+    throw new Error("Invalid gallery detail: missing or invalid ID");
+  }
   const artists=[];const groups=[];const series=[];const characters=[];const females=[];const males=[];const others=[];const translations=[];const related_gids=[];
   if("artists" in data&&Array.isArray(data.artists)&&data.artists.length>0){data.artists.forEach(n=>artists.push(n.artist));}
   if("groups" in data&&Array.isArray(data.groups)&&data.groups.length>0){data.groups.forEach(n=>groups.push(n.group));}
@@ -378,5 +391,5 @@ function parseGalleryDetail(text){
   if("tags" in data&&Array.isArray(data.tags)&&data.tags.length>0){data.tags.filter(n=>n.female==="1").forEach(n=>females.push(n.tag));data.tags.filter(n=>n.male==="1").forEach(n=>males.push(n.tag));data.tags.filter(n=>!n.male&&!n.female).forEach(n=>others.push(n.tag));}
   if("languages" in data&&Array.isArray(data.languages)&&data.languages.length>0){data.languages.forEach(n=>{translations.push({gid:n.galleryid,language:n.name});});}
   if("related" in data&&Array.isArray(data.related)&&data.related.length>0){data.related.forEach(n=>related_gids.push(n));}
-  return {gid:parseInt(data.id)||0,title:data.title||"",url:"https://hitomi.la"+(data.galleryurl||""),type:data.type||"",length:data.files?data.files.length:0,language:("language" in data&&data.language)?data.language:"",artists:artists||[],groups:groups||[],series:series||[],characters:characters||[],females:females||[],males:males||[],others:others||[],thumbnail_hash:data.files&&data.files[0]&&data.files[0].hash?data.files[0].hash:"",files:data.files||[],posted_time:new Date(toISO8601(data.date||"")),translations:translations||[],related_gids:related_gids||[]};
+  return {gid:parseInt(data.id),title:data.title||"",url:"https://hitomi.la"+(data.galleryurl||""),type:data.type||"",length:data.files?data.files.length:0,language:("language" in data&&data.language)?data.language:"",artists:artists||[],groups:groups||[],series:series||[],characters:characters||[],females:females||[],males:males||[],others:others||[],thumbnail_hash:data.files&&data.files[0]&&data.files[0].hash?data.files[0].hash:"",files:data.files||[],posted_time:new Date(toISO8601(data.date||"")),translations:translations||[],related_gids:related_gids||[]};
 }
