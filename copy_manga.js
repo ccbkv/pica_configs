@@ -1,22 +1,99 @@
 class CopyManga extends ComicSource {
-    constructor() {
-        super();
-        this.init();
-    }
 
     name = "拷贝漫画"
 
     key = "copy_manga"
 
-    version = "1.1.6"
+    version = "1.1.7"
 
-    minAppVersion = "3.1.0"
+    minAppVersion = "1.6.0"
 
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/copy_manga.js"
 
-    headers = {}
+    async getReqID() {
+        if (this.copyRegion === "0") {
+            return "";
+        }
+        const reqIdUrl = "https://marketing.aiacgn.com/api/v2/adopr/query3/?format=json&ident=200100001";
+        let reqId = "";
+        try {
+            const response = await Network.get(reqIdUrl, this.headers);
+
+            if (response.status === 200) {
+                const data = JSON.parse(response.body);
+                reqId = data.results.request_id;
+            }
+        } catch (e) {
+        }
+        return reqId;
+    }
+
+    get headers() {
+        let token = this.loadData("token");
+
+        if (!token) {
+            token = "";
+        } else {
+            token = " " + token;
+        }
+
+        return {
+            "User-Agent": `COPY/${CopyManga.copyVersion}`,
+            "source": "copyApp",
+            "platform": "3",
+            "version": CopyManga.copyVersion,
+            "Accept": "application/json",
+            "region": this.copyRegion,
+            "authorization": `Token${token}`,
+        }
+    }
 
     static copyVersion = "3.0.0"
+
+    // static defaultCopyPlatform = "2"
+
+    static defaultCopyRegion = "1"
+
+    static defaultImageQuality = "1500"
+
+    static defaultApiUrl = 'api.copy2000.online'
+
+    static searchApi = "/api/kb/web/searchb/comics"
+
+    get deviceinfo() {
+        let info = this.loadData("_deviceinfo");
+        if (!info) {
+            info = CopyManga.generateDeviceInfo();
+            this.saveData("_deviceinfo", info);
+        }
+        return info;
+    }
+
+    get device() {
+        let dev = this.loadData("_device");
+        if (!dev) {
+            dev = CopyManga.generateDevice();
+            this.saveData("_device", dev);
+        }
+        return dev;
+    }
+
+    get pseudoid() {
+        let pid = this.loadData("_pseudoid");
+        if (!pid) {
+            pid = CopyManga.generatePseudoid();
+            this.saveData("_pseudoid", pid);
+        }
+        return pid;
+    }
+
+    // get copyVersion() {
+    //     return this.loadSetting('version')
+    // }
+
+    // get copyPlatform()
+    // return this.loadSetting('platform')
+    // }
 
     static generateDeviceInfo() {
         return `${randomInt(1000000, 9999999)}V-${randomInt(1000, 9999)}`;
@@ -55,73 +132,106 @@ class CopyManga extends ComicSource {
         return pseudoid;
     }
 
-    init() {
-        let token = this.loadData("token");
-        let secret = "M2FmMDg1OTAzMTEwMzJlZmUwNjYwNTUwYTA1NjNhNTM="
-
-        if (!token) {
-            token = "";
-        } else {
-            token = " " + token;
+    loadSetting(key) {
+        let value = this.loadData(key);
+        if (value !== undefined && value !== null) {
+            return value;
         }
-        this.headers = {
-            "User-Agent": "COPY/" + CopyManga.copyVersion,
-            "Accept": "*/*",
-            "Accept-Encoding": "gzip",
-            "source": "copyApp",
-            "webp": "1",
-            "region": "1",
-            "version": CopyManga.copyVersion,
-            "authorization": `Token${token}`,
-            "platform": "3",
+        if (this.settings && this.settings[key]) {
+            return this.settings[key].default;
         }
+        return undefined;
     }
 
+    get apiUrl() {
+        return `https://${this.loadSetting('base_url')}`
+    }
+
+    get copyRegion() {
+        return this.loadSetting('region') || this.defaultCopyRegion
+    }
+
+    get imageQuality() {
+        return this.loadSetting('image_quality') || this.defaultImageQuality
+    }
+
+    init() {
+        Convert.encodeUtf8 = (str) => {
+            const utf8 = [];
+            for (let i = 0; i < str.length; i++) {
+                let charcode = str.charCodeAt(i);
+                if (charcode < 0x80) utf8.push(charcode);
+                else if (charcode < 0x800) {
+                    utf8.push(0xc0 | (charcode >> 6),
+                              0x80 | (charcode & 0x3f));
+                }
+                else if (charcode < 0xd800 || charcode >= 0xe000) {
+                    utf8.push(0xe0 | (charcode >> 12),
+                              0x80 | ((charcode >> 6) & 0x3f),
+                              0x80 | (charcode & 0x3f));
+                }
+                // surrogate pair
+                else {
+                    i++;
+                    // UTF-16 encodes 0x10000-0x10FFFF by
+                    // subtracting 0x10000 and splitting the
+                    // 20 bits of 0x0-0xFFFFF into two halves
+                    charcode = 0x10000 + (((charcode & 0x3ff) << 10)
+                              | (str.charCodeAt(i) & 0x3ff));
+                    utf8.push(0xf0 | (charcode >> 18),
+                              0x80 | ((charcode >> 12) & 0x3f),
+                              0x80 | ((charcode >> 6) & 0x3f),
+                              0x80 | (charcode & 0x3f));
+                }
+            }
+            return new Uint8Array(utf8).buffer;
+        }
+        
+        // 用于储存 { 作者名 : 英文参数 }
+        this.author_path_word_dict = {}
+        this.refreshSearchApi()
+        this.refreshAppApi()
+    }
+
+    /// account
+    /// set this to null to desable account feature
     account = {
-        login: async function(account, pwd) {
+        /// login func
+        login: async (account, pwd) => {
             let salt = randomInt(1000, 9999)
-            let base64 = Convert.encodeBase64(`${pwd}-${salt}`)
+            let base64 = Convert.encodeBase64(Convert.encodeUtf8(`${pwd}-${salt}`))
             let res = await Network.post(
-                "https://api.2025copy.com/api/v3/login?platform=3",
+                `${this.apiUrl}/api/v3/login?platform=3`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
                 },
-                `username=${account}&password=${base64}\n&salt=${salt}&platform=3&authorization=Token+&version=1.4.4&source=copyApp&region=1&webp=1`
+                `username=${account}&password=${base64}\n&salt=${salt}&authorization=Token+`
             );
             if (res.status === 200) {
                 let data = JSON.parse(res.body)
                 let token = data.results.token
                 this.saveData('token', token)
-                this.headers = {
-                    "User-Agent": "COPY/" + CopyManga.copyVersion,
-                    "Accept": "*/*",
-                    "Accept-Encoding": "gzip",
-                    "source": "copyApp",
-                    "webp": "1",
-                    "region": "1",
-                    "version": CopyManga.copyVersion,
-                    "authorization": `Token ${token}`,
-                    "platform": "3",
-                }
                 return "ok"
             } else {
                 throw `Invalid Status Code ${res.status}`
             }
-        }.bind(this),
-        logout: function() {
+        },
+        // callback when user log out
+        logout: () => {
             this.deleteData('token')
-        }.bind(this),
-        registerWebsite: "https://www.mangacopy.com/web/login/loginByAccount"
+        },
+        registerWebsite: null
     }
 
+    /// explore pages
     explore = [
         {
             title: "拷贝漫画",
             type: "singlePageWithMultiPart",
-            load: async function() {
+            load: async () => {
                 let dataStr = await Network.get(
-                    "https://api.2025copy.com/api/v3/h5/homeIndex?platform=3",
+                    `${this.apiUrl}/api/v3/h5/homeIndex?platform=3`,
                     this.headers
                 )
 
@@ -164,32 +274,249 @@ class CopyManga extends ComicSource {
                 res["本月排行"] = data["results"]["rankMonthComics"]["list"].map(parseComic)
 
                 return res
-            }.bind(this)
+            }
         }
     ]
+
+    static category_param_dict = {
+        "全部": "",
+        "愛情": "aiqing",
+        "歡樂向": "huanlexiang",
+        "冒險": "maoxian",
+        "奇幻": "qihuan",
+        "百合": "baihe",
+        "校园": "xiaoyuan",
+        "科幻": "kehuan",
+        "東方": "dongfang",
+        "耽美": "danmei",
+        "生活": "shenghuo",
+        "格鬥": "gedou",
+        "轻小说": "qingxiaoshuo",
+        "悬疑": "xuanyi",
+        "其他": "qita",
+        "神鬼": "shengui",
+        "职场": "zhichang",
+        "TL": "teenslove",
+        "萌系": "mengxi",
+        "治愈": "zhiyu",
+        "長條": "changtiao",
+        "四格": "sige",
+        "节操": "jiecao",
+        "舰娘": "jianniang",
+        "竞技": "jingji",
+        "搞笑": "gaoxiao",
+        "伪娘": "weiniang",
+        "热血": "rexue",
+        "励志": "lizhi",
+        "性转换": "xingzhuanhuan",
+        "彩色": "COLOR",
+        "後宮": "hougong",
+        "美食": "meishi",
+        "侦探": "zhentan",
+        "AA": "aa",
+        "音乐舞蹈": "yinyuewudao",
+        "魔幻": "mohuan",
+        "战争": "zhanzheng",
+        "历史": "lishi",
+        "异世界": "yishijie",
+        "惊悚": "jingsong",
+        "机战": "jizhan",
+        "都市": "dushi",
+        "穿越": "chuanyue",
+        "恐怖": "kongbu",
+        "C100": "comiket100",
+        "重生": "chongsheng",
+        "C99": "comiket99",
+        "C101": "comiket101",
+        "C97": "comiket97",
+        "C96": "comiket96",
+        "生存": "shengcun",
+        "宅系": "zhaixi",
+        "武侠": "wuxia",
+        "C98": "C98",
+        "C95": "comiket95",
+        "FATE": "fate",
+        "转生": "zhuansheng",
+        "無修正": "Uncensored",
+        "仙侠": "xianxia",
+        "LoveLive": "loveLive"
+    }
 
     category = {
         title: "拷贝漫画",
         parts: [
             {
+                name: "拷贝漫画",
+                type: "fixed",
+                categories: ["排行"],
+                categoryParams: ["ranking"],
+                itemType: "category"
+            },
+            {
                 name: "主题",
                 type: "fixed",
-                categories: ["全部", "爱情", "欢乐向", "冒险", "奇幻", "百合", "校园", "科幻", "东方", "耽美", "生活", "格斗", "轻小说", "悬疑",
-                    "其它", "神鬼", "职场", "TL", "萌系", "治愈", "长条"],
-                itemType: "category",
-                categoryParams: ["", "aiqing", "huanlexiang", "maoxian", "qihuan", "baihe", "xiaoyuan", "kehuan", "dongfang", "danmei", "shenghuo", "gedou", "qingshuo", "xuanyi",
-                    "qita", "shengui", "zhichang", "teenslove", "mengxi", "zhiliao", "changtiao"]
+                categories: Object.keys(CopyManga.category_param_dict),
+                categoryParams: Object.values(CopyManga.category_param_dict),
+                itemType: "category"
             }
         ]
     }
 
     categoryComics = {
-        load: async function(category, param, options, page) {
-            options = options.map(e => e.replace("*", "-"))
+        load: async (category, param, options, page) => {
+            let category_url;
+            // 分类-排行
+            if (category === "排行" || param === "ranking") {
+                category_url = `${this.apiUrl}/api/v3/ranks?limit=30&offset=${(page - 1) * 30}&_update=true&type=1&audience_type=${options[0]}&date_type=${options[1]}`
+            } else {
+                // 分类-主题
+                if (category !== undefined && category !== null) {
+                    // 若传入category，则转化为对应param
+                    param = CopyManga.category_param_dict[category] || "";
+                }
+                options = options.map(e => e.replace("*", "-"))
+                category_url = `${this.apiUrl}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=${options[1]}&theme=${param}&top=${options[0]}&platform=3`
+            }
+
+
             let res = await Network.get(
-                `https://api.2025copy.com/api/v3/comics?limit=21&offset=${(page - 1) * 21}&ordering=${options[1]}&theme=${param}&top=${options[0]}&platform=3`,
+                category_url,
                 this.headers
             )
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`
+            }
+
+            let data = JSON.parse(res.body)
+
+            function parseComic(comic) {
+                //判断是否是漫画排名格式
+                let sort = null
+                let popular = 0
+                let rise_sort = 0;
+                if (comic["sort"] !== null && comic["sort"] !== undefined) {
+                    sort = comic["sort"]
+                    rise_sort = comic["rise_sort"]
+                    popular = comic["popular"]
+                }
+
+                if (comic["comic"] !== null && comic["comic"] !== undefined) {
+                    comic = comic["comic"]
+                }
+                let tags = []
+                if (comic["theme"] !== null && comic["theme"] !== undefined) {
+                    tags = comic["theme"].map(t => t["name"])
+                }
+                let author = null
+                let author_num = 0
+                if (Array.isArray(comic["author"]) && comic["author"].length > 0) {
+                    author = comic["author"][0]["name"]
+                    author_num = comic["author"].length
+                }
+
+                //如果是漫画排名，则描述为 排名(+升降箭头)+作者+人气
+                if (sort !== null) {
+                    return {
+                        id: comic["path_word"],
+                        title: comic["name"],
+                        subTitle: author,
+                        cover: comic["cover"],
+                        tags: tags,
+                        description: `${sort} ${rise_sort > 0 ? '▲' : rise_sort < 0 ? '▽' : '-'}\n` +
+                            `${author_num > 1 ? `${author} 等${author_num}位` : author}\n` +
+                            `🔥${(popular / 10000).toFixed(1)}W`
+                    }
+                    //正常情况的描述为更新时间
+                } else {
+                    return {
+                        id: comic["path_word"],
+                        title: comic["name"],
+                        subTitle: author,
+                        cover: comic["cover"],
+                        tags: tags,
+                        description: comic["datetime_updated"]
+                    }
+                }
+            }
+
+            return {
+                comics: data["results"]["list"].map(parseComic),
+                maxPage: (data["results"]["total"] - (data["results"]["total"] % 21)) / 21 + 1
+            }
+        },
+        optionList: [
+            {
+                options: [
+                    "-全部",
+                    "japan-日漫",
+                    "korea-韩漫",
+                    "west-美漫",
+                    "finish-已完结"
+                ],
+                notShowWhen: null,
+                showWhen: Object.keys(CopyManga.category_param_dict)
+            },
+            {
+                options: [
+                    "*datetime_updated-时间倒序",
+                    "datetime_updated-时间正序",
+                    "*popular-热度倒序",
+                    "popular-热度正序",
+                ],
+                notShowWhen: null,
+                showWhen: Object.keys(CopyManga.category_param_dict)
+            },
+            {
+                options: [
+                    "male-男频",
+                    "female-女频"
+                ],
+                notShowWhen: null,
+                showWhen: ["排行"]
+            },
+            {
+                options: [
+                    "day-上升最快",
+                    "week-最近7天",
+                    "month-最近30天",
+                    "total-總榜單"
+                ],
+                notShowWhen: null,
+                showWhen: ["排行"]
+            }
+        ]
+    }
+
+    search = {
+        load: async (keyword, options, page) => {
+            let author;
+            if (keyword.startsWith("作者:")) {
+                author = keyword.substring("作者:".length).trim();
+            }
+            let res;
+            // 通过onClickTag传入时有"作者:"前缀，处理这种情况
+            if (author && author in this.author_path_word_dict) {
+                let path_word = encodeURIComponent(this.author_path_word_dict[author]);
+                res = await Network.get(
+                    `${this.apiUrl}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=-datetime_updated&author=${path_word}&platform=3`,
+                    this.headers
+                )
+            }
+            // 一般的搜索情况
+            else {
+                let q_type = "";
+                if (options && options[0]) {
+                    q_type = options[0];
+                }
+                keyword = encodeURIComponent(keyword)
+                let search_url = this.loadSetting('search_api') === "webAPI"
+                    ? `${this.apiUrl}${CopyManga.searchApi}`
+                    : `${this.apiUrl}/api/v3/search/comic`
+                res = await Network.get(
+                    `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}&platform=3`,
+                    this.headers
+                )
+            }
             if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`
             }
@@ -224,83 +551,29 @@ class CopyManga extends ComicSource {
                 comics: data["results"]["list"].map(parseComic),
                 maxPage: (data["results"]["total"] - (data["results"]["total"] % 21)) / 21 + 1
             }
-        }.bind(this),
+        },
         optionList: [
             {
+                type: "select",
                 options: [
                     "-全部",
-                    "japan-日漫",
-                    "korea-韩漫",
-                    "west-美漫",
-                    "finish-已完结"
+                    "name-名称",
+                    "author-作者",
+                    "local-汉化组"
                 ],
-                notShowWhen: null,
-                showWhen: null
-            },
-            {
-                options: [
-                    "*datetime_updated-时间倒序",
-                    "datetime_updated-时间正序",
-                    "*popular-热度倒序",
-                    "popular-热度正序",
-                ],
-                notShowWhen: null,
-                showWhen: null
+                label: "搜索选项"
             }
         ]
     }
 
-    search = {
-        load: async function(keyword, page) {
-            let dataStr = await Network.get(
-                `https://api.2025copy.com/api/v3/comics?limit=21&offset=${(page - 1) * 21}&keyword=${keyword}&platform=3`,
-                this.headers
-            )
-            if (dataStr.status !== 200) {
-                throw `Invalid status code: ${dataStr.status}`
-            }
-
-            let data = JSON.parse(dataStr.body)
-
-            function parseComic(comic) {
-                if (comic["comic"] !== null && comic["comic"] !== undefined) {
-                    comic = comic["comic"]
-                }
-                let tags = []
-                if (comic["theme"] !== null && comic["theme"] !== undefined) {
-                    tags = comic["theme"].map(t => t["name"])
-                }
-                let author = null
-
-                if (Array.isArray(comic["author"]) && comic["author"].length > 0) {
-                    author = comic["author"][0]["name"]
-                }
-
-                return {
-                    id: comic["path_word"],
-                    title: comic["name"],
-                    subTitle: author,
-                    cover: comic["cover"],
-                    tags: tags,
-                    description: comic["datetime_updated"]
-                }
-            }
-
-            return {
-                comics: data["results"]["list"].map(parseComic),
-                maxPage: (data["results"]["total"] - (data["results"]["total"] % 21)) / 21 + 1
-            }
-        }.bind(this),
-        optionList: []
-    }
-
     favorites = {
         multiFolder: false,
-        addOrDelFavorite: async function(comicId, folderId, isAdding) {
+        addOrDelFavorite: async (comicId, folderId, isAdding) => {
             let is_collect = isAdding ? 1 : 0
             let token = this.loadData("token");
+            let reqId = await this.getReqID();
             let comicData = await Network.get(
-                `https://api.2025copy.com/api/v3/comic2/${comicId}?platform=3`,
+                `${this.apiUrl}/api/v3/comic2/${comicId}?in_mainland=true&request_id=${reqId}&platform=3`,
                 this.headers
             )
             if (comicData.status !== 200) {
@@ -308,7 +581,7 @@ class CopyManga extends ComicSource {
             }
             let comic_id = JSON.parse(comicData.body).results.comic.uuid
             let res = await Network.post(
-                "https://api.2025copy.com/api/v3/member/collect/comic?platform=3",
+                `${this.apiUrl}/api/v3/member/collect/comic`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
@@ -322,10 +595,11 @@ class CopyManga extends ComicSource {
                 throw `Invalid status code: ${res.status}`
             }
             return "ok"
-        }.bind(this),
-        loadComics: async function(page, folder) {
+        },
+        loadComics: async (page, folder) => {
+            let ordering = this.loadSetting('favorites_ordering') || '-datetime_updated';
             var res = await Network.get(
-                `https://api.2025copy.com/api/v3/member/collect/comics?limit=21&offset=${(page - 1) * 21}&free_type=1&ordering=-datetime_updated&platform=3`,
+                `${this.apiUrl}/api/v3/member/collect/comics?limit=30&offset=${(page - 1) * 30}&free_type=1&ordering=${ordering}`,
                 this.headers
             )
 
@@ -367,244 +641,133 @@ class CopyManga extends ComicSource {
                 comics: data["results"]["list"].map(parseComic),
                 maxPage: (data["results"]["total"] - (data["results"]["total"] % 21)) / 21 + 1
             }
-        }.bind(this)
+        }
     }
 
     comic = {
-        loadInfo: async function(id) {
-            const getChapters = async (id) => {
-                var res = await Network.get(
-                    `https://api.2025copy.com/api/v3/comic/${id}/group/default/chapters?limit=500&offset=0&platform=3`,
-                    this.headers
-                );
-                if (res.status !== 200) {
-                    throw `Invalid status code: ${res.status}`;
-                }
-                
-                let data = JSON.parse(res.body);
-                
-                // 添加更详细的错误日志，帮助调试
-                console.log("章节列表API返回数据:", JSON.stringify(data));
-                
-                // 检查数据结构，兼容不同的API响应格式
-                let chaptersData = null;
-                if (data.results) {
-                    chaptersData = data.results;
-                } else if (data.data) {
-                    chaptersData = data.data;
-                } else if (data.chapters) {
-                    chaptersData = { list: data.chapters, total: data.total || data.chapters.length };
-                } else {
-                    // 尝试从其他可能的位置获取chapters数据
-                    console.log("尝试从其他位置获取chapters数据");
-                    for (let key in data) {
-                        if (data[key] && (data[key].list || Array.isArray(data[key]))) {
-                            chaptersData = data[key];
-                            if (!chaptersData.list && Array.isArray(chaptersData)) {
-                                chaptersData = { list: chaptersData, total: chaptersData.length };
-                            }
-                            break;
-                        }
+        loadInfo: async (id) => {
+            let getChapters = async (id, groups) => {
+                let fetchSingle = async (id, path) => {
+                    let reqId = await this.getReqID();
+                    let res = await Network.get(
+                        `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=100&offset=0&platform=3`,
+                        this.headers
+                    );
+                    if (res.status !== 200) {
+                        throw `Invalid status code: ${res.status}`;
                     }
-                }
-                
-                if (!chaptersData || !chaptersData.list) {
-                    throw "Cannot find chapters data";
-                }
-                
-                let eps = new Map();
-                chaptersData.list.forEach((e) => {
-                    let title = e.name;
-                    let id = e.uuid;
-                    eps.set(id, title);
-                });
-                
-                let maxChapter = chaptersData.total || chaptersData.list.length;
-                if (maxChapter > 500) {
-                    let offset = 500;
-                    while (offset < maxChapter) {
+                    let data = JSON.parse(res.body);
+                    let eps = new Map();
+                    data.results.list.forEach((e) => {
+                        let title = e.name;
+                        let id = e.uuid;
+                        eps.set(id, title);
+                    });
+                    let maxChapter = data.results.total;
+                    if (maxChapter > 100) {
+                        let offset = 100;
+                        while (offset < maxChapter) {
                         res = await Network.get(
-                            `https://api.2025copy.com/api/v3/comic/${id}/group/default/chapters?limit=500&offset=${offset}&platform=3`,
+                            `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=100&offset=${offset}&platform=3`,
                             this.headers
                         );
-                        if (res.status !== 200) {
-                            throw `Invalid status code: ${res.status}`;
-                        }
-                        
-                        let moreData = JSON.parse(res.body);
-                        
-                        // 检查更多章节的数据结构
-                        let moreChaptersData = null;
-                        if (moreData.results) {
-                            moreChaptersData = moreData.results;
-                        } else if (moreData.data) {
-                            moreChaptersData = moreData.data;
-                        } else if (moreData.chapters) {
-                            moreChaptersData = { list: moreData.chapters };
-                        } else {
-                            // 尝试从其他可能的位置获取chapters数据
-                            for (let key in moreData) {
-                                if (moreData[key] && (moreData[key].list || Array.isArray(moreData[key]))) {
-                                    moreChaptersData = moreData[key];
-                                    if (!moreChaptersData.list && Array.isArray(moreChaptersData)) {
-                                        moreChaptersData = { list: moreChaptersData };
-                                    }
-                                    break;
-                                }
+                            if (res.status !== 200) {
+                                throw `Invalid status code: ${res.status}`;
                             }
+                            data = JSON.parse(res.body);
+                            data.results.list.forEach((e) => {
+                                let title = e.name;
+                                let id = e.uuid;
+                                eps.set(id, title)
+                            });
+                            offset += 100;
                         }
-                        
-                        if (!moreChaptersData || !moreChaptersData.list) {
-                            console.log("无法获取更多章节数据，跳过");
-                            break;
-                        }
-                        
-                        moreChaptersData.list.forEach((e) => {
-                            let title = e.name;
-                            let id = e.uuid;
-                            eps.set(id, title)
-                        });
-                        offset += 500;
                     }
+                    return eps;
+                };
+                let keys = Object.keys(groups);
+                let result = {};
+                let futures = [];
+                for (let group of keys) {
+                    let path = groups[group]["path_word"];
+                    futures.push((async () => {
+                        result[group] = await fetchSingle(id, path);
+                    })());
                 }
-                return eps;
+                await Promise.all(futures);
+                if (this.isAppVersionAfter("1.3.0")) {
+                    // 支持多分组
+                    let sortedResult = new Map();
+                    for (let key of keys) {
+                        let name = groups[key]["name"];
+                        sortedResult.set(name, result[key]);
+                    }
+                    return sortedResult;
+                } else {
+                    // 合并所有分组
+                    let merged = new Map();
+                    for (let key of keys) {
+                        for (let [k, v] of result[key]) {
+                            merged.set(k, v);
+                        }
+                    }
+                    return merged;
+                }
             }
 
-            const getFavoriteStatus = async (id) => {
-                let res = await Network.get(`https://api.2025copy.com/api/v3/comic2/${id}/query?platform=3`, this.headers);
+            let getFavoriteStatus = async (id) => {
+                let res = await Network.get(`${this.apiUrl}/api/v3/comic2/${id}/query`, this.headers);
                 if (res.status !== 200) {
                     throw `Invalid status code: ${res.status}`;
                 }
-                
-                let data = JSON.parse(res.body);
-                
-                // 添加更详细的错误日志，帮助调试
-                console.log("收藏状态API返回数据:", JSON.stringify(data));
-                
-                // 检查数据结构，兼容不同的API响应格式
-                let collectData = null;
-                if (data.results && data.results.collect !== undefined) {
-                    collectData = data.results.collect;
-                } else if (data.collect !== undefined) {
-                    collectData = data.collect;
-                } else if (data.data && data.data.collect !== undefined) {
-                    collectData = data.data.collect;
-                } else {
-                    // 尝试从其他可能的位置获取collect数据
-                    console.log("尝试从其他位置获取collect数据");
-                    for (let key in data) {
-                        if (data[key] && data[key].collect !== undefined) {
-                            collectData = data[key].collect;
-                            break;
-                        }
-                    }
-                }
-                
-                return collectData != null;
+                return JSON.parse(res.body).results.collect != null;
             }
-
+            let reqId = await this.getReqID();
             let results = await Promise.all([
                 Network.get(
-                    `https://api.2025copy.com/api/v3/comic2/${id}?platform=3`,
+                    `${this.apiUrl}/api/v3/comic2/${id}?platform=3`,
                     this.headers
                 ),
-                getChapters(id),
-                getFavoriteStatus(id)
+                getFavoriteStatus.bind(this)(id)
             ])
 
             if (results[0].status !== 200) {
                 throw `Invalid status code: ${results[0].status}`;
             }
 
-            let parsedData = JSON.parse(results[0].body);
-            // 添加更详细的错误日志，帮助调试
-            console.log("API返回数据:", JSON.stringify(parsedData));
+            let data = JSON.parse(results[0].body).results;
             
-            // 检查数据结构，兼容不同的API响应格式
-            let comicData = null;
-            if (parsedData.results && parsedData.results.comic) {
-                comicData = parsedData.results.comic;
-            } else if (parsedData.comic) {
-                comicData = parsedData.comic;
-            } else if (parsedData.data && parsedData.data.comic) {
-                comicData = parsedData.data.comic;
-            } else if (parsedData.results && parsedData.results.comics && Array.isArray(parsedData.results.comics) && parsedData.results.comics.length > 0) {
-                // 处理comics数组的情况
-                comicData = parsedData.results.comics[0];
-            } else if (parsedData.comics && Array.isArray(parsedData.comics) && parsedData.comics.length > 0) {
-                // 处理comics数组的情况
-                comicData = parsedData.comics[0];
-            } else {
-                // 尝试从其他可能的位置获取comic数据
-                console.log("尝试从其他位置获取comic数据");
-                for (let key in parsedData) {
-                    if (parsedData[key] && parsedData[key].comic) {
-                        comicData = parsedData[key].comic;
-                        break;
-                    } else if (parsedData[key] && parsedData[key].comics && Array.isArray(parsedData[key].comics) && parsedData[key].comics.length > 0) {
-                        comicData = parsedData[key].comics[0];
-                        break;
-                    }
-                }
-                
-                // 如果仍然没有找到，尝试直接使用整个响应作为comic数据
-                if (!comicData && (parsedData.name || parsedData.title || parsedData.cover)) {
-                    comicData = parsedData;
-                }
-                
-                // 添加更多可能的检查路径
-                if (!comicData) {
-                    console.log("尝试更多可能的路径获取comic数据");
-                    // 检查是否有其他可能的嵌套结构
-                    if (parsedData.data && parsedData.data.comics && Array.isArray(parsedData.data.comics) && parsedData.data.comics.length > 0) {
-                        comicData = parsedData.data.comics[0];
-                    }
-                    // 检查是否有其他可能的嵌套结构
-                    else if (parsedData.response && parsedData.response.comic) {
-                        comicData = parsedData.response.comic;
-                    }
-                    // 检查是否有其他可能的嵌套结构
-                    else if (parsedData.response && parsedData.response.comics && Array.isArray(parsedData.response.comics) && parsedData.response.comics.length > 0) {
-                        comicData = parsedData.response.comics[0];
-                    }
-                    // 检查是否有其他可能的嵌套结构
-                    else if (parsedData.result && parsedData.result.comic) {
-                        comicData = parsedData.result.comic;
-                    }
-                    // 检查是否有其他可能的嵌套结构
-                    else if (parsedData.result && parsedData.result.comics && Array.isArray(parsedData.result.comics) && parsedData.result.comics.length > 0) {
-                        comicData = parsedData.result.comics[0];
-                    }
-                }
-                
-                // 如果仍然没有找到，记录详细的API响应结构以便调试
-                if (!comicData) {
-                    console.error("无法找到comic数据，API返回结构:", JSON.stringify(parsedData));
-                    // 尝试创建一个基本的comic对象，避免完全失败
-                    comicData = {
-                        name: parsedData.name || parsedData.title || "未知标题",
-                        cover: parsedData.cover || "",
-                        author: parsedData.author || [],
-                        theme: parsedData.theme || parsedData.tags || [],
-                        datetime_updated: parsedData.datetime_updated || parsedData.updated_at || "",
-                        brief: parsedData.brief || parsedData.description || "",
-                        uuid: parsedData.uuid || parsedData.id || id
-                    };
-                }
+            // 添加空值检查，如果results为null，抛出更明确的错误或尝试处理
+            if (!data) {
+                // 有时候results可能为null，但code为200，这通常意味着ID无效或服务器无数据
+                throw "API返回数据为空，请检查漫画ID或网络连接";
             }
+
+            let comicData = data.comic;
             
+            // 如果 comicData 为 null，尝试从 results 直接读取（兼容部分接口返回格式）
+            if (!comicData && data.name) {
+                comicData = data;
+            }
+
             if (!comicData) {
-                console.log("无法找到comic数据，API返回结构:", JSON.stringify(parsedData));
-                throw "Cannot find comic data";
+                 throw "Cannot find comic data";
             }
 
             let title = comicData.name;
             let cover = comicData.cover;
             let authors = comicData.author.map(e => e.name);
-            let tags = comicData.theme.map(e => e.name);
-            let updateTime = comicData.datetime_updated;
+            // author_path_word_dict长度限制为最大100
+            if (Object.keys(this.author_path_word_dict).length > 100) {
+                this.author_path_word_dict = {};
+            }
+            // 储存author对应的path_word
+            comicData.author.forEach(e => (this.author_path_word_dict[e.name] = e.path_word));
+            let tags = comicData.theme.map(e => e?.name).filter(name => name !== undefined && name !== null);
+            let updateTime = comicData.datetime_updated ? comicData.datetime_updated : "";
             let description = comicData.brief;
-
+            let chapters = await getChapters(id, data.groups);
+            let status = comicData.status.display;
 
             return {
                 title: title,
@@ -613,67 +776,93 @@ class CopyManga extends ComicSource {
                 tags: {
                     "作者": authors,
                     "更新": [updateTime],
-                    "标签": tags
+                    "标签": tags,
+                    "状态": [status],
                 },
-                chapters: results[1],
-                isFavorite: results[2],
+                chapters: chapters,
+                isFavorite: results[1],
                 subId: comicData.uuid
             }
         },
-        loadEp: async function(comicId, epId) {
-            let res = await Network.get(
-                `https://api.2025copy.com/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
-                this.headers
-            );
+        loadEp: async (comicId, epId) => {
+            let attempt = 0;
+            const maxAttempts = 5;
+            let res;
+            let data;
 
-            if (res.status !== 200){
-                throw `Invalid status code: ${res.status}`;
-            }
+            while (attempt < maxAttempts) {
+                try {
+                    let reqId = await this.getReqID();
+                    res = await Network.get(
+                        `${this.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}?platform=3`,
+                        {
+                            ...this.headers
+                        }
+                    );
 
-            let data = JSON.parse(res.body);
-            
-            // 添加更详细的错误日志，帮助调试
-            console.log("章节API返回数据:", JSON.stringify(data));
-            
-            // 检查数据结构，兼容不同的API响应格式
-            let chapterData = null;
-            if (data.results && data.results.chapter) {
-                chapterData = data.results.chapter;
-            } else if (data.chapter) {
-                chapterData = data.chapter;
-            } else if (data.data && data.data.chapter) {
-                chapterData = data.data.chapter;
-            } else {
-                // 尝试从其他可能的位置获取chapter数据
-                console.log("尝试从其他位置获取chapter数据");
-                for (let key in data) {
-                    if (data[key] && (data[key].chapter || (data[key].contents && data[key].words))) {
-                        chapterData = data[key].chapter || data[key];
-                        break;
+                    if (res.status === 210) {
+                        // 210 indicates too frequent access, extract wait time
+                        let waitTime = 40000; // Default wait time 40s
+                        try {
+                            let responseBody = JSON.parse(res.body);
+                            if (
+                                responseBody.message &&
+                                responseBody.message.includes("Expected available in")
+                            ) {
+                                let match = responseBody.message.match(/(\d+)\s*seconds/);
+                                if (match && match[1]) {
+                                    waitTime = parseInt(match[1]) * 1000;
+                                }
+                            }
+                        } catch (e) {
+                            console.log(
+                                "Unable to parse wait time, using default wait time 40s"
+                            );
+                        }
+                        console.log(`Chapter${epId} access too frequent, waiting ${waitTime / 1000}s`);
+                        await new Promise((resolve) => setTimeout(resolve, waitTime));
+                        throw "Retry";
+                    }
+
+                    if (res.status !== 200) {
+                        throw `Invalid status code: ${res.status}`;
+                    }
+
+                    data = JSON.parse(res.body);
+                    // console.log(data.results.chapter);
+                    // Handle image link sorting
+                    let imagesUrls = data.results.chapter.contents.map((e) => e.url);
+                    let orders = data.results.chapter.words;
+
+                    // Replace origin images urls to selected quality images urls
+                    let hdImagesUrls = imagesUrls.map((url) =>
+                        url.replace(/([./])c\d+x\.[a-zA-Z]+$/, `$1c${this.imageQuality}x.webp`)
+                    )
+
+                    let images = new Array(hdImagesUrls.length).fill(""); // Initialize an array with the same length as imagesUrls
+
+                    // Arrange images according to orders
+                    for (let i = 0; i < hdImagesUrls.length; i++) {
+                        images[orders[i]] = hdImagesUrls[i];
+                    }
+
+                    return {
+                        images: images,
+                    };
+                } catch (error) {
+                    if (error !== "Retry") {
+                        throw error;
+                    }
+                    attempt++;
+                    if (attempt >= maxAttempts) {
+                        throw error;
                     }
                 }
             }
-            
-            if (!chapterData) {
-                throw "Cannot find chapter data";
-            }
-
-            let imagesUrls = chapterData.contents.map(e => e.url)
-            let orders = chapterData.words
-
-            let images = imagesUrls.map(e => "")
-
-            for(let i=0; i < imagesUrls.length; i++){
-                images[orders[i]] = imagesUrls[i]
-            }
-
-            return {
-                images: images
-            }
         },
-        loadComments: async function(comicId, subId, page, replyTo) {
-            let url = `https://api.2025copy.com/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page-1)*20}`;
-            if(replyTo){
+        loadComments: async (comicId, subId, page, replyTo) => {
+            let url = `${this.apiUrl}/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page - 1) * 20}`;
+            if (replyTo) {
                 url = url + `&reply_id=${replyTo}&_update=true`;
             }
             let res = await Network.get(
@@ -681,47 +870,21 @@ class CopyManga extends ComicSource {
                 this.headers,
             );
 
-            if (res.status !== 200){
+            if (res.status !== 200) {
+                if (res.status === 210) {
+                    throw "210：注冊用戶一天可以發5條評論"
+                }
                 throw `Invalid status code: ${res.status}`;
             }
 
             let data = JSON.parse(res.body);
-            
-            // 添加更详细的错误日志，帮助调试
-            console.log("评论API返回数据:", JSON.stringify(data));
-            
-            // 检查数据结构，兼容不同的API响应格式
-            let commentsData = null;
-            if (data.results) {
-                commentsData = data.results;
-            } else if (data.data) {
-                commentsData = data.data;
-            } else if (data.comments) {
-                commentsData = { list: data.comments, total: data.total || 0 };
-            } else {
-                // 尝试从其他可能的位置获取comments数据
-                console.log("尝试从其他位置获取comments数据");
-                for (let key in data) {
-                    if (data[key] && (data[key].list || Array.isArray(data[key]))) {
-                        commentsData = data[key];
-                        if (!commentsData.list && Array.isArray(commentsData)) {
-                            commentsData = { list: commentsData, total: commentsData.length };
-                        }
-                        break;
-                    }
-                }
-            }
-            
-            if (!commentsData || !commentsData.list) {
-                throw "Cannot find comments data";
-            }
 
-            let total = commentsData.total || commentsData.list.length;
+            let total = data.results.total;
 
             return {
-                comments: commentsData.list.map(e => {
+                comments: data.results.list.map(e => {
                     return {
-                        userName: e.user_name,
+                        userName: replyTo ? `${e.user_name}  👉  ${e.parent_user_name}` : e.user_name, // 拷贝的回复页并没有楼中楼（所有回复都在一个response中），但会显示谁回复了谁。所以加上👉显示。
                         avatar: e.user_avatar,
                         content: e.comment,
                         time: e.create_at,
@@ -732,16 +895,16 @@ class CopyManga extends ComicSource {
                 maxPage: (total - (total % 20)) / 20 + 1,
             }
         },
-        sendComment: async function(comicId, subId, content, replyTo) {
+        sendComment: async (comicId, subId, content, replyTo) => {
             let token = this.loadData("token");
-            if(!token){
+            if (!token) {
                 throw "未登录"
             }
-            if(!replyTo){
+            if (!replyTo) {
                 replyTo = '';
             }
             let res = await Network.post(
-                `https://api.2025copy.com/api/v3/member/comment`,
+                `${this.apiUrl}/api/v3/member/comment`,
                 {
                     ...this.headers,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
@@ -749,16 +912,239 @@ class CopyManga extends ComicSource {
                 `comic_id=${subId}&comment=${encodeURIComponent(content)}&reply_id=${replyTo}`,
             );
 
-            if (res.status === 401){
+            if (res.status === 401) {
                 error(`Login expired`);
                 return;
             }
 
-            if (res.status !== 200){
+            if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`;
             } else {
                 return "ok"
             }
+        },
+        loadChapterComments: async (comicId, epId, page, replyTo) => {
+            let url = `${this.apiUrl}/api/v3/roasts?chapter_id=${epId}&limit=20&offset=${(page - 1) * 20}`;
+            let res = await Network.get(
+                url,
+                this.headers,
+            );
+
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
+            }
+
+            let data = JSON.parse(res.body);
+
+            let total = data.results.total;
+
+            return {
+                comments: data.results.list.map(e => {
+                    return {
+                        userName: e.user_name,
+                        avatar: e.user_avatar,
+                        content: e.comment,
+                        time: e.create_at,
+                        replyCount: null,
+                        id: null,
+                    }
+                }),
+                maxPage: (total - (total % 20)) / 20 + 1,
+            }
+        },
+        sendChapterComment: async (comicId, epId, content, replyTo) => {
+            let token = this.loadData("token");
+            if (!token) {
+                throw "未登录"
+            }
+            let res = await Network.post(
+                `${this.apiUrl}/api/v3/member/roast`,
+                {
+                    ...this.headers,
+                    "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+                },
+                `chapter_id=${epId}&roast=${encodeURIComponent(content)}`,
+            );
+
+            if (res.status === 401) {
+                throw `Login expired`;
+            }
+
+            if (res.status !== 200) {
+                if (res.status === 210) {
+                    throw `210:评论过于频繁或评论内容过短过长`;
+                }
+                throw `Invalid status code: ${res.status}`;
+            } else {
+                return "ok"
+            }
+        },
+        onClickTag: (namespace, tag) => {
+            if (namespace === "标签") {
+                return {
+                    // 'search' or 'category'
+                    action: 'category',
+                    keyword: `${tag}`,
+                    // {string?} only for category action
+                    param: null,
+                }
+            }
+            if (namespace === "作者") {
+                return {
+                    // 'search' or 'category'
+                    action: 'search',
+                    keyword: `${namespace}:${tag}`,
+                    // {string?} only for category action
+                    param: null,
+                }
+            }
+            throw "未支持此类Tag检索"
+        }
+    }
+
+    settings = {
+        favorites_ordering: {
+            title: "收藏排序方式",
+            type: "select",
+            options: [
+                {
+                    value: '-datetime_updated',
+                    text: '更新时间'
+                },
+                {
+                    value: '-datetime_modifier',
+                    text: '收藏时间'
+                },
+                {
+                    value: '-datetime_browse',
+                    text: '阅读时间'
+                }
+            ],
+            default: '-datetime_updated',
+        },
+        region: {
+            title: "CDN线路",
+            type: "select",
+            options: [
+                {
+                    value: "1",
+                    text: '大陆线路'
+                },
+                {
+                    value: "0",
+                    text: '新加坡线路'
+                },
+                {
+                    value: "2",
+                    text: '日韩线路'
+                },
+                {
+                    value: "3",
+                    text: '其他线路'
+                }
+            ],
+            default: CopyManga.defaultCopyRegion,
+        },
+        image_quality: {
+            title: "图片质量",
+            type: "select",
+            options: [
+                {
+                    value: '800',
+                    text: '低 (800)'
+                },
+                {
+                    value: '1200',
+                    text: '中 (1200)'
+                },
+                {
+                    value: '1500',
+                    text: '高 (1500)'
+                }
+            ],
+            default: CopyManga.defaultImageQuality,
+        },
+        search_api: {
+            title: "搜索方式",
+            type: "select",
+            options: [
+                {
+                    value: 'baseAPI',
+                    text: '基础API'
+                },
+                {
+                    value: 'webAPI',
+                    text: '网页端API'
+                }
+            ],
+            default: 'baseAPI'
+        },
+        base_url: {
+            title: "API地址",
+            type: "input",
+            validator: '^(?!:\\/\\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$',
+            default: CopyManga.defaultApiUrl,
+        },
+        clear_device_info: {
+            title: "清除设备信息",
+            type: "callback",
+            buttonText: "点击清除设备信息",
+            callback: () => {
+                this.deleteData("_deviceinfo");
+                this.deleteData("_device");
+                this.deleteData("_pseudoid");
+                this.refreshAppApi();
+            }
+        },
+        // version: {
+        //     title: "拷贝版本（重启APP生效）",
+        //     type: "input",
+        //     default: CopyManga.defaultCopyVersion,
+        // },
+        // platform: {
+        //     title: "平台代号（重启APP生效）",
+        //     type: "input",
+        //     validator: '^\\d+(?:\\.\\d+)*$',
+        //     default: CopyManga.defaultCopyPlatform,
+        // },
+    }
+
+    /**
+     * Check if the current app version is after the target version
+     * @param target {string} target version
+     * @returns {boolean} true if the current app version is after the target version
+     */
+    isAppVersionAfter(target) {
+        let current = APP.version
+        let targetArr = target.split('.')
+        let currentArr = current.split('.')
+        for (let i = 0; i < 3; i++) {
+            if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
+                return false
+            }
+        }
+        return true
+    }
+
+    async refreshSearchApi() {
+        let url = "https://www.copy20.com/search"
+        let res = await fetch(url)
+        let searchApi = ""
+        if (res.status === 200) {
+            let text = await res.text()
+            let match = text.match(/const countApi = "([^"]+)"/)
+            if (match && match[1]) {
+                CopyManga.searchApi = match[1]
+            }
+        }
+    }
+
+    async refreshAppApi() {
+        const url = "https://api.copy-manga.com/api/v3/system/network2?platform=3"
+        const res = await fetch(url, { headers: this.headers });
+        if (res.status === 200) {
+            let data = await res.json();
+            this.settings.base_url = data.results.api[0][0];
         }
     }
 }
