@@ -1,39 +1,10 @@
+/** @type {import('./_venera_.js')} */
 class ManHuaGui extends ComicSource {
-  constructor() {
-    super();
-    
-    // 检查Comic是否已定义
-    if (typeof Comic === 'undefined') {
-      // 尝试从父类获取
-      if (this.constructor.Comic) {
-        this.Comic = this.constructor.Comic;
-        console.log('从父类获取到Comic构造函数');
-      } else {
-        console.error('Comic构造函数未找到');
-        // 创建一个有效构造函数代替，避免后续调用失败
-        this.Comic = function(options) {
-          return {
-            id: options.id || '',
-            title: options.title || '',
-            cover: options.cover || '',
-            description: options.description || '',
-            tags: options.tags || [],
-            author: options.author || ''
-          };
-        };
-      }
-    } else {
-      this.Comic = Comic;
-      console.log('直接使用已定义的Comic构造函数');
-    }
-    this.init();
-  }
-
   name = "漫画柜";
 
   key = "ManHuaGui";
 
-  version = "1.2.0";
+  version = "1.2.1";
 
   minAppVersion = "1.4.0";
 
@@ -93,92 +64,73 @@ class ManHuaGui extends ComicSource {
   };
 
   isAppVersionAfter(target) {
-    try {
-      if (!APP || !APP.version) return false;
-      let current = APP.version;
-      let targetArr = target.split('.');
-      let currentArr = current.split('.');
-      for (let i = 0; i < Math.min(targetArr.length, currentArr.length); i++) {
-        if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
-          return false;
-        } else if (parseInt(currentArr[i]) > parseInt(targetArr[i])) {
-          return true;
-        }
+    if (!APP || !APP.version) return false;
+    let current = APP.version;
+    let targetArr = target.split('.');
+    let currentArr = current.split('.');
+    for (let i = 0; i < 3; i++) {
+      if (parseInt(currentArr[i]) < parseInt(targetArr[i])) {
+        return false;
       }
-      // 如果前面的版本号都相同，则当前版本大于等于目标版本
-      return true;
-    } catch (e) {
-      console.error('检查APP版本时出错:', e);
-      return false; // 出错时默认返回false
     }
+    return true;
   }
 
-  // 获取HTML内容并处理响应
   async getHtml(url) {
-    let res = await Network.get(url, {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36",
-        "Referer": "https://www.manhuagui.com/"
-    });
-    if(res.status !== 200){
-        throw "Network: " + res.status;
+    let mhg_cookie = this.loadData("mhg_cookie");
+    let headers = {
+      accept:
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      priority: "u=0, i",
+      "sec-ch-ua":
+        '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "same-origin",
+      "sec-fetch-user": "?1",
+      "upgrade-insecure-requests": "1",
+      Referer: "https://www.manhuagui.com/",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
+      cookie: mhg_cookie
+    };
+    let res = await Network.get(url, headers);
+    if (res.status !== 200) {
+      throw "Invalid status code: " + res.status;
     }
-    return new HtmlDocument(res.body);
+    let document = new HtmlDocument(res.body);
+    return document;
   }
   parseSimpleComic(e) {
-    let linkElement = e.querySelector(".ell > a");
-    if (!linkElement) {
-      console.warn("无法解析漫画链接元素:", e);
-      return new this.Comic({
-        id: '',
-        title: '未知漫画',
-        cover: '',
-        description: '',
-      });
+    let urlElement = e.querySelector(".ell > a");
+    if (!urlElement) {
+      console.warn("parseSimpleComic: Missing .ell > a element");
+      return null;
     }
-    
-    // 安全获取 href 属性
-    let url = '';
-    if (linkElement.getAttribute) {
-      url = linkElement.getAttribute("href") || '';
-    } else if (linkElement.href) {
-      url = linkElement.href;
-    } else if (linkElement.attributes && linkElement.attributes["href"]) {
-      url = linkElement.attributes["href"];
-    }
-    
-    if (!url) {
-      console.warn("无法获取漫画链接URL:", linkElement);
-      return new this.Comic({
-        id: '',
-        title: '未知漫画',
-        cover: '',
-        description: '',
-      });
-    }
-    
+    let url = urlElement.attributes["href"];
     let id = url.split("/")[2];
-    let title = linkElement.text ? linkElement.text.trim() : '';
-    
+    let title = urlElement.text.trim();
+
     let imgElement = e.querySelector("img");
-    let cover = '';
-    if (imgElement) {
-      if (imgElement.getAttribute) {
-        cover = imgElement.getAttribute("src") || imgElement.getAttribute("data-src") || '';
-      } else if (imgElement.src) {
-        cover = imgElement.src;
-      } else if (imgElement.attributes) {
-        cover = imgElement.attributes["src"] || imgElement.attributes["data-src"] || '';
-      }
+    if (!imgElement) {
+      console.warn("parseSimpleComic: Missing img element");
+      return null;
     }
-    
-    if (cover && !cover.startsWith("http")) {
-      cover = `https:${cover}`;
+    let cover = imgElement.attributes["src"] || imgElement.attributes["data-src"];
+    if (!cover) {
+      console.warn("parseSimpleComic: Missing cover attribute");
+      return null;
     }
-    
-    let descElement = e.querySelector(".tt");
-    let description = descElement && descElement.text ? descElement.text.trim() : '';
-    
-    return new this.Comic({
+    cover = `https:${cover}`;
+
+    let descriptionElement = e.querySelector(".tt");
+    let description = descriptionElement ? descriptionElement.text.trim() : "";
+
+    return new Comic({
       id,
       title,
       cover,
@@ -190,21 +142,11 @@ class ManHuaGui extends ComicSource {
     let simple = this.parseSimpleComic(e);
     let sl = e.querySelector(".sl");
     let status = sl ? "连载" : "完结";
-    // 如果能够找到 <span class="updateon">更新于：2020-03-31<em>3.9</em></span> 解析 更新和评分
-    let updateonElement = e.querySelector(".updateon");
-    let update = "";
-    if (updateonElement && updateonElement.childNodes) {
-      let firstChild = updateonElement.childNodes[0];
-      if (firstChild && firstChild.replace) {
-        update = firstChild.replace("更新于：", "").trim();
-      }
-    }
+    let tmp = e.querySelector(".updateon").childNodes;
+    let update = tmp[0].replace("更新于：", "").trim();
     let tags = [status, update];
-    // 尝试获取作者信息
-    let authorElement = e.querySelector(".author");
-    let author = authorElement ? authorElement.text.trim() : "";
 
-    return new this.Comic({
+    return new Comic({
       id: simple.id,
       title: simple.title,
       cover: simple.cover,
@@ -434,15 +376,12 @@ class ManHuaGui extends ComicSource {
     }
 
     function extractParams(str) {
-      if (!str || typeof str !== "string") {
-        throw "Empty image script";
-      }
-      
-      // 使用与參考.js完全一致的简单实现
       let params_part = str.split("}(")[1].split("))")[0];
       let params = splitParams(params_part);
       params[5] = {};
-      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split("|");
+      params[3] = LZString.decompressFromBase64(params[3].split("'")[1]).split(
+        "|"
+      );
       return params;
     }
 
@@ -528,28 +467,40 @@ class ManHuaGui extends ComicSource {
   explore = [
     {
       title: "漫画柜",
-      type: "singlePageWithMultiPart",
+      type: "multiPartPage",
       /**
        * 参考 manhuagui_explore.html，抓取“热门漫画最新更新”与 tab 板块
        */
       load: async (page) => {
         let document = await this.getHtml(this.baseUrl);
-        // log("info", this.name, `获取主页成功`);
-        let tabs = document.querySelectorAll("#cmt-tab li");
-        // log("info", this.name, tabs);
-        let parts = document.querySelectorAll("#cmt-cont ul");
-        // log("info", this.name, parts);
-        let result = {};
-        // tabs len = parts len
-        for (let i = 0; i < tabs.length; i++) {
-          let title = tabs[i].text.trim();
-          let comics = Array.from(parts[i]
-            .querySelectorAll("li"))
-            .map((e) => this.parseSimpleComic(e));
-          result[title] = comics;
+        let parts = [];
+
+        // 1. 热门漫画最新更新
+        let updateSection = document.querySelector(".update-cont");
+        if (updateSection) {
+          let updateComics = [];
+          let uls = updateSection.querySelectorAll("ul");
+          for (let ul of uls) {
+            let comics = ul.querySelectorAll("li").map(e => this.parseSimpleComic(e)).filter(c => c);
+            updateComics.push(...comics);
+          }
+          if (updateComics.length > 0) {
+            parts.push({ title: "热门漫画最新更新", comics: updateComics });
+          }
         }
-        // log("info", this.name, result);
-        return result;
+
+        // 2. tab 板块（热门连载漫画、经典完结漫画、最新上架漫画、2020新番漫画）
+        let tabTitles = document.querySelectorAll("#cmt-tab li");
+        let tabParts = document.querySelectorAll("#cmt-cont ul.cover-list");
+        for (let i = 0; i < tabTitles.length; i++) {
+          let title = tabTitles[i].text.trim();
+          let comics = tabParts[i].querySelectorAll("li").map(e => this.parseSimpleComic(e)).filter(c => c);
+          if (comics.length > 0) {
+            parts.push({ title, comics });
+          }
+        }
+
+        return parts;
       },
       loadNext(next) {},
     },
@@ -667,6 +618,7 @@ class ManHuaGui extends ComicSource {
       let genre = param;
       let age = options[1];
       let status = options[2];
+      let sort = options[3] || "index";
       // log(
       //   "info",
       //   this.name,
@@ -675,16 +627,17 @@ class ManHuaGui extends ComicSource {
       // 字符串之间用“_”连接，空字符串除外
       let params = [area, genre, age, status].filter((e) => e != "").join("_");
 
-      let url = `${this.baseUrl}/list/${params}/index_p${page}.html`;
+      let url = `${this.baseUrl}/list/${params}/${sort}_p${page}.html`;
 
       let document = await this.getHtml(url);
       let maxPage = document
         .querySelector(".result-count")
         .querySelectorAll("strong")[1].text;
       maxPage = parseInt(maxPage);
-      let comics = Array.from(document
-        .querySelectorAll("#contList > li"))
-        .map((e) => this.parseSimpleComic(e));
+      let comics = document
+        .querySelectorAll("#contList > li")
+        .map((e) => this.parseSimpleComic(e))
+        .filter((comic) => comic !== null); // 过滤掉 null 值
       return {
         comics,
         maxPage,
@@ -716,6 +669,9 @@ class ManHuaGui extends ComicSource {
       {
         options: ["-全部", "lianzai-连载", "wanjie-完结"],
       },
+      {
+        options: ["update-最新更新", "index-最新发布", "view-人气最旺", "rate-评分最高"],
+      },
     ],
     ranking: {
       // 对于单个选项，使用“-”分隔值和文本，左侧为值，右侧为文本
@@ -738,9 +694,9 @@ class ManHuaGui extends ComicSource {
           .querySelector(".result-count")
           .querySelectorAll("strong")[1].text;
         maxPage = parseInt(maxPage);
-        let comics = Array.from(document
+        let comics = document
           .querySelector("#contList")
-          .querySelectorAll("li"))
+          .querySelectorAll("li")
           .map((e) => this.parseComic(e));
         return {
           comics,
@@ -759,17 +715,7 @@ class ManHuaGui extends ComicSource {
     try {
       // 获取漫画链接和ID
       let linkElement = item.querySelector(".book-detail dl dt a");
-      if (!linkElement) {
-        console.warn('无法解析搜索项:', item);
-        return new this.Comic({
-          id: '',
-          title: '未知漫画',
-          cover: '',
-          description: '',
-          tags: [],
-          author: ''
-        });
-      }
+      if (!linkElement) return null;
       
       let url = linkElement.attributes["href"];
       let id = url.split("/")[2];
@@ -796,13 +742,13 @@ class ManHuaGui extends ComicSource {
       // 获取作者信息
       let authorElements = item.querySelectorAll(".tags a[href*='/author/']");
       let author = authorElements.length > 0 
-        ? Array.from(authorElements).map(a => a.text.trim()).join(", ") 
+        ? authorElements.map(a => a.text.trim()).join(", ") 
         : "";
       
       // 获取类型信息
       let typeElements = item.querySelectorAll(".tags a[href*='/list/']");
       let types = typeElements.length > 0 
-        ? Array.from(typeElements).map(a => a.text.trim())
+        ? typeElements.map(a => a.text.trim())
         : [];
       
       // 获取简介
@@ -815,7 +761,7 @@ class ManHuaGui extends ComicSource {
         if (updateTime) description += `, 更新: ${updateTime}`;
       }
       
-      return new this.Comic({
+      return new Comic({
         id,
         title,
         cover,
@@ -826,14 +772,7 @@ class ManHuaGui extends ComicSource {
       });
     } catch (error) {
       console.error("解析搜索结果项时出错:", error);
-      return new this.Comic({
-        id: '',
-        title: '未知漫画',
-        cover: '',
-        description: '',
-        tags: [],
-        author: ''
-      });
+      return null;
     }
   }
 
@@ -885,9 +824,9 @@ class ManHuaGui extends ComicSource {
       }
       
       // 使用专门的搜索解析函数解析每个漫画项
-  let comics = Array.from(document
-        .querySelectorAll(".book-result > ul > li"))
-        .map((e) => this.parseSearchComic(e));
+      let comics = comicList.querySelectorAll("li.cf")
+        .map(item => this.parseSearchComic(item))
+        .filter(comic => comic !== null); // 过滤掉解析失败的项
       
       return {
         comics,
@@ -935,20 +874,16 @@ class ManHuaGui extends ComicSource {
       let description = book
         .querySelector("#intro-all")
         .querySelectorAll("p")
-        .length > 0
-        ? Array.from(book.querySelector("#intro-all").querySelectorAll("p"))
-          .map((e) => e.text.trim())
-          .join("\n")
-        : "";
+        .map((e) => e.text.trim())
+        .join("\n");
       //   log("warn", this.name, { title, subtitle, cover, description });
 
       let detail_list = book.querySelectorAll(".detail-list span");
 
       function parseDetail(idx) {
-        if (!detail_list[idx]) return [""];
         let ele = detail_list[idx].querySelectorAll("a");
         if (ele.length > 0) {
-          return Array.from(ele).map((e) => e.text.trim());
+          return ele.map((e) => e.text.trim());
         }
         return [""];
       }
@@ -961,13 +896,12 @@ class ManHuaGui extends ComicSource {
       //   let lastChapter = parseDetail(6);
       let status = detail_list[7].text.trim();
 
-      // 确保tags对象中的所有值都是字符串数组，与ikmmh.js保持一致
       let tags = {
-        "作者": author.length > 0 ? author.map(item => item.toString()) : ['未知'],
-        "状态": [status.toString()],
-        "地区": area.length > 0 ? area.map(item => item.toString()) : ['未知'],
-        "类型": genre.length > 0 ? genre.map(item => item.toString()) : ['未知'],
-        "年代": createYear.length > 0 ? createYear.map(item => item.toString()) : ['未知'],
+        年代: createYear,
+        状态: [status],
+        作者: author,
+        地区: area,
+        类型: genre,
       };
       let updateTime = detail_list[8].text.trim();
 
@@ -1000,27 +934,59 @@ class ManHuaGui extends ComicSource {
       // 查找所有章节分组标题
       let chapterGroups = chapterDocument.querySelectorAll(".chapter h4 span");
       if (chapterGroups.length === 0) {
-        chapterDocument = document;
-        chapterGroups = chapterDocument.querySelectorAll(".chapter h4 span");
+        let docGroups = document.querySelectorAll(".chapter h4 span");
+        if (docGroups.length > 0) {
+          chapterDocument = document;
+          chapterGroups = docGroups;
+        }
       }
       
-      // 处理每个分组
-      for (let i = 0; i < chapterGroups.length; i++) {
-        let groupName = chapterGroups[i].text.trim();
-        let groupChapters = new Map();
-        
-        let chapterList = chapterDocument.querySelectorAll(".chapter-list")[i];
-        if (chapterList) {
-          let lis = chapterList.querySelectorAll("li");
-          for (let li of lis) {
-            let a = li.querySelector("a");
-            let id = a.attributes["href"].split("/").pop().replace(".html", "");
-            let title = a.querySelector("span").text.trim();
-            groupChapters.set(id, title);
+      if (chapterGroups.length > 0) {
+        // 处理每个分组
+        for (let i = 0; i < chapterGroups.length; i++) {
+          let groupName = chapterGroups[i].text.trim();
+          let groupChapters = new Map();
+          
+          let chapterList = chapterDocument.querySelectorAll(".chapter-list")[i];
+          if (chapterList) {
+            let lis = chapterList.querySelectorAll("li");
+            for (let li of lis) {
+              let a = li.querySelector("a");
+              let id = a.attributes["href"].split("/").pop().replace(".html", "");
+              let title = a.querySelector("span").text.trim();
+              groupChapters.set(id, title);
+            }
+            
+            groupChapters = new Map([...groupChapters].sort((a, b) => a[0] - b[0]));
+            
+            chaptersMap.set(groupName, groupChapters);
+          }
+        }
+      } else {
+        // 没有分组标题的情况，直接查找章节列表
+        let chapterLists = chapterDocument.querySelectorAll(".chapter-list");
+        if (chapterLists.length === 0 && chapterDocument !== document) {
+          chapterDocument = document;
+          chapterLists = chapterDocument.querySelectorAll(".chapter-list");
+        }
+
+        if (chapterLists.length > 0) {
+          let groupName = "连载";
+          let groupChapters = new Map();
+          
+          for (let chapterList of chapterLists) {
+            let lis = chapterList.querySelectorAll("li");
+            for (let li of lis) {
+              let a = li.querySelector("a");
+              if (a) {
+                let id = a.attributes["href"].split("/").pop().replace(".html", "");
+                let title = a.querySelector("span").text.trim();
+                groupChapters.set(id, title);
+              }
+            }
           }
           
           groupChapters = new Map([...groupChapters].sort((a, b) => a[0] - b[0]));
-          
           chaptersMap.set(groupName, groupChapters);
         }
       }
@@ -1048,16 +1014,16 @@ class ManHuaGui extends ComicSource {
         }
       }
 
-      // 创建并返回ComicDetails对象
-      return {
-        title: title,
-        cover: cover,
-        description: description,
-        tags: tags,
-        chapters: chapters,
-        suggestions: recommend,
-        updateTime: updateTime
-      };
+      return new ComicDetails({
+        title,
+        subtitle,
+        cover,
+        description,
+        tags,
+        updateTime,
+        chapters,
+        recommend,
+      });
     },
 
     /**
@@ -1069,27 +1035,18 @@ class ManHuaGui extends ComicSource {
     loadEp: async (comicId, epId) => {
       let url = `${this.baseUrl}/comic/${comicId}/${epId}.html`;
       let document = await this.getHtml(url);
-      let script = "";
-      let scripts = document.querySelectorAll("script");
-      for (let s of scripts) {
-          let html = s.text || s.innerHTML;
-          if (html && html.includes("p,a,c,k,e,d")) {
-              script = html;
-              break;
-          }
-      }
+      let script = document.querySelectorAll("script")[4].innerHTML;
+      let infos = this.getImgInfos(script);
 
-      if (!script) {
-          throw "Network: Empty image script";
+      let imgDomain = `https://us.hamreus.com`;
+      let images = [];
+      for (let f of infos.files) {
+        let imgUrl =
+          imgDomain + infos.path + f + `?e=${infos.sl.e}&m=${infos.sl.m}`;
+        images.push(imgUrl);
       }
-
-      let imgInfos = this.getImgInfos(script);
-      let { files, path, sl } = imgInfos;
-      let images = files.map(
-          (file) => `https://i.hamreus.com${path}${file}?e=${sl.e}&m=${sl.m}`
-      );
       return {
-          images,
+        images,
       };
     },
     /**
@@ -1100,13 +1057,24 @@ class ManHuaGui extends ComicSource {
      * @returns {ImageLoadingConfig | Promise<ImageLoadingConfig>}
      */
     onImageLoad: (url, comicId, epId) => {
-      // 简化headers配置，避免复杂字段可能导致的类型转换问题
       return {
         headers: {
-          accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-          "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+          accept:
+            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+          "cache-control": "no-cache",
+          pragma: "no-cache",
+          priority: "i",
+          "sec-ch-ua":
+            '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"Windows"',
+          "sec-fetch-dest": "image",
+          "sec-fetch-mode": "no-cors",
+          "sec-fetch-site": "cross-site",
+          "sec-fetch-storage-access": "active",
           Referer: "https://www.manhuagui.com/",
-          cookie: "country=US", // 添加cookie以保持一致性
+          "Referrer-Policy": "strict-origin-when-cross-origin",
         },
       };
     },
@@ -1119,16 +1087,27 @@ class ManHuaGui extends ComicSource {
      * They are not supported for thumbnails.
      */
     onThumbnailLoad: (url) => {
-      // 简化headers配置，避免复杂字段可能导致的类型转换问题
       let headers = {
-        accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-        Referer: "https://www.manhuagui.com/",
-        cookie: "country=US", // 添加cookie以保持一致性
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "cache-control": "no-cache",
+        pragma: "no-cache",
+        priority: "u=0, i",
+        "sec-ch-ua":
+          '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "none",
+        "sec-fetch-user": "?1",
+        "upgrade-insecure-requests": "1",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
       };
 
       return {
-        headers
+        headers,
       };
     },
     
@@ -1156,9 +1135,18 @@ class ManHuaGui extends ComicSource {
 
       let headers = {
         accept: "application/json, text/javascript, */*; q=0.01",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "cache-control": "no-cache",
+        pragma: "no-cache",
+        "sec-ch-ua": '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
         "x-requested-with": "XMLHttpRequest",
         Referer: `${this.baseUrl}/comic/${comicId}/`,
+        "Referrer-Policy": "strict-origin-when-cross-origin",
       };
 
       let res = await Network.get(url, headers);
@@ -1259,10 +1247,21 @@ class ManHuaGui extends ComicSource {
 
       let headers = {
         accept: "application/json, text/javascript, */*; q=0.01",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "cache-control": "no-cache",
+        pragma: "no-cache",
+        "sec-ch-ua": '"Microsoft Edge";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
         "x-requested-with": "XMLHttpRequest",
         Referer: `${this.baseUrl}/comic/${comicId}/`,
+        "Referrer-Policy": "strict-origin-when-cross-origin", 
         cookie: mhg_cookie,
+        dnt:1,
+        origin: 'https://www.manhuagui.com',
         'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'
       };
 
@@ -1409,7 +1408,7 @@ class ManHuaGui extends ComicSource {
             if (updateDate) tags.push(`更新日期：${updateDate}`);
             if (lastReadChapter) tags.push(`最近阅读：${lastReadChapter}`);
             if (lastReadDate) tags.push(`最近阅读时间：${lastReadDate}`);
-            comics.push(new this.Comic({
+            comics.push(new Comic({
                 id,
                 title,
                 subTitle: updateChapter || updateTitle || '',

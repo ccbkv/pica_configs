@@ -3,31 +3,31 @@
         "name": "拷贝漫画",
         "fileName": "copy_manga.js",
         "key": "copy_manga",
-        "version": "1.1.6"
+        "version": "1.4.8"
     },
     {
         "name": "Komiic",
         "fileName": "komiic.js",
         "key": "Komiic",
-        "version": "1.0.4"
+        "version": "1.0.6"
     },
     {
         "name": "爱看漫",
         "fileName": "ikmmh.js",
         "key": "ikmmh",
-        "version": "1.1.1"
-    },
-	    {
-        "name": "hitomi",
-        "fileName": "hitomi.js",
-        "key": "hitomi_js",
-        "version": "1.1.7"
+        "version": "1.1.2"
     },
     {
-        "name": "包子漫画",
-        "fileName": "baozi.js",
-        "key": "baozi",
-        "version": "1.1.0"
+        "name": "comick",
+        "fileName": "comick.js",
+        "key": "comick",
+        "version": "1.2.0"
+    },
+    {
+        "name": "百合会",
+        "fileName": "baihehui.js",
+        "key": "baihehui",
+        "version": "1.0.1"
     },
     {
         "name": "NoyAcg",
@@ -36,28 +36,81 @@
         "version": "1.0.0"
     },
     {
-      "name": "漫画柜",
-      "fileName": "manhuagui.js",
-      "key": "ManHuaGui",
-      "version": "1.0.1"
+        "name": "优酷漫画",
+        "fileName": "ykmh.js",
+        "key": "ykmh",
+        "version": "1.0.1"
     },
     {
         "name": "再漫画",
         "fileName": "zaimanhua.js",
         "key": "zaimanhua",
-        "version": "1.0.0"
-     },
+        "version": "1.0.2"
+    },
     {
-        "name": "优酷漫画",
-        "fileName": "ykmh.js",
-        "key": "ykmh",
+        "name": "漫画柜",
+        "fileName": "manhuagui.js",
+        "key": "ManHuaGui",
+        "version": "1.2.1"
+    },
+    {
+        "name": "包子漫画",
+        "fileName": "baozi.js",
+        "key": "baozi",
+        "version": "1.1.0"
+    },
+    {
+        "name": "Lanraragi",
+        "fileName": "lanraragi.js",
+        "key": "lanraragi",
+        "version": "1.1.0"
+    },
+    {
+        "name": "GoDa漫画",
+        "fileName": "goda.js",
+        "key": "goda",
         "version": "1.0.0"
     },
     {
-        "name": "少年ジャンプ＋",
-        "fileName": "shonen_jump_plus.js",
-        "key": "shonen_jump_plus",
-        "version": "1.1.0"
+        "name": "18漫画",
+        "fileName": "mh18.js",
+        "key": "mh18",
+        "version": "1.0.0"
+    },
+    {
+        "name": "漫小肆",
+        "fileName": "mxs.js",
+        "key": "mxs",
+        "version": "1.0.0"
+    },
+    {
+        "name": "漫画人",
+        "fileName": "manhuaren.js",
+        "key": "manhuaren",
+        "version": "1.0.0"
+    },
+    {
+        "name": "H-Comic",
+        "fileName": "hcomic.js",
+        "key": "hcomic",
+        "version": "1.0.0"
+    },
+    {
+        "name": "hitomi",
+        "fileName": "hitomi.js",
+        "key": "hitomi_js",
+        "version": "1.1.7"
+    },
+    {
+        "name": "jcomic.net",
+        "fileName": "jcomic.js",
+        "key": "jcomic",
+        "version": "1.0.0"
+    },
+    {
+        "name": "热辣漫画",
+        "fileName": "hot_manga.js",
+        "key": "hot_manga",
+        "version": "1.0.0"
     }
-	
 ]

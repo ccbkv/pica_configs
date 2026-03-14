@@ -1,12 +1,8 @@
+/** @type {import('./_venera_.js')} */
 class YKMHSource extends ComicSource {
-    constructor() {
-        super();
-        this.init();
-    }
-
     name = "优酷漫画"
     key = "ykmh"
-    version = "1.0.0"
+    version = "1.0.1"
     minAppVersion = "1.4.0"
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/master/ykmh.js"
 
@@ -17,12 +13,10 @@ class YKMHSource extends ComicSource {
     explore = [
         {
             title: "优酷漫画",
-            type: "multiPageComicList",
+            type: "multiPartPage",
 
             load: async (page) => {
-                let res = await Network.get("https://www.ykmh.net", {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-                });
+                let res = await Network.get("https://www.ykmh.net")
 
                 if (res.status !== 200) {
                     throw `Invalid status code: ${res.status}`
@@ -38,24 +32,24 @@ class YKMHSource extends ComicSource {
                             cover = 'https://www.ykmh.net' + (cover.startsWith('/') ? cover : '/' + cover)
                         }
                         
-                        hotComics.push({
+                        hotComics.push(new Comic({
                             id: match[1], 
                             title: match[3].trim(), 
                             cover: cover, 
                             tags: [`热门推荐`],
                             description: "热门推荐漫画"
-                        })
+                        }))
                     }
                     if (hotComics.length === 0) {
                         let keywordPattern = /<li data-key="(\d+)"><a href="(https:\/\/www\.ykmh\.net\/manhua\/[^"]+)"[^>]*>([^<]+)<\/a><\/li>/g
                         while ((match = keywordPattern.exec(html)) !== null) {
-                            hotComics.push({
+                            hotComics.push(new Comic({
                                 id: match[2], 
                                 title: match[3],
                                 cover: "https://www.ykmh.net/images/default/cover.png", 
                                 tags: [`热门关键词`],
                                 description: ""
-                            })
+                            }))
                         }
                     }
                     
@@ -72,23 +66,30 @@ class YKMHSource extends ComicSource {
                             cover = 'https://www.ykmh.net' + (cover.startsWith('/') ? cover : '/' + cover)
                         }
                         
-                        latestComics.push({
+                        latestComics.push(new Comic({
                             id: match[2], 
                             title: match[3], 
                             cover: cover, 
                             tags: [match[5]], 
                             description: `更新至：${match[5]}`
-                        })
+                        }))
                     }
                     return latestComics.slice(0, 15) 
                 }
 
-                let comics = parseLatestComics(res.body)
-                let maxPage = 1
-                return {
-                    comics: comics,
-                    maxPage: maxPage
-                }
+                let hotComics = parseHotCarousel(res.body)
+                let latestComics = parseLatestComics(res.body)
+
+                return [
+                    {
+                        title: "热门推荐",
+                        comics: hotComics
+                    },
+                    {
+                        title: "最新更新",
+                        comics: latestComics
+                    }
+                ]
             }
         }
     ]
@@ -309,9 +310,7 @@ class YKMHSource extends ComicSource {
                 url = `https://www.ykmh.net/list/${param}/${sort}/${page}/`;
             }
 
-            let res = await Network.get(url, {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-            });
+            let res = await Network.get(url);
 
             if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`;
@@ -327,13 +326,13 @@ class YKMHSource extends ComicSource {
                         cover = 'https://www.ykmh.net' + (cover.startsWith('/') ? cover : '/' + cover)
                     }
                     
-                    comics.push({
+                    comics.push(new Comic({
                         id: match[2],
                         title: match[5] || match[4], 
                         cover: cover,
                         tags: [],
                         description: ""
-                    })
+                    }))
                 }
                 
                 return comics
@@ -383,9 +382,7 @@ class YKMHSource extends ComicSource {
                 url = `https://www.ykmh.net/search/?keywords=${encodedKeyword}`;
             }
             
-            let res = await Network.get(url, {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-            });
+            let res = await Network.get(url);
             if (res.status !== 200) {
                 throw `Request Error: ${res.status}`;
             }
@@ -399,13 +396,13 @@ class YKMHSource extends ComicSource {
                     if (!cover.startsWith('http')) {
                         cover = 'https://www.ykmh.net' + (cover.startsWith('/') ? cover : '/' + cover)
                     }
-                    comics.push({
+                    comics.push(new Comic({
                         id: match[2], 
                         title: match[3], 
                         cover: cover, 
                         tags: [match[6] || "未知作者", match[7] || ""], 
                         description: `作者：${match[6] || "未知作者"} | 更新至：${match[7] || "未知"}`
-                    })
+                    }))
                 }
                 
                 return comics
@@ -458,7 +455,9 @@ class YKMHSource extends ComicSource {
             }
 
             let res = await Network.get(targetUrl, {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36 Edg/139.0.0.0'
+                }
             });
             if (res.status !== 200) {
                 throw `请求失败，状态码: ${res.status}，URL: ${targetUrl}`;
@@ -683,11 +682,11 @@ class YKMHSource extends ComicSource {
                                 let recUrl = match[1];
                                 let recCover = match[2];
                                 let recTitle = (match[4] && match[4].trim()) || (match[3] && match[3].trim()) || "未知标题";              
-                                recommends.push({
+                                recommends.push(new Comic({
                                     id: recUrl,
                                     title: recTitle,
                                     cover: recCover
-                                });
+                                }));
                                 count++;
                             }
                         } catch (e) {

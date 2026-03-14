@@ -4,6 +4,18 @@ Venera JavaScript Library
 This library provides a set of APIs for interacting with the Venera app.
 */
 
+/**
+ * @function sendMessage
+ * @global
+ * @param {Object} message
+ * @returns {any}
+ */
+
+/**
+ * Set a timeout to execute a callback function after a specified delay.
+ * @param callback {Function}
+ * @param delay {number} - delay in milliseconds
+ */
 function setTimeout(callback, delay) {
     sendMessage({
         method: 'delay',
@@ -42,8 +54,6 @@ let Convert = {
     /**
      * @param str {string}
      * @returns {ArrayBuffer}
-     *
-     * @since 1.4.3
      */
     encodeGbk: (str) => {
         return sendMessage({
@@ -57,8 +67,6 @@ let Convert = {
     /**
      * @param value {ArrayBuffer}
      * @returns {string}
-     *
-     * @since 1.4.3
      */
     decodeGbk: (value) => {
         return sendMessage({
@@ -1042,20 +1050,6 @@ function ImageLoadingConfig({url, method, data, headers, onResponse, modifyImage
     this.onLoadFailed = onLoadFailed;
 }
 
-/**
- * @typedef {Object} PageJumpTarget
- * @Property {string} page - The page name (search, category)
- * @Property {Object} attributes - The attributes of the page
- *
- * @example
- * {
- *     page: "search",
- *     attributes: {
- *         keyword: "example",
- *     },
- * }
- */
-
 class ComicSource {
     name = ""
 
@@ -1340,7 +1334,7 @@ let UI = {
      * Show an input dialog
      * @param title {string}
      * @param validator {(string) => string | null | undefined} - A function that validates the input. If the function returns a string, the dialog will show the error message.
-     * @param image {string?} - Available since 1.4.6. An optional image to show in the dialog. You can use this to show a captcha.
+     * @param image {string | ArrayBuffer | null | undefined} - Since 1.4.6, you can pass an image url to show an image in the dialog. Since 1.5.3, you can also pass an ArrayBuffer to show a custom image.
      * @returns {Promise<string | null>} - The input value. If the dialog is canceled, return null.
      */
     showInputDialog: (title, validator, image) => {
@@ -1403,4 +1397,45 @@ let APP = {
             method: 'getPlatform'
         })
     }
+}
+
+/**
+ * Set clipboard text
+ * @param text {string}
+ * @returns {Promise<void>}
+ * 
+ * @since 1.3.4
+ */
+function setClipboard(text) {
+    return sendMessage({
+        method: 'setClipboard',
+        text: text
+    })
+}
+
+/**
+ * Get clipboard text
+ * @returns {Promise<string>}
+ * 
+ * @since 1.3.4
+ */
+function getClipboard() {
+    return sendMessage({
+        method: 'getClipboard'
+    })
+}
+
+/**
+ * Compute a function with arguments. The function will be executed in the engine pool which is not in the main thread.
+ * @param func {string} - A js code string which can be evaluated to a function. The function will receive the args as its only argument.
+ * @param args {any[]} - The arguments to pass to the function.
+ * @returns {Promise<any>} - The result of the function.
+ * @since 1.5.0
+ */
+function compute(func, ...args) {
+    return sendMessage({
+        method: 'compute',
+        function: func,
+        args: args
+    })
 }

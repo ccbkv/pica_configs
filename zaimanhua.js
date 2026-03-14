@@ -2,7 +2,7 @@ class Zaimanhua extends ComicSource {
   // 基础信息
   name = "再漫画";
   key = "zaimanhua";
-  version = "1.0.1";
+  version = "1.0.2";
   minAppVersion = "1.4.0";
   url =
     "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/zaimanhua.js";
@@ -16,7 +16,30 @@ class Zaimanhua extends ComicSource {
   }
   // 构建 URL
   buildUrl(path) {
+    this.signTask();
     return `https://v4api.zaimanhua.com/app/v1/${path}`;
+  }
+  // 每日签到
+  async signTask() {
+    if (!this.isLogged) {
+      return;
+    }
+    if (!this.loadSetting("signTask")) {
+      return;
+    }
+    const lastSign = this.loadData("lastSign");
+    const newTime = new Date().toISOString().split("T")[0];
+    if (lastSign == newTime) {
+      return;
+    }
+    const res = await Network.post("https://i.zaimanhua.com/lpi/v1/task/sign_in", this.headers);
+    if (res.status !== 200) {
+      return;
+    }
+    this.saveData("lastSign", newTime);
+    if (JSON.parse(res.body)["errno"] == 0) {
+      UI.showMessage("签到成功");
+    }
   }
 
   //账户管理
@@ -32,10 +55,6 @@ class Zaimanhua extends ComicSource {
           `username=${username}&passwd=${encryptedPwd}`
         );
 
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
         const data = JSON.parse(res.body);
         if (data.errno !== 0) throw new Error(data.errmsg);
 
@@ -43,12 +62,7 @@ class Zaimanhua extends ComicSource {
         this.headers.authorization = `Bearer ${data.data.user.token}`;
         return true;
       } catch (e) {
-        // 使用this.UI或降级到console.log
-        if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
-          this.UI.showMessage(`登录失败: ${e.message}`);
-        } else {
-          console.log(`登录失败: ${e.message}`);
-        }
+        UI.showMessage(`登录失败: ${e.message}`);
         throw e;
       }
     },
@@ -64,16 +78,6 @@ class Zaimanhua extends ComicSource {
     }
     if (res.status !== 200) {
       throw new Error(`请求失败: ${res.status}`);
-    }
-    // 检查响应体是否为字符串类型
-    if (typeof res.body !== 'string') {
-      throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-    }
-    // 检查响应体是否为有效的JSON格式
-    try {
-      JSON.parse(res.body);
-    } catch (e) {
-      throw new Error(`响应体不是有效的JSON格式: ${res.body}`);
     }
   }
 
@@ -114,10 +118,6 @@ class Zaimanhua extends ComicSource {
           this.buildUrl(`comic/update/list/0/${page}`),
           this.headers
         );
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
         const data = JSON.parse(res.body).data;
         return {
           comics: data.map((item) => this.parseComic(item)),
@@ -211,10 +211,6 @@ class Zaimanhua extends ComicSource {
           ),
           this.headers
         );
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
         return {
           comics: JSON.parse(res.body).data.map((item) =>
             this.parseComic(item)
@@ -229,10 +225,6 @@ class Zaimanhua extends ComicSource {
           ),
           this.headers
         );
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
         const data = JSON.parse(res.body).data;
         return {
           comics: data.comicList.map((item) => this.parseComic(item)),
@@ -294,10 +286,6 @@ class Zaimanhua extends ComicSource {
         ),
         this.headers
       );
-      // 检查响应体是否为字符串类型
-      if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-      }
       const data = JSON.parse(res.body).data.list;
       return {
         comics: data.map((item) => this.parseComic(item)),
@@ -315,10 +303,6 @@ class Zaimanhua extends ComicSource {
         this.buildUrl(`comic/sub/${path}?comic_id=${comicId}`),
         this.headers
       );
-      // 检查响应体是否为字符串类型
-      if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-      }
       const data = JSON.parse(res.body);
       if (data.errno !== 0) {
         throw new Error(data.errmsg || "操作失败");
@@ -331,10 +315,6 @@ class Zaimanhua extends ComicSource {
           this.buildUrl(`comic/sub/list?status=0&page=${page}&size=20`),
           this.headers
         );
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
         const data = JSON.parse(res.body).data;
         return {
           comics: data.subList.map((item) => this.parseComic(item)) ?? [],
@@ -362,10 +342,6 @@ class Zaimanhua extends ComicSource {
           this.headers
         );
         this.checkResponseStatus(res);
-        // 检查响应体是否为字符串类型
-        if (typeof res.body !== 'string') {
-          throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-        }
         return JSON.parse(res.body).data.isSub;
       };
       let results = await Promise.all([
@@ -375,29 +351,25 @@ class Zaimanhua extends ComicSource {
         ),
         getFavoriteStatus.bind(this)(id),
       ]);
-      // 检查响应体是否为字符串类型
-      if (typeof results[0].body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof results[0].body}`);
-      }
       const response = JSON.parse(results[0].body);
       if (response.errno !== 0) throw new Error(response.errmsg || "加载失败");
       const data = response.data.data;
 
       function processChapters(groups) {
-        const result = new Map();
-        (groups || []).forEach((group) => {
+        return (groups || []).reduce((result, group) => {
           const groupTitle = group.title || "默认";
-          (group.data || []).reverse().forEach((ch, index) => {
-            const chapterId = String(ch.chapter_id);
-            const chapterTitle = `${ch.chapter_title.replace(
-              /^(?:连载版?)?(\d+\.?\d*)([话卷])?$/,
-              (_, n, t) => `第${n}${t || "话"}`
-            )}`;
-            // 使用组合键确保唯一性
-            result.set(chapterId, chapterTitle);
-          });
-        });
-        return result;
+          const chapters = (group.data || [])
+            .reverse()
+            .map((ch) => [
+              String(ch.chapter_id),
+              `${ch.chapter_title.replace(
+                /^(?:连载版?)?(\d+\.?\d*)([话卷])?$/,
+                (_, n, t) => `第${n}${t || "话"}`
+              )}`,
+            ]);
+          result.set(groupTitle, new Map(chapters));
+          return result;
+        }, new Map());
       }
       // 分类标签
       const { authors, status, types } = data;
@@ -419,12 +391,9 @@ class Zaimanhua extends ComicSource {
     },
     loadEp: async (comicId, epId) => {
       const res = await Network.get(
-        this.buildUrl(`comic/chapter/${comicId}/${epId}`)
+        this.buildUrl(`comic/chapter/${comicId}/${epId}`),
+        this.headers
       );
-      // 检查响应体是否为字符串类型
-      if (typeof res.body !== 'string') {
-        throw new Error(`响应体类型错误: 期望是字符串，实际是${typeof res.body}`);
-      }
       const data = JSON.parse(res.body).data.data;
       return { images: data.page_url_hd || data.page_url };
     },
@@ -445,12 +414,7 @@ class Zaimanhua extends ComicSource {
 
         /* 空数据检查 */
         if (!data || !data.commentIdList || !data.commentList) {
-          // 使用this.UI或降级到console.log
-          if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
-            this.UI.showMessage("暂时没有评论，快来发表第一条吧~");
-          } else {
-            console.log("暂时没有评论，快来发表第一条吧~");
-          }
+          UI.showMessage("暂时没有评论，快来发表第一条吧~");
           return { comments: [], maxPage: 0 };
         }
 
@@ -499,12 +463,7 @@ class Zaimanhua extends ComicSource {
         // 当没有有效评论时显示提示
         const comments = processComments();
         if (comments.length === 0) {
-          // 使用this.UI或降级到console.log
-          if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
-            this.UI.showMessage(replyTo ? "该评论暂无回复" : "这里还没有评论哦~");
-          } else {
-            console.log(replyTo ? "该评论暂无回复" : "这里还没有评论哦~");
-          }
+          UI.showMessage(replyTo ? "该评论暂无回复" : "这里还没有评论哦~");
         }
 
         return {
@@ -513,12 +472,7 @@ class Zaimanhua extends ComicSource {
         };
       } catch (e) {
         console.error("评论加载失败:", e);
-        // 使用this.UI或降级到console.log
-        if (typeof this.UI !== 'undefined' && this.UI.showMessage) {
-          this.UI.showMessage(`加载评论失败: ${e.message}`);
-        } else {
-          console.log(`加载评论失败: ${e.message}`);
-        }
+        UI.showMessage(`加载评论失败: ${e.message}`);
         return { comments: [], maxPage: 0 };
       }
     },
@@ -556,5 +510,13 @@ class Zaimanhua extends ComicSource {
       this.checkResponseStatus(res);
       return "ok";
     },
+  };
+
+  settings = {
+    signTask: {
+      title: "每日签到",
+      type: "switch",
+      default: false
+    }
   };
 }
