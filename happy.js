@@ -1,8 +1,8 @@
-﻿class Happy extends ComicSource {
+class Happy extends ComicSource {
     // 漫画源基本信息
     name = "嗨皮漫画"
     key = "happy"
-    version = "1.0.1"
+    version = "1.0.3"
     minAppVersion = "1.6.0"
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/happy.js"
 
@@ -189,6 +189,83 @@
         "14": `${this.baseUrl}/next/bookcase/dist/e10824d3bf7a1ef4e1996c053420eeea.png`,
         "15": `${this.baseUrl}/next/bookcase/dist/b3ffe4351a7e6f1e5a5e48932eadf17f.png`,
         "16": `${this.baseUrl}/next/bookcase/dist/cea88102f3bc609f9910851ff15a5105.png`
+    }
+
+    // 检测是否是 Cloudflare 验证页面
+    isCloudflareChallenge(res) {
+        // 检查响应状态码 - Cloudflare 验证通常是 403
+        if (res.status === 403) {
+            // 检查响应头中的 cf-mitigated 标记
+            const headers = res.headers || {}
+            const cfMitigated = headers['cf-mitigated'] || headers['CF-Mitigated'] || headers['Cf-Mitigated']
+            if (cfMitigated === 'challenge') {
+                return true
+            }
+            // 检查 server 头是否为 cloudflare
+            const server = headers['server'] || headers['Server'] || ''
+            if (server.toLowerCase().includes('cloudflare')) {
+                // 检查响应体
+                if (res.body && typeof res.body === 'string') {
+                    const bodyLower = res.body.toLowerCase()
+                    if (bodyLower.includes('challenge') ||
+                        bodyLower.includes('cf-challenge') ||
+                        bodyLower.includes('人机验证') ||
+                        bodyLower.includes('嗨皮漫画') ||
+                        bodyLower.includes('just a moment') ||
+                        bodyLower.includes('checking your browser') ||
+                        bodyLower.includes('turnstile') ||
+                        bodyLower.includes('cf-ray')) {
+                        return true
+                    }
+                }
+            }
+        }
+        // 额外检查：即使状态码不是 403，也检查响应体
+        if (res.body && typeof res.body === 'string') {
+            const body = res.body
+            if (body.includes('challenge-success-text') ||
+                body.includes('challenge-error-text') ||
+                body.includes('challenge-form') ||
+                body.includes('challenge-platform') ||
+                body.includes('window._cf_chl_opt') ||
+                body.includes('cf-challenge') ||
+                body.includes('人机验证') ||
+                body.includes('嗨皮漫画——人机验证') ||
+                body.includes('Just a moment') ||
+                body.includes('Checking your browser') ||
+                body.includes('__cf_chl_jschl_tk__') ||
+                body.includes('cf-ray')) {
+                return true
+            }
+        }
+        return false
+    }
+
+    // Cloudflare 验证 URL - 使用搜索 API，这是唯一能验证的 URL
+    get cfVerifyUrl() {
+        return `${this.baseUrl}/v2.0/apis/manga/ssearch`
+    }
+
+    // 检查响应状态，如果是 Cloudflare 验证页面则抛出特定错误
+    // 使用 cfVerifyUrl (搜索 API)，这是唯一能验证的 URL
+    checkResponse(res, url) {
+        if (this.isCloudflareChallenge(res)) {
+            throw `CloudflareException: ${this.cfVerifyUrl}`
+        }
+        return res
+    }
+
+    // 包装网络请求，捕获错误并处理 Cloudflare 异常
+    async fetchWithCloudflareCheck(fetchFn, url) {
+        try {
+            return await fetchFn()
+        } catch (error) {
+            // 如果错误包含 CloudflareException，重新抛出使用 cfVerifyUrl 的版本
+            if (error && typeof error === 'string' && error.includes('CloudflareException')) {
+                throw `CloudflareException: ${this.cfVerifyUrl}`
+            }
+            throw error
+        }
     }
 
     // 格式化作者信息
@@ -407,7 +484,12 @@
         title: "嗨皮漫画",
         type: "singlePageWithMultiPart",
         load: async () => {
-            const res = await Network.get(this.baseUrl, this.headers)
+            const res = await this.fetchWithCloudflareCheck(
+                () => Network.get(this.baseUrl, this.headers),
+                this.baseUrl
+            )
+
+            this.checkResponse(res, this.baseUrl)
 
             if (res.status !== 200) {
                 throw `主页请求失败: ${res.status}`
@@ -452,10 +534,15 @@
         // 加载分类漫画
         load: async (category, param, options, page) => {
             const api = `${this.baseUrl}/apis/c/index?genre=${param}&area=${options[0]}&audience=${options[1]}&series_status=${options[2]}&pn=${page}`
-            const res = await Network.get(api, {
-                ...this.headers,
-                "Referer": `${this.baseUrl}/latest`
-            })
+            const res = await this.fetchWithCloudflareCheck(
+                () => Network.get(api, {
+                    ...this.headers,
+                    "Referer": `${this.baseUrl}/latest`
+                }),
+                api
+            )
+
+            this.checkResponse(res, api)
 
             if (res.status !== 200) {
                 throw `分类接口请求失败: ${res.status}`
@@ -516,7 +603,12 @@
             // 加载排行榜漫画
             load: async (option, page) => {
                 const url = `${this.baseUrl}/rank/${option}`
-                const res = await Network.get(url, this.headers)
+                const res = await this.fetchWithCloudflareCheck(
+                    () => Network.get(url, this.headers),
+                    url
+                )
+
+                this.checkResponse(res, url)
 
                 if (res.status !== 200) {
                     throw `排行榜页面请求失败: ${res.status}`
@@ -539,11 +631,16 @@
         // 加载搜索漫画
         load: async (keyword, options, page) => {
             const api = `${this.baseUrl}/v2.0/apis/manga/ssearch`
-            const res = await Network.post(api, {
-                ...this.headers,
-                "Referer": `${this.baseUrl}/sssearch`,
-                "Content-Type": "application/x-www-form-urlencoded"
-            }, `searchkey=${encodeURIComponent(keyword)}&v=v2.13`)
+            const res = await this.fetchWithCloudflareCheck(
+                () => Network.post(api, {
+                    ...this.headers,
+                    "Referer": `${this.baseUrl}/sssearch`,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }, `searchkey=${encodeURIComponent(keyword)}&v=v2.13`),
+                api
+            )
+
+            this.checkResponse(res, api)
 
             if (res.status !== 200) {
                 throw `搜索接口请求失败: ${res.status}`
