@@ -2,7 +2,7 @@ class Happy extends ComicSource {
     // 漫画源基本信息
     name = "嗨皮漫画"
     key = "happy"
-    version = "1.0.3"
+    version = "1.0.8"
     minAppVersion = "1.6.0"
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/happy.js"
 
@@ -192,6 +192,7 @@ class Happy extends ComicSource {
     }
 
     // 检测是否是 Cloudflare 验证页面
+    // 只在状态码为 403 时检测，避免误判正常页面
     isCloudflareChallenge(res) {
         // 检查响应状态码 - Cloudflare 验证通常是 403
         if (res.status === 403) {
@@ -204,38 +205,21 @@ class Happy extends ComicSource {
             // 检查 server 头是否为 cloudflare
             const server = headers['server'] || headers['Server'] || ''
             if (server.toLowerCase().includes('cloudflare')) {
-                // 检查响应体
+                // 检查响应体是否包含 Cloudflare 验证特征
                 if (res.body && typeof res.body === 'string') {
                     const bodyLower = res.body.toLowerCase()
-                    if (bodyLower.includes('challenge') ||
+                    // 只检查明确的 Cloudflare 验证页面特征
+                    if (bodyLower.includes('challenge-form') ||
                         bodyLower.includes('cf-challenge') ||
                         bodyLower.includes('人机验证') ||
-                        bodyLower.includes('嗨皮漫画') ||
+                        bodyLower.includes('嗨皮漫画——人机验证') ||
                         bodyLower.includes('just a moment') ||
                         bodyLower.includes('checking your browser') ||
                         bodyLower.includes('turnstile') ||
-                        bodyLower.includes('cf-ray')) {
+                        bodyLower.includes('attention required')) {
                         return true
                     }
                 }
-            }
-        }
-        // 额外检查：即使状态码不是 403，也检查响应体
-        if (res.body && typeof res.body === 'string') {
-            const body = res.body
-            if (body.includes('challenge-success-text') ||
-                body.includes('challenge-error-text') ||
-                body.includes('challenge-form') ||
-                body.includes('challenge-platform') ||
-                body.includes('window._cf_chl_opt') ||
-                body.includes('cf-challenge') ||
-                body.includes('人机验证') ||
-                body.includes('嗨皮漫画——人机验证') ||
-                body.includes('Just a moment') ||
-                body.includes('Checking your browser') ||
-                body.includes('__cf_chl_jschl_tk__') ||
-                body.includes('cf-ray')) {
-                return true
             }
         }
         return false
@@ -659,7 +643,15 @@ class Happy extends ComicSource {
         // 加载漫画详细信息
         loadInfo: async (id) => {
             const url = `${this.baseUrl}/manga/${id}`
-            const res = await Network.get(url, this.headers)
+            const res = await this.fetchWithCloudflareCheck(
+                () => Network.get(url, this.headers),
+                url
+            )
+
+            // 检测 Cloudflare 验证页面，使用搜索 API URL 进行验证
+            if (this.isCloudflareChallenge(res)) {
+                throw `CloudflareException: ${this.cfVerifyUrl}`
+            }
 
             if (res.status !== 200) {
                 throw `漫画详情页请求失败: ${res.status}`
@@ -716,11 +708,19 @@ class Happy extends ComicSource {
         // 加载章节图片
         loadEp: async (comicId, epId) => {
             const api = `${this.baseUrl}/v2.0/apis/manga/reading?code=${comicId}&cid=${epId}&v=v3.1919111`
-            const res = await Network.get(api, {
-                ...this.headers,
-                "Referer": this.baseUrl,
-                "X-Requested-With": "XMLHttpRequest"
-            })
+            const res = await this.fetchWithCloudflareCheck(
+                () => Network.get(api, {
+                    ...this.headers,
+                    "Referer": this.baseUrl,
+                    "X-Requested-With": "XMLHttpRequest"
+                }),
+                api
+            )
+
+            // 检测 Cloudflare 验证页面，使用搜索 API URL 进行验证
+            if (this.isCloudflareChallenge(res)) {
+                throw `CloudflareException: ${this.cfVerifyUrl}`
+            }
 
             if (res.status !== 200) {
                 throw `章节图片接口请求失败: ${res.status}`
