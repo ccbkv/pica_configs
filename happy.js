@@ -2,7 +2,7 @@ class Happy extends ComicSource {
     // 漫画源基本信息
     name = "嗨皮漫画"
     key = "happy"
-    version = "1.0.8"
+    version = "1.0.9"
     minAppVersion = "1.6.0"
     url = "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/happy.js"
 
@@ -330,7 +330,12 @@ class Happy extends ComicSource {
         if (replyTo) {
             // 加载楼中楼评论列表
             const api = `${this.baseUrl}/v2.0/apis/comment/subComments?root_id=${replyTo}&pn=${page}&ps=10`
-            const res = await Network.get(api, this.headers)
+            const res = await this.fetchWithCloudflareCheck(
+                () => Network.get(api, this.headers),
+                api
+            )
+
+            this.checkResponse(res, api)
 
             if (res.status !== 200) {
                 throw `评论接口请求失败: ${res.status}`
@@ -346,7 +351,12 @@ class Happy extends ComicSource {
             const order = this.loadSetting("commentOrder")
             const ch_id = epId ? `&ch_id=${epId}` : ""
             const api = `${this.baseUrl}/v2.0/apis/comment?code=${comicId}${ch_id}&pn=${page}&order=${order}&from=${from}`
-            const res = await Network.get(api, this.headers)
+            const res = await this.fetchWithCloudflareCheck(
+                () => Network.get(api, this.headers),
+                api
+            )
+
+            this.checkResponse(res, api)
 
             if (res.status !== 200) {
                 throw `评论接口请求失败: ${res.status}`
