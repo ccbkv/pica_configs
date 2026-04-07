@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.9.0"
+    version = "2.0.1"
 
     minAppVersion = "1.6.0"
 
@@ -1407,10 +1407,6 @@ class CopyManga extends ComicSource {
             type: "select",
             options: [
                 {
-                    value: 'www.2027copy.com',
-                    text: '2027copy.com'
-                },
-                {
                     value: 'www.2026copy.com',
                     text: '2026copy.com'
                 },
@@ -1421,26 +1417,6 @@ class CopyManga extends ComicSource {
                 {
                     value: 'www.copy20.com',
                     text: 'copy20.com'
-                },
-                {
-                    value: 'www.mangacopy.com',
-                    text: 'mangacopy.com'
-                },
-                {
-                    value: 'www.copymanga.tv',
-                    text: 'copymanga.tv'
-                },
-                {
-                    value: 'www.copy-manga.com',
-                    text: 'copy-manga.com'
-                },
-                {
-                    value: 'www.copy2000.site',
-                    text: 'copy2000.site'
-                },
-                {
-                    value: 'www.copy2000.online',
-                    text: 'copy2000.online'
                 },
             ],
             default: CopyManga.defaultApiUrl,
