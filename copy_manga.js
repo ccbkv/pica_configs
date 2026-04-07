@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "1.4.9"
+    version = "1.9.0"
 
     minAppVersion = "1.6.0"
 
@@ -116,6 +116,14 @@ class CopyManga extends ComicSource {
     // return this.loadSetting('platform')
     // }
 
+    get webHeaders() {
+        return {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        }
+    }
+
     static generateDeviceInfo() {
         return `${randomInt(1000000, 9999999)}V-${randomInt(1000, 9999)}`;
     }
@@ -209,50 +217,153 @@ class CopyManga extends ComicSource {
             title: "拷贝漫画",
             type: "singlePageWithMultiPart",
             load: async () => {
-                let dataStr = await Network.get(
-                    `${this.apiUrl}/api/v3/h5/homeIndex`,
-                    this.headers
-                )
-
-                if (dataStr.status !== 200) {
-                    throw `Invalid status code: ${dataStr.status}`
+                let res = await Network.get(`${this.apiUrl}/`, this.webHeaders);
+                if (res.status !== 200) {
+                    throw `Invalid status code: ${res.status}`;
                 }
 
-                let data = JSON.parse(dataStr.body)
+                let html = res.body;
+                let doc = new HtmlDocument(html);
+                let result = {};
 
-                function parseComic(comic) {
-                    if (comic["comic"] !== null && comic["comic"] !== undefined) {
-                        comic = comic["comic"]
+                function parseComicFromElement(item) {
+                    let href = item.attributes['href'] || '';
+                    if (!href.includes('/comic/')) return null;
+                    
+                    let pathWord = href.replace('/comic/', '').replace('/', '');
+                    
+                    let comicTitle = '';
+                    let titleAttr = item.querySelector('[title]');
+                    if (titleAttr && titleAttr.attributes) {
+                        comicTitle = titleAttr.attributes['title'] || '';
                     }
-                    let tags = []
-                    if (comic["theme"] !== null && comic["theme"] !== undefined) {
-                        tags = comic["theme"].map(t => t["name"])
+                    if (!comicTitle) {
+                        let titleEl2 = item.querySelector('.edit-txt');
+                        comicTitle = titleEl2 && titleEl2.text ? titleEl2.text.trim() : '';
                     }
-                    let author = null
+                    if (!comicTitle) {
+                        let titleEl2 = item.querySelector('.twoLines');
+                        comicTitle = titleEl2 && titleEl2.text ? titleEl2.text.trim() : '';
+                    }
+                    if (!comicTitle) {
+                        comicTitle = item.text ? item.text.trim() : '';
+                    }
 
-                    if (Array.isArray(comic["author"]) && comic["author"].length > 0) {
-                        author = comic["author"][0]["name"]
+                    let cover = '';
+                    let img = item.querySelector('img');
+                    if (img && img.attributes) {
+                        cover = img.attributes['src'] || img.attributes['data-src'] || '';
                     }
 
-                    return {
-                        id: comic["path_word"],
-                        title: comic["name"],
-                        subTitle: author,
-                        cover: comic["cover"],
-                        tags: tags
+                    let author = '';
+                    let authorEl = item.querySelector('.exemptComicItem-txt-span');
+                    if (!authorEl) authorEl = item.querySelector('.oneLines');
+                    if (authorEl && authorEl.text) {
+                        author = authorEl.text.trim();
+                    }
+
+                    let updateTime = '';
+                    let updateEl = item.querySelector('.update span');
+                    if (updateEl && updateEl.text) {
+                        updateTime = updateEl.text.trim();
+                    }
+
+                    if (comicTitle && pathWord) {
+                        return {
+                            id: pathWord,
+                            title: comicTitle,
+                            subTitle: author,
+                            cover: cover,
+                            tags: [],
+                            description: updateTime
+                        };
+                    }
+                    return null;
+                }
+
+                function extractComics(selector, limit) {
+                    let items = doc.querySelectorAll(selector);
+                    let comics = [];
+                    let seen = new Set();
+                    for (let i = 0; i < items.length && comics.length < limit; i++) {
+                        let comic = parseComicFromElement(items[i]);
+                        if (comic && !seen.has(comic.id)) {
+                            seen.add(comic.id);
+                            comics.push(comic);
+                        }
+                    }
+                    return comics;
+                }
+
+                let recommend = extractComics('.comicRank-box a[href*="/comic/"]', 20);
+                if (recommend.length > 0) {
+                    result["推荐"] = recommend;
+                }
+
+                let rows = doc.querySelectorAll('.content-box .row');
+                if (rows.length > 0) {
+                    let hotUpdate = [];
+                    let seenHot = new Set();
+                    let links = rows[0].querySelectorAll('a[href*="/comic/"]');
+                    for (let i = 0; i < links.length && hotUpdate.length < 20; i++) {
+                        let comic = parseComicFromElement(links[i]);
+                        if (comic && !seenHot.has(comic.id)) {
+                            seenHot.add(comic.id);
+                            hotUpdate.push(comic);
+                        }
+                    }
+                    if (hotUpdate.length > 0) {
+                        result["热门更新"] = hotUpdate;
                     }
                 }
 
-                let res = {}
-                res["推荐"] = data["results"]["recComics"]["list"].map(parseComic)
-                res["热门"] = data["results"]["hotComics"].map(parseComic)
-                res["最新"] = data["results"]["newComics"].map(parseComic)
-                res["完结"] = data["results"]["finishComics"]["list"].map(parseComic)
-                res["今日排行"] = data["results"]["rankDayComics"]["list"].map(parseComic)
-                res["本周排行"] = data["results"]["rankWeekComics"]["list"].map(parseComic)
-                res["本月排行"] = data["results"]["rankMonthComics"]["list"].map(parseComic)
+                if (rows.length > 1) {
+                    let newComics = [];
+                    let seenNew = new Set();
+                    let links = rows[1].querySelectorAll('a[href*="/comic/"]');
+                    for (let i = 0; i < links.length && newComics.length < 20; i++) {
+                        let comic = parseComicFromElement(links[i]);
+                        if (comic && !seenNew.has(comic.id)) {
+                            seenNew.add(comic.id);
+                            newComics.push(comic);
+                        }
+                    }
+                    if (newComics.length > 0) {
+                        result["全新上架"] = newComics;
+                    }
+                }
 
-                return res
+                let allLinks = doc.querySelectorAll('a[href*="/comic/"]');
+                let allComics = [];
+                let seenAll = new Set();
+                for (let i = 0; i < allLinks.length; i++) {
+                    let comic = parseComicFromElement(allLinks[i]);
+                    if (comic && !seenAll.has(comic.id)) {
+                        seenAll.add(comic.id);
+                        allComics.push(comic);
+                    }
+                }
+
+                if (allComics.length > 0) {
+                    let first20 = allComics.slice(0, 20);
+                    let hasRecommend = result["推荐"] && result["推荐"].length > 0;
+                    let hasHot = result["热门更新"] && result["热门更新"].length > 0;
+                    
+                    if (!hasRecommend && !hasHot) {
+                        result["首页推荐"] = first20;
+                    } else {
+                        let existingIds = new Set();
+                        if (hasRecommend) result["推荐"].forEach(c => existingIds.add(c.id));
+                        if (hasHot) result["热门更新"].forEach(c => existingIds.add(c.id));
+                        
+                        let newComics = allComics.filter(c => !existingIds.has(c.id)).slice(0, 20);
+                        if (newComics.length > 0) {
+                            result["更多推荐"] = newComics;
+                        }
+                    }
+                }
+
+                return result;
             }
         }
     ]
@@ -344,92 +455,216 @@ class CopyManga extends ComicSource {
     categoryComics = {
         load: async (category, param, options, page) => {
             let category_url;
-            // 分类-排行
-            if (category === "排行" || param === "ranking") {
-                category_url = `${this.apiUrl}/api/v3/ranks?limit=30&offset=${(page - 1) * 30}&_update=true&type=1&audience_type=${options[0]}&date_type=${options[1]}`
+            let isRanking = category === "排行" || param === "ranking";
+            
+            if (isRanking) {
+                let typeParam = options[0] || "male";
+                let tableParam = options[1] || "week";
+                category_url = `${this.apiUrl}/rank?type=${typeParam}&table=${tableParam}`;
             } else {
-                // 分类-主题
                 if (category !== undefined && category !== null) {
-                    // 若传入category，则转化为对应param
                     param = CopyManga.category_param_dict[category] || "";
                 }
-                options = options.map(e => e.replace("*", "-"))
-                category_url = `${this.apiUrl}/api/v3/comics?limit=30&offset=${(page - 1) * 30}&ordering=${options[1]}&theme=${param}&top=${options[0]}`
-            }
-
-
-            let res = await Network.get(
-                category_url,
-                this.headers
-            )
-            if (res.status !== 200) {
-                throw `Invalid status code: ${res.status}`
-            }
-
-            let data = JSON.parse(res.body)
-
-            function parseComic(comic) {
-                //判断是否是漫画排名格式
-                let sort = null
-                let popular = 0
-                let rise_sort = 0;
-                if (comic["sort"] !== null && comic["sort"] !== undefined) {
-                    sort = comic["sort"]
-                    rise_sort = comic["rise_sort"]
-                    popular = comic["popular"]
-                }
-
-                if (comic["comic"] !== null && comic["comic"] !== undefined) {
-                    comic = comic["comic"]
-                }
-                let tags = []
-                if (comic["theme"] !== null && comic["theme"] !== undefined) {
-                    tags = comic["theme"].map(t => t["name"])
-                }
-                let author = null
-                let author_num = 0
-                if (Array.isArray(comic["author"]) && comic["author"].length > 0) {
-                    author = comic["author"][0]["name"]
-                    author_num = comic["author"].length
-                }
-
-                //如果是漫画排名，则描述为 排名(+升降箭头)+作者+人气
-                if (sort !== null) {
-                    return {
-                        id: comic["path_word"],
-                        title: comic["name"],
-                        subTitle: author,
-                        cover: comic["cover"],
-                        tags: tags,
-                        description: `${sort} ${rise_sort > 0 ? '▲' : rise_sort < 0 ? '▽' : '-'}\n` +
-                            `${author_num > 1 ? `${author} 等${author_num}位` : author}\n` +
-                            `🔥${(popular / 10000).toFixed(1)}W`
+                let filterParam = options[0] || "";
+                let orderingRaw = options[1] || "*datetime_updated";
+                let orderingParam = orderingRaw.replace("*", "-");
+                
+                let baseUrl = `${this.apiUrl}/comics?theme=${param}`;
+                if (filterParam && filterParam !== "*all") {
+                    let value = filterParam.replace("*", "");
+                    if (value === "finish") {
+                        baseUrl += `&status=1`;
+                    } else {
+                        baseUrl += `&region=${value}`;
                     }
-                    //正常情况的描述为更新时间
-                } else {
-                    return {
-                        id: comic["path_word"],
-                        title: comic["name"],
-                        subTitle: author,
-                        cover: comic["cover"],
-                        tags: tags,
-                        description: comic["datetime_updated"]
+                }
+                baseUrl += `&ordering=${orderingParam}&limit=30&offset=${(page - 1) * 30}`;
+                category_url = baseUrl;
+            }
+
+            let res = await Network.get(category_url, this.webHeaders);
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
+            }
+
+            let html = res.body;
+            let doc = new HtmlDocument(html);
+            let comics = [];
+            let totalFromList = 0;
+
+            if (isRanking) {
+                let items = doc.querySelectorAll('.ranking-all-box');
+                for (let i = 0; i < items.length; i++) {
+                    let item = items[i];
+                    let anchor = item.querySelector('a[href*="/comic/"]');
+                    if (!anchor) continue;
+                    
+                    let href = anchor.attributes['href'] || '';
+                    let pathWord = href.replace('/comic/', '').replace('/', '');
+                    
+                    let titleEl = item.querySelector('.threeLines');
+                    let title = '';
+                    if (titleEl) {
+                        title = titleEl.attributes['title'] || '';
+                        if (!title && titleEl.text) title = titleEl.text.trim();
+                    }
+                    
+                    let img = item.querySelector('img');
+                    let cover = '';
+                    if (img && img.attributes) {
+                        cover = img.attributes['src'] || img.attributes['data-src'] || '';
+                    }
+                    
+                    let authorEl = item.querySelector('.oneLines');
+                    let author = authorEl && authorEl.text ? authorEl.text.replace(/\s+/g, ' ').trim() : '';
+                    
+                    let rankEl = item.querySelector('.ranking-all-icon');
+                    let rank = rankEl && rankEl.text ? rankEl.text.trim() : '';
+                    
+                    let heatEl = item.querySelector('.update span');
+                    let heat = heatEl && heatEl.text ? heatEl.text.trim() : '';
+                    
+                    let trend = '';
+                    let trendEl = item.querySelector('.update-icon.up');
+                    if (trendEl) trend = '▲';
+                    else {
+                        trendEl = item.querySelector('.update-icon.end');
+                        if (trendEl) trend = '▽';
+                    }
+
+                    if (title && pathWord) {
+                        comics.push({
+                            id: pathWord,
+                            title: title,
+                            subTitle: author,
+                            cover: cover,
+                            tags: [],
+                            description: `${rank} ${trend}\n${author}\n🔥${heat}`
+                        });
+                    }
+                }
+            } else {
+                let listBox = doc.querySelector('.exemptComicList .exemptComic-box');
+                if (listBox && listBox.attributes) {
+                    if (listBox.attributes['total']) {
+                        totalFromList = parseInt(listBox.attributes['total']) || 0;
+                    }
+                    if (listBox.attributes['list']) {
+                        try {
+                            let rawList = listBox.attributes['list'];
+                            let decoded;
+                            try {
+                                decoded = JSON.parse(rawList);
+                            } catch (jsonErr) {
+                                decoded = new Function('return ' + rawList)();
+                            }
+                            if (Array.isArray(decoded)) {
+                                for (let item of decoded) {
+                                    let pathWord = item.path_word || '';
+                                    let title = item.name || '';
+                                    if (pathWord && title) {
+                                        let authors = item.author || [];
+                                        let authorNames = authors.map(a => a.name).filter(n => n);
+                                        let author = authorNames.length > 0 ? authorNames.join(', ') : '';
+                                        let cover = item.cover || '';
+                                        let updateDate = item.datetime_updated || item.update_time || item.last_update_time || '';
+                                        comics.push({
+                                            id: pathWord,
+                                            title: title,
+                                            subTitle: author,
+                                            cover: cover,
+                                            tags: [],
+                                            description: updateDate
+                                        });
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                        }
+                    }
+                }
+                
+                if (comics.length === 0) {
+                    let items = doc.querySelectorAll('.exemptComic-box a[href*="/comic/"]');
+                    if (items.length === 0) {
+                        items = doc.querySelectorAll('.correlationList a[href*="/comic/"]');
+                    }
+                    for (let i = 0; i < items.length; i++) {
+                        let item = items[i];
+                        let href = item.attributes['href'] || '';
+                        let pathWord = href.replace('/comic/', '').replace('/', '');
+                        
+                        let title = '';
+                        let titleEl = item.querySelector('[title]');
+                        if (titleEl && titleEl.attributes) {
+                            title = titleEl.attributes['title'] || '';
+                        }
+                        if (!title) {
+                            titleEl = item.querySelector('.edit-txt');
+                            title = titleEl && titleEl.text ? titleEl.text.trim() : '';
+                        }
+                        if (!title) {
+                            titleEl = item.querySelector('.twoLines');
+                            title = titleEl && titleEl.text ? titleEl.text.trim() : '';
+                        }
+                        if (!title) {
+                            title = item.text ? item.text.trim() : '';
+                        }
+                        
+                        let img = item.querySelector('img');
+                        let cover = '';
+                        if (img && img.attributes) {
+                            cover = img.attributes['src'] || img.attributes['data-src'] || '';
+                        }
+                        
+                        let authorEl = item.querySelector('.exemptComicItem-txt-span');
+                        if (!authorEl) authorEl = item.querySelector('.oneLines');
+                        let author = authorEl && authorEl.text ? authorEl.text.trim() : '';
+                        
+                        let updateEl = item.querySelector('.update span');
+                        let updateTime = updateEl && updateEl.text ? updateEl.text.trim() : '';
+
+                        if (title && pathWord) {
+                            comics.push({
+                                id: pathWord,
+                                title: title,
+                                subTitle: author,
+                                cover: cover,
+                                tags: [],
+                                description: updateTime
+                            });
+                        }
+                    }
+                }
+            }
+
+            let maxPage = 1;
+            if (totalFromList > 0) {
+                maxPage = Math.ceil(totalFromList / 30);
+            } else {
+                let pager = doc.querySelector('.page-all');
+                if (pager) {
+                    let totalLabels = pager.querySelectorAll('.page-total');
+                    if (totalLabels.length > 0) {
+                        let lastLabel = totalLabels[totalLabels.length - 1];
+                        let total = parseInt(lastLabel.text ? lastLabel.text.trim() : '1') || 1;
+                        maxPage = total;
                     }
                 }
             }
 
             return {
-                comics: data["results"]["list"].map(parseComic),
-                maxPage: (data["results"]["total"] - (data["results"]["total"] % 21)) / 21 + 1
-            }
+                comics: comics,
+                maxPage: maxPage
+            };
         },
         optionList: [
             {
                 options: [
-                    "-全部",
-                    "japan-日漫",
-                    "korea-韩漫",
-                    "west-美漫",
+                    "*all-全部",
+                    "0-日漫",
+                    "1-韩漫",
+                    "2-美漫",
                     "finish-已完结"
                 ],
                 notShowWhen: null,
@@ -625,112 +860,199 @@ class CopyManga extends ComicSource {
 
     comic = {
         loadInfo: async (id) => {
-            let getChapters = async (id, groups) => {
-                let fetchSingle = async (id, path) => {
-                    let reqId = await this.getReqID();
-                    let res = await Network.get(
-                        `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=100&offset=0&in_mainland=true&request_id=${reqId}`,
-                        this.headers
-                    );
-                    if (res.status !== 200) {
-                        throw `Invalid status code: ${res.status}`;
-                    }
-                    let data = JSON.parse(res.body);
-                    let eps = new Map();
-                    data.results.list.forEach((e) => {
-                        let title = e.name;
-                        let id = e.uuid;
-                        eps.set(id, title);
-                    });
-                    let maxChapter = data.results.total;
-                    if (maxChapter > 100) {
-                        let offset = 100;
-                        while (offset < maxChapter) {
-                            res = await Network.get(
-                                `${this.apiUrl}/api/v3/comic/${id}/group/${path}/chapters?limit=100&offset=${offset}`,
-                                this.headers
-                            );
-                            if (res.status !== 200) {
-                                throw `Invalid status code: ${res.status}`;
-                            }
-                            data = JSON.parse(res.body);
-                            data.results.list.forEach((e) => {
-                                let title = e.name;
-                                let id = e.uuid;
-                                eps.set(id, title)
-                            });
-                            offset += 100;
-                        }
-                    }
-                    return eps;
-                };
-                let keys = Object.keys(groups);
-                let result = {};
-                let futures = [];
-                for (let group of keys) {
-                    let path = groups[group]["path_word"];
-                    futures.push((async () => {
-                        result[group] = await fetchSingle(id, path);
-                    })());
-                }
-                await Promise.all(futures);
-                if (this.isAppVersionAfter("1.3.0")) {
-                    // 支持多分组
-                    let sortedResult = new Map();
-                    for (let key of keys) {
-                        let name = groups[key]["name"];
-                        sortedResult.set(name, result[key]);
-                    }
-                    return sortedResult;
-                } else {
-                    // 合并所有分组
-                    let merged = new Map();
-                    for (let key of keys) {
-                        for (let [k, v] of result[key]) {
-                            merged.set(k, v);
-                        }
-                    }
-                    return merged;
-                }
-            }
-
-            let getFavoriteStatus = async (id) => {
-                let res = await Network.get(`${this.apiUrl}/api/v3/comic2/${id}/query`, this.headers);
-                if (res.status !== 200) {
-                    throw `Invalid status code: ${res.status}`;
-                }
-                return JSON.parse(res.body).results.collect != null;
-            }
-            let reqId = await this.getReqID();
-            let results = await Promise.all([
-                Network.get(
-                    `${this.apiUrl}/api/v3/comic2/${id}?in_mainland=true&request_id=${reqId}&platform=3`,
-                    this.headers
-                ),
-                getFavoriteStatus.bind(this)(id)
-            ])
-
-            if (results[0].status !== 200) {
+            let res = await Network.get(`${this.apiUrl}/comic/${id}`, this.webHeaders);
+            if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`;
             }
 
-            let data = JSON.parse(results[0].body).results;
-            let comicData = data.comic;
+            let html = res.body;
+            let doc = new HtmlDocument(html);
 
-            let title = comicData.name;
-            let cover = comicData.cover;
-            let authors = comicData.author.map(e => e.name);
-            // author_path_word_dict长度限制为最大100
-            if (Object.keys(this.author_path_word_dict).length > 100) {
-                this.author_path_word_dict = {};
+            let title = '';
+            let titleEl = doc.querySelector('h6[title]');
+            if (titleEl && titleEl.attributes) {
+                title = titleEl.attributes['title'] || '';
             }
-            // 储存author对应的path_word
-            comicData.author.forEach(e => (this.author_path_word_dict[e.name] = e.path_word));
-            let tags = comicData.theme.map(e => e?.name).filter(name => name !== undefined && name !== null);
-            let updateTime = comicData.datetime_updated ? comicData.datetime_updated : "";
-            let description = comicData.brief;
-            let chapters = await getChapters(id, data.groups);
-            let status = comicData.status.display;
+            if (!title) {
+                let pageTitle = doc.querySelector('title');
+                title = pageTitle && pageTitle.text ? pageTitle.text.trim().split('-')[0].trim() : '';
+            }
+
+            let cover = '';
+            let coverImg = doc.querySelector('.comicParticulars-left-img img');
+            if (coverImg && coverImg.attributes) {
+                cover = coverImg.attributes['src'] || coverImg.attributes['data-src'] || '';
+            }
+
+            let authors = [];
+            let authorEl = doc.querySelector('.comicParticulars-title-right');
+            if (authorEl) {
+                let authorLinks = authorEl.querySelectorAll('a');
+                for (let i = 0; i < authorLinks.length; i++) {
+                    let link = authorLinks[i];
+                    let text = link.text ? link.text.trim() : '';
+                    if (text && !authors.includes(text)) {
+                        authors.push(text);
+                    }
+                }
+            }
+
+            let tags = [];
+            let tagEls = doc.querySelectorAll('.comicParticulars-tag a');
+            for (let i = 0; i < tagEls.length; i++) {
+                let tag = tagEls[i];
+                let text = tag.text ? tag.text.trim().replace(/^#/, '') : '';
+                if (text && !tags.includes(text)) {
+                    tags.push(text);
+                }
+            }
+
+            let description = '';
+            let introEl = doc.querySelector('.intro');
+            if (introEl) {
+                description = introEl.text ? introEl.text.trim() : '';
+            }
+
+            let updateTime = '';
+            let status = '';
+            let infoItems = doc.querySelectorAll('.comicParticulars-title-right li');
+            for (let i = 0; i < infoItems.length; i++) {
+                let item = infoItems[i];
+                let text = item.text ? item.text.replace(/\s+/g, ' ').trim() : '';
+                if (text.includes('最後更新') || text.includes('最后更新')) {
+                    updateTime = text.replace(/最後更新|最后更新/g, '').replace(/^\s*[:：]\s*/, '').trim();
+                }
+                if (text.includes('狀態') || text.includes('状态')) {
+                    status = text.replace(/狀態|状态/g, '').replace(/^\s*[:：]\s*/, '').trim();
+                }
+            }
+
+            let chapters = new Map();
+            
+            let ccz = '';
+            let cczPatterns = [
+                /(?:var|let|const)\s+ccz\s*=\s*['"]([^'"]+)['"]/,
+                /window\.ccz\s*=\s*['"]([^'"]+)['"]/,
+                /ccz\s*=\s*['"]([^'"]+)['"]/
+            ];
+            for (let pattern of cczPatterns) {
+                let match = html.match(pattern);
+                if (match && match[1]) {
+                    ccz = match[1];
+                    break;
+                }
+            }
+            
+            let dntEl = doc.querySelector('#dnt');
+            let dnt = dntEl && dntEl.attributes ? dntEl.attributes['value'] || '' : '';
+            
+            if (ccz && dnt) {
+                try {
+                    let chapterUrl = `${this.apiUrl}/comicdetail/${id}/chapters`;
+                    
+                    let chapterRes = await Network.get(
+                        chapterUrl,
+                        {
+                            ...this.webHeaders,
+                            'Accept': 'application/json, text/plain, */*',
+                            'Referer': `${this.apiUrl}/comic/${id}`,
+                            'dnts': dnt
+                        }
+                    );
+                    
+                    if (chapterRes.status === 200) {
+                        let chapterData = JSON.parse(chapterRes.body);
+                        
+                        if (chapterData.code === 200 && chapterData.results) {
+                            let encrypted = chapterData.results.trim();
+                            
+                            if (encrypted.length > 16) {
+                                let ivStr = encrypted.substring(0, 16);
+                                let cipherStr = encrypted.substring(16);
+                                
+                                let keyBytes = Convert.encodeUtf8(ccz);
+                                let ivBytes = Convert.encodeUtf8(ivStr);
+                                
+                                let cipherBytes;
+                                if (/^[0-9a-fA-F]+$/.test(cipherStr) && cipherStr.length % 2 === 0) {
+                                    let hexBytes = new Uint8Array(cipherStr.length / 2);
+                                    for (let i = 0; i < cipherStr.length; i += 2) {
+                                        hexBytes[i / 2] = parseInt(cipherStr.substring(i, i + 2), 16);
+                                    }
+                                    cipherBytes = hexBytes.buffer;
+                                } else {
+                                    cipherBytes = Convert.decodeBase64(cipherStr);
+                                }
+                                
+                                let plainBytes = Convert.decryptAesCbc(cipherBytes, keyBytes, ivBytes);
+                                let plainText = Convert.decodeUtf8(plainBytes);
+                                let parsed = JSON.parse(plainText);
+                                
+                                let groups = parsed.groups;
+                                if (groups) {
+                                    let groupKeys = Object.keys(groups);
+                                    for (let gKey of groupKeys) {
+                                        let group = groups[gKey];
+                                        if (group.chapters) {
+                                            for (let chapter of group.chapters) {
+                                                let chapterId = chapter.id || chapter.uuid;
+                                                let chapterTitle = chapter.name || '';
+                                                if (chapterId && chapterTitle) {
+                                                    chapters.set(chapterId, chapterTitle);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('Chapter decryption failed: ' + e);
+                }
+            }
+
+            if (chapters.size === 0) {
+                let chapterLinks = doc.querySelectorAll('a[href*="/chapter/"]');
+                
+                let seenChapters = new Set();
+                for (let i = chapterLinks.length - 1; i >= 0; i--) {
+                    let link = chapterLinks[i];
+                    let href = link.attributes['href'] || '';
+                    let chapterTitle = link.text ? link.text.trim() : '';
+                    
+                    if (href && chapterTitle && !seenChapters.has(href)) {
+                        seenChapters.add(href);
+                        let parts = href.split('/');
+                        let chapterId = '';
+                        for (let j = parts.length - 1; j >= 0; j--) {
+                            if (parts[j] && parts[j] !== 'chapter') {
+                                chapterId = parts[j];
+                                break;
+                            }
+                        }
+                        if (chapterId) {
+                            chapters.set(chapterId, chapterTitle);
+                        }
+                    }
+                }
+            }
+
+            let comicId = '';
+            let collectBtn = doc.querySelector('.comicParticulars-botton.collect');
+            if (collectBtn && collectBtn.attributes) {
+                let onclick = collectBtn.attributes['onclick'] || '';
+                let match = onclick.match(/collect\s*\(\s*['"]([^'"]+)['"]/);
+                if (match) {
+                    comicId = match[1];
+                }
+            }
+
+            let isFavorite = false;
+            if (collectBtn) {
+                let btnText = collectBtn.text || '';
+                isFavorite = btnText.includes('已收藏');
+            }
 
             return {
                 title: title,
@@ -743,94 +1065,135 @@ class CopyManga extends ComicSource {
                     "状态": [status],
                 },
                 chapters: chapters,
-                isFavorite: results[1],
-                subId: comicData.uuid
+                isFavorite: isFavorite,
+                subId: comicId
             }
         },
         loadEp: async (comicId, epId) => {
-            let attempt = 0;
-            const maxAttempts = 5;
-            let res;
-            let data;
+            let res = await Network.get(
+                `${this.apiUrl}/comic/${comicId}/chapter/${epId}`,
+                this.webHeaders
+            );
 
-            while (attempt < maxAttempts) {
+            if (res.status !== 200) {
+                throw `Invalid status code: ${res.status}`;
+            }
+
+            let html = res.body;
+            let doc = new HtmlDocument(html);
+
+            let images = [];
+            
+            let contentKey = '';
+            let contentKeyPatterns = [
+                /(?:var|let|const)\s+contentKey\s*=\s*['"]([^'"]+)['"]/,
+                /window\.contentKey\s*=\s*['"]([^'"]+)['"]/,
+                /contentKey\s*=\s*['"]([^'"]+)['"]/
+            ];
+            for (let pattern of contentKeyPatterns) {
+                let match = html.match(pattern);
+                if (match && match[1]) {
+                    contentKey = match[1];
+                    break;
+                }
+            }
+            
+            let cct = '';
+            let cctPatterns = [
+                /(?:var|let|const)\s+cct\s*=\s*['"]([^'"]+)['"]/,
+                /window\.cct\s*=\s*['"]([^'"]+)['"]/,
+                /cct\s*=\s*['"]([^'"]+)['"]/
+            ];
+            for (let pattern of cctPatterns) {
+                let match = html.match(pattern);
+                if (match && match[1]) {
+                    cct = match[1];
+                    break;
+                }
+            }
+            
+            if (contentKey && cct && contentKey.length > 16) {
                 try {
-                    let reqId = await this.getReqID();
-                    res = await Network.get(
-                        `${this.apiUrl}/api/v3/comic/${comicId}/chapter2/${epId}?in_mainland=true&request_id=${reqId}`,
-                        {
-                            ...this.headers
+                    let ivStr = contentKey.substring(0, 16);
+                    let cipherStr = contentKey.substring(16);
+                    
+                    let keyBytes = Convert.encodeUtf8(cct);
+                    let ivBytes = Convert.encodeUtf8(ivStr);
+                    
+                    let cipherBytes;
+                    if (/^[0-9a-fA-F]+$/.test(cipherStr) && cipherStr.length % 2 === 0) {
+                        let hexBytes = new Uint8Array(cipherStr.length / 2);
+                        for (let i = 0; i < cipherStr.length; i += 2) {
+                            hexBytes[i / 2] = parseInt(cipherStr.substring(i, i + 2), 16);
                         }
-                    );
-
-                    if (res.status === 210) {
-                        // 210 indicates too frequent access, extract wait time
-                        let waitTime = 40000; // Default wait time 40s
-                        try {
-                            let responseBody = JSON.parse(res.body);
-                            if (
-                                responseBody.message &&
-                                responseBody.message.includes("Expected available in")
-                            ) {
-                                let match = responseBody.message.match(/(\d+)\s*seconds/);
-                                if (match && match[1]) {
-                                    waitTime = parseInt(match[1]) * 1000;
-                                }
+                        cipherBytes = hexBytes.buffer;
+                    } else {
+                        cipherBytes = Convert.decodeBase64(cipherStr);
+                    }
+                    
+                    let plainBytes = Convert.decryptAesCbc(cipherBytes, keyBytes, ivBytes);
+                    let plainText = Convert.decodeUtf8(plainBytes);
+                    let parsed = JSON.parse(plainText);
+                    
+                    if (Array.isArray(parsed)) {
+                        for (let item of parsed) {
+                            let url = '';
+                            if (typeof item === 'string') {
+                                url = item;
+                            } else if (item && item.url) {
+                                url = item.url;
                             }
-                        } catch (e) {
-                            console.log(
-                                "Unable to parse wait time, using default wait time 40s"
-                            );
+                            if (url) {
+                                if (url.startsWith('//')) {
+                                    url = 'https:' + url;
+                                }
+                                url = url.replace(/([./])c\d+x\.[a-zA-Z]+$/, `$1c${this.imageQuality}x.webp`);
+                                images.push(url);
+                            }
                         }
-                        console.log(`Chapter${epId} access too frequent, waiting ${waitTime / 1000}s`);
-                        await new Promise((resolve) => setTimeout(resolve, waitTime));
-                        throw "Retry";
                     }
+                } catch (e) {
+                    console.log('Image decryption failed: ' + e);
+                }
+            }
 
-                    if (res.status !== 200) {
-                        throw `Invalid status code: ${res.status}`;
+            if (images.length === 0) {
+                let imgEls = doc.querySelectorAll('.comicContent-list img');
+                for (let i = 0; i < imgEls.length; i++) {
+                    let img = imgEls[i];
+                    let src = '';
+                    if (img.attributes) {
+                        src = img.attributes['src'] || img.attributes['data-src'] || img.attributes['data-original'] || '';
                     }
-
-                    data = JSON.parse(res.body);
-                    // console.log(data.results.chapter);
-                    // Handle image link sorting
-                    let imagesUrls = data.results.chapter.contents.map((e) => e.url);
-                    let orders = data.results.chapter.words;
-
-                    // Replace origin images urls to selected quality images urls
-                    let hdImagesUrls = imagesUrls.map((url) =>
-                        url.replace(/([./])c\d+x\.[a-zA-Z]+$/, `$1c${this.imageQuality}x.webp`)
-                    )
-
-                    let images = new Array(hdImagesUrls.length).fill(""); // Initialize an array with the same length as imagesUrls
-
-                    // Arrange images according to orders
-                    for (let i = 0; i < hdImagesUrls.length; i++) {
-                        images[orders[i]] = hdImagesUrls[i];
-                    }
-
-                    return {
-                        images: images,
-                    };
-                } catch (error) {
-                    if (error !== "Retry") {
-                        throw error;
-                    }
-                    attempt++;
-                    if (attempt >= maxAttempts) {
-                        throw error;
+                    if (src) {
+                        if (src.startsWith('//')) {
+                            src = 'https:' + src;
+                        }
+                        src = src.replace(/([./])c\d+x\.[a-zA-Z]+$/, `$1c${this.imageQuality}x.webp`);
+                        images.push(src);
                     }
                 }
             }
+
+            if (images.length === 0) {
+                throw 'No images found in chapter';
+            }
+
+            return {
+                images: images,
+            };
         },
         loadComments: async (comicId, subId, page, replyTo) => {
-            let url = `${this.apiUrl}/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page - 1) * 20}`;
+            let url = `https://api.mangacopy.com/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page - 1) * 20}`;
             if (replyTo) {
                 url = url + `&reply_id=${replyTo}&_update=true`;
             }
             let res = await Network.get(
                 url,
-                this.headers,
+                {
+                    ...this.webHeaders,
+                    'Accept': 'application/json',
+                }
             );
 
             if (res.status !== 200) {
@@ -847,7 +1210,7 @@ class CopyManga extends ComicSource {
             return {
                 comments: data.results.list.map(e => {
                     return {
-                        userName: replyTo ? `${e.user_name}  👉  ${e.parent_user_name}` : e.user_name, // 拷贝的回复页并没有楼中楼（所有回复都在一个response中），但会显示谁回复了谁。所以加上👉显示。
+                        userName: replyTo ? `${e.user_name}  👉  ${e.parent_user_name}` : e.user_name,
                         avatar: e.user_avatar,
                         content: e.comment,
                         time: e.create_at,
@@ -867,10 +1230,12 @@ class CopyManga extends ComicSource {
                 replyTo = '';
             }
             let res = await Network.post(
-                `${this.apiUrl}/api/v3/member/comment`,
+                `https://api.mangacopy.com/api/v3/member/comment`,
                 {
-                    ...this.headers,
+                    ...this.webHeaders,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+                    "Accept": "application/json",
+                    "Authorization": `Token ${token}`,
                 },
                 `comic_id=${subId}&comment=${encodeURIComponent(content)}&reply_id=${replyTo}`,
             );
@@ -887,10 +1252,13 @@ class CopyManga extends ComicSource {
             }
         },
         loadChapterComments: async (comicId, epId, page, replyTo) => {
-            let url = `${this.apiUrl}/api/v3/roasts?chapter_id=${epId}&limit=20&offset=${(page - 1) * 20}`;
+            let url = `https://api.mangacopy.com/api/v3/roasts?chapter_id=${epId}&limit=20&offset=${(page - 1) * 20}&_update=true`;
             let res = await Network.get(
                 url,
-                this.headers,
+                {
+                    ...this.webHeaders,
+                    'Accept': 'application/json',
+                }
             );
 
             if (res.status !== 200) {
@@ -1035,22 +1403,50 @@ class CopyManga extends ComicSource {
             default: 'baseAPI'
         },
         base_url: {
-            title: "API地址",
-            type: "input",
-            validator: '^(?!:\\/\\/)(?=.{1,253})([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$',
+            title: "节点选择",
+            type: "select",
+            options: [
+                {
+                    value: 'www.2027copy.com',
+                    text: '2027copy.com'
+                },
+                {
+                    value: 'www.2026copy.com',
+                    text: '2026copy.com'
+                },
+                {
+                    value: 'www.2025copy.com',
+                    text: '2025copy.com'
+                },
+                {
+                    value: 'www.copy20.com',
+                    text: 'copy20.com'
+                },
+                {
+                    value: 'www.mangacopy.com',
+                    text: 'mangacopy.com'
+                },
+                {
+                    value: 'www.copymanga.tv',
+                    text: 'copymanga.tv'
+                },
+                {
+                    value: 'www.copy-manga.com',
+                    text: 'copy-manga.com'
+                },
+                {
+                    value: 'www.copy2000.site',
+                    text: 'copy2000.site'
+                },
+                {
+                    value: 'www.copy2000.online',
+                    text: 'copy2000.online'
+                },
+            ],
             default: CopyManga.defaultApiUrl,
         },
-        clear_device_info: {
-            title: "清除设备信息",
-            type: "callback",
-            buttonText: "点击清除设备信息",
-            callback: () => {
-                this.deleteData("_deviceinfo");
-                this.deleteData("_device");
-                this.deleteData("_pseudoid");
-                this.refreshAppApi();
-            }
-        },
+
+        
         // version: {
         //     title: "拷贝版本（重启APP生效）",
         //     type: "input",
@@ -1101,5 +1497,82 @@ class CopyManga extends ComicSource {
             let data = await res.json();
             this.settings.base_url = data.results.api[0][0];
         }
+    }
+
+    async runSpeedTest() {
+        const hosts = [
+            'www.2027copy.com',
+            'www.2026copy.com',
+            'www.2025copy.com',
+            'www.copy20.com',
+            'www.mangacopy.com',
+            'www.copymanga.tv',
+            'www.copy-manga.com',
+            'www.copy2000.site',
+            'www.copy2000.online',
+        ];
+        
+        const results = {};
+        
+        for (const host of hosts) {
+            const startTime = Date.now();
+            try {
+                const res = await Network.get(`https://${host}/`, {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                });
+                const endTime = Date.now();
+                const latency = endTime - startTime;
+                
+                if (res.status === 200) {
+                    const body = res.body.toLowerCase();
+                    const isValid = body.includes('content-box') || body.includes('swiperlist') || body.includes('comicrank');
+                    results[host] = {
+                        success: isValid,
+                        latency: latency,
+                        status: res.status
+                    };
+                } else {
+                    results[host] = {
+                        success: false,
+                        latency: latency,
+                        status: res.status
+                    };
+                }
+            } catch (e) {
+                results[host] = {
+                    success: false,
+                    latency: 999999,
+                    status: 0
+                };
+            }
+        }
+        
+        this.saveData("_speed_test_results", JSON.stringify(results));
+        this.saveData("_speed_test_time", new Date().toISOString());
+        
+        let bestHost = null;
+        let bestLatency = 999999;
+        for (const [host, result] of Object.entries(results)) {
+            if (result.success && result.latency < bestLatency) {
+                bestLatency = result.latency;
+                bestHost = host;
+            }
+        }
+        
+        if (bestHost) {
+            this.saveData("_best_host", bestHost);
+        }
+    }
+
+    getSpeedTestResults() {
+        const results = this.loadData("_speed_test_results");
+        const time = this.loadData("_speed_test_time");
+        if (results) {
+            return {
+                results: JSON.parse(results),
+                time: time
+            };
+        }
+        return null;
     }
 }
