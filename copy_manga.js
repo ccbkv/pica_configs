@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "2.1.5"
+    version = "2.1.3"
 
     minAppVersion = "1.6.0"
 
@@ -1556,7 +1556,8 @@ class CopyManga extends ComicSource {
                 }
             }
 
-            let chapters = new Map();
+            let chapters = {};
+            let hasGroups = false;
             
             let ccz = '';
             let cczPatterns = [
@@ -1622,14 +1623,18 @@ class CopyManga extends ComicSource {
                                     let groupKeys = Object.keys(groups);
                                     for (let gKey of groupKeys) {
                                         let group = groups[gKey];
-                                        if (group.chapters) {
+                                        let groupName = group.name || gKey;
+                                        if (group.chapters && group.chapters.length > 0) {
+                                            hasGroups = true;
+                                            let groupChapters = {};
                                             for (let chapter of group.chapters) {
                                                 let chapterId = chapter.id || chapter.uuid;
                                                 let chapterTitle = chapter.name || '';
                                                 if (chapterId && chapterTitle) {
-                                                    chapters.set(chapterId, chapterTitle);
+                                                    groupChapters[chapterId] = chapterTitle;
                                                 }
                                             }
+                                            chapters[groupName] = groupChapters;
                                         }
                                     }
                                 }
@@ -1641,7 +1646,8 @@ class CopyManga extends ComicSource {
                 }
             }
 
-            if (chapters.size === 0) {
+            if (!hasGroups) {
+                chapters = {};
                 let chapterLinks = doc.querySelectorAll('a[href*="/chapter/"]');
                 
                 let seenChapters = new Set();
@@ -1661,7 +1667,7 @@ class CopyManga extends ComicSource {
                             }
                         }
                         if (chapterId) {
-                            chapters.set(chapterId, chapterTitle);
+                            chapters[chapterId] = chapterTitle;
                         }
                     }
                 }
