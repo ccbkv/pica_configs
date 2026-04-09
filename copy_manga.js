@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "2.5.0"
+    version = "2.9.0"
 
     minAppVersion = "1.6.0"
 
@@ -180,29 +180,67 @@ class CopyManga extends ComicSource {
         this.refreshAppApi()
     }
 
+    // 手动实现 base64 编码
+    _encodeBase64(str) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+        let result = ''
+        let i = 0
+        while (i < str.length) {
+            const a = str.charCodeAt(i++)
+            const b = i < str.length ? str.charCodeAt(i++) : 0
+            const c = i < str.length ? str.charCodeAt(i++) : 0
+            const bitmap = (a << 16) | (b << 8) | c
+            result += chars.charAt((bitmap >> 18) & 63)
+            result += chars.charAt((bitmap >> 12) & 63)
+            result += (i > str.length + 1) ? '=' : chars.charAt((bitmap >> 6) & 63)
+            result += (i > str.length) ? '=' : chars.charAt(bitmap & 63)
+        }
+        return result
+    }
+
     /// account
     /// set this to null to desable account feature
     account = {
         /// login func
         login: async (account, pwd) => {
-            let salt = randomInt(1000, 9999)
-            let base64 = Convert.encodeBase64(Convert.encodeUtf8(`${pwd}-${salt}`))
-            let res = await Network.post(
-                `${this.apiUrl}/api/v3/login`,
-                {
-                    ...this.headers,
-                    "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
-                },
-                `username=${account}&password=${base64}\n&salt=${salt}&authorization=Token+`
-            );
-            if (res.status === 200) {
-                let data = JSON.parse(res.body)
-                let token = data.results.token
-                this.saveData('token', token)
-                return "ok"
-            } else {
-                throw `Invalid Status Code ${res.status}`
+            // 使用 web 登录端点，避免 app 签名验证
+            let salt = 100000 + randomInt(0, 900000)
+            // 使用自定义 base64 编码
+            let base64 = this._encodeBase64(`${pwd}-${salt}`)
+            
+            // 尝试多个登录端点
+            const loginPaths = ['/api/kb/web/login', '/api/v1/login']
+            let lastError = null
+            
+            for (let path of loginPaths) {
+                try {
+                    let res = await Network.post(
+                        `${this.apiUrl}${path}`,
+                        {
+                            "Accept": "application/json, text/plain, */*",
+                            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                            "platform": "2",
+                        },
+                        `username=${encodeURIComponent(account)}&password=${encodeURIComponent(base64)}&salt=${salt}&platform=2&version=2025.12.10&source=freeSite`
+                    );
+                    
+                    if (res.status === 200) {
+                        let data = JSON.parse(res.body)
+                        if (data.code === 200) {
+                            let token = data.results.token
+                            this.saveData('token', token)
+                            return "ok"
+                        } else {
+                            throw data.message || '登录失败'
+                        }
+                    }
+                } catch (e) {
+                    lastError = e
+                }
             }
+            
+            throw lastError || '登录失败'
         },
         // callback when user log out
         logout: () => {
