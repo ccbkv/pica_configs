@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "2.9.0"
+    version = "3.0.0"
 
     minAppVersion = "1.6.0"
 
@@ -17,7 +17,7 @@ class CopyManga extends ComicSource {
         const reqIdUrl = "https://marketing.aiacgn.com/api/v2/adopr/query3/?format=json&ident=200100001";
         let reqId = "";
         try {
-            const response = await Network.get(reqIdUrl, this.headers);
+            const response = await Network.get(reqIdUrl, this.webHeaders);
 
             if (response.status === 200) {
                 const data = JSON.parse(response.body);
@@ -26,47 +26,6 @@ class CopyManga extends ComicSource {
         } catch (e) {
         }
         return reqId;
-    }
-
-    get headers() {
-        let token = this.loadData("token");
-        let secret = "M2FmMDg1OTAzMTEwMzJlZmUwNjYwNTUwYTA1NjNhNTM="
-
-        let now = new Date(Date.now());
-        let year = now.getFullYear();
-        let month = (now.getMonth() + 1).toString().padStart(2, '0');
-        let day = now.getDate().toString().padStart(2, '0');
-        let ts = Math.floor(now.getTime() / 1000).toString()
-
-        if (!token) {
-            token = "";
-        } else {
-            token = " " + token;
-        }
-
-        let sig = Convert.hmacString(
-            Convert.decodeBase64(secret),
-            Convert.encodeUtf8(ts),
-            "sha256"
-        )
-
-        return {
-            "User-Agent": `COPY/3.0.6`,
-            "source": "copyApp",
-            "deviceinfo": this.deviceinfo,
-            "dt": `${year}.${month}.${day}`,
-            "platform": "3",
-            "referer": `com.copymanga.app-3.0.6`,
-            "version": "3.0.6",
-            "device": this.device,
-            "pseudoid": this.pseudoid,
-            "Accept": "application/json",
-            "region": this.copyRegion,
-            "authorization": `Token${token}`,
-            "umstring": "b4c89ca4104ea9a97750314d791520ac",
-            "x-auth-timestamp": ts,
-            "x-auth-signature": sig,
-        }
     }
 
     // static defaultCopyVersion = "3.0.6"
@@ -81,41 +40,6 @@ class CopyManga extends ComicSource {
 
     static searchApi = "/api/kb/web/searchb/comics"
 
-    get deviceinfo() {
-        let info = this.loadData("_deviceinfo");
-        if (!info) {
-            info = CopyManga.generateDeviceInfo();
-            this.saveData("_deviceinfo", info);
-        }
-        return info;
-    }
-
-    get device() {
-        let dev = this.loadData("_device");
-        if (!dev) {
-            dev = CopyManga.generateDevice();
-            this.saveData("_device", dev);
-        }
-        return dev;
-    }
-
-    get pseudoid() {
-        let pid = this.loadData("_pseudoid");
-        if (!pid) {
-            pid = CopyManga.generatePseudoid();
-            this.saveData("_pseudoid", pid);
-        }
-        return pid;
-    }
-
-    // get copyVersion() {
-    //     return this.loadSetting('version')
-    // }
-
-    // get copyPlatform()
-    // return this.loadSetting('platform')
-    // }
-
     get webHeaders() {
         return {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -124,41 +48,27 @@ class CopyManga extends ComicSource {
         }
     }
 
-    static generateDeviceInfo() {
-        return `${randomInt(1000000, 9999999)}V-${randomInt(1000, 9999)}`;
-    }
-
-    static generateDevice() {
-        function randCharA() {
-            return String.fromCharCode(65 + randomInt(0, 25));
+    get webApiHeaders() {
+        let token = this.loadData("token") || ""
+        let cookieParts = []
+        if (token) {
+            cookieParts.push(`token=${token}`)
         }
-        function randDigit() {
-            return String.fromCharCode(48 + randomInt(0, 9));
+        try {
+            let cookies = Network.getCookies(this.apiUrl)
+            for (let c of cookies) {
+                if (c.name !== 'token' && c.value) {
+                    cookieParts.push(`${c.name}=${c.value}`)
+                }
+            }
+        } catch (e) {}
+        return {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+            "platform": "2",
+            "Authorization": token ? `Token ${token}` : "",
+            "Cookie": cookieParts.join('; '),
         }
-        return (
-            randCharA() +
-            randCharA() +
-            randDigit() +
-            randCharA() + "." +
-            randDigit() +
-            randDigit() +
-            randDigit() +
-            randDigit() +
-            randDigit() +
-            randDigit() + "." +
-            randDigit() +
-            randDigit() +
-            randDigit()
-        );
-    }
-
-    static generatePseudoid() {
-        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        let pseudoid = '';
-        for (let i = 0; i < 16; i++) {
-            pseudoid += chars.charAt(randomInt(0, chars.length - 1));
-        }
-        return pseudoid;
     }
 
     get apiUrl() {
@@ -180,7 +90,6 @@ class CopyManga extends ComicSource {
         this.refreshAppApi()
     }
 
-    // 手动实现 base64 编码
     _encodeBase64(str) {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
         let result = ''
@@ -201,35 +110,65 @@ class CopyManga extends ComicSource {
     /// account
     /// set this to null to desable account feature
     account = {
-        /// login func
         login: async (account, pwd) => {
-            // 使用 web 登录端点，避免 app 签名验证
+            Network.deleteCookies(this.apiUrl)
+
+            let csrfToken = ""
+            try {
+                let pageRes = await Network.get(`${this.apiUrl}/web/login`, this.webHeaders)
+                if (pageRes.status === 200) {
+                    let cookies = Network.getCookies(this.apiUrl)
+                    for (let cookie of cookies) {
+                        if (cookie.name === 'csrftoken') {
+                            csrfToken = cookie.value
+                            break
+                        }
+                    }
+                }
+            } catch (e) {}
+
             let salt = 100000 + randomInt(0, 900000)
-            // 使用自定义 base64 编码
             let base64 = this._encodeBase64(`${pwd}-${salt}`)
-            
-            // 尝试多个登录端点
+
             const loginPaths = ['/api/kb/web/login', '/api/v1/login']
             let lastError = null
-            
+
             for (let path of loginPaths) {
                 try {
+                    let headers = {
+                        "Accept": "application/json, text/plain, */*",
+                        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "platform": "2",
+                        "Referer": `${this.apiUrl}/web/login`,
+                    }
+
+                    if (csrfToken) {
+                        headers["X-CSRFToken"] = csrfToken
+                    }
+
                     let res = await Network.post(
                         `${this.apiUrl}${path}`,
-                        {
-                            "Accept": "application/json, text/plain, */*",
-                            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                            "platform": "2",
-                        },
+                        headers,
                         `username=${encodeURIComponent(account)}&password=${encodeURIComponent(base64)}&salt=${salt}&platform=2&version=2025.12.10&source=freeSite`
                     );
-                    
+
                     if (res.status === 200) {
                         let data = JSON.parse(res.body)
                         if (data.code === 200) {
                             let token = data.results.token
                             this.saveData('token', token)
+
+                            let domain = this.apiUrl.replace('https://', '').replace('http://', '').split('/')[0]
+                            let cookiesToSet = [new Cookie({name: 'token', value: token, domain: domain})]
+                            if (data.results.username) {
+                                cookiesToSet.push(new Cookie({name: 'name', value: data.results.username, domain: domain}))
+                            }
+                            if (data.results.user_id) {
+                                cookiesToSet.push(new Cookie({name: 'user_id', value: data.results.user_id, domain: domain}))
+                            }
+                            Network.setCookies(this.apiUrl, cookiesToSet)
+
                             return "ok"
                         } else {
                             throw data.message || '登录失败'
@@ -239,12 +178,12 @@ class CopyManga extends ComicSource {
                     lastError = e
                 }
             }
-            
+
             throw lastError || '登录失败'
         },
-        // callback when user log out
         logout: () => {
             this.deleteData('token')
+            Network.deleteCookies(this.apiUrl)
         },
         registerWebsite: null
     }
@@ -1385,7 +1324,7 @@ class CopyManga extends ComicSource {
                 : `${this.apiUrl}/api/v3/search/comic`
             let res = await Network.get(
                 `${search_url}?limit=30&offset=${(page - 1) * 30}&q=${keyword}&q_type=${q_type}`,
-                this.headers
+                this.webApiHeaders
             )
             if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`
@@ -1444,10 +1383,9 @@ class CopyManga extends ComicSource {
         addOrDelFavorite: async (comicId, folderId, isAdding) => {
             let is_collect = isAdding ? 1 : 0
             let token = this.loadData("token");
-            let reqId = await this.getReqID();
             let comicData = await Network.get(
-                `${this.apiUrl}/api/v3/comic2/${comicId}?in_mainland=true&request_id=${reqId}&platform=3`,
-                this.headers
+                `${this.apiUrl}/api/v3/comic2/${comicId}?in_mainland=true&platform=2`,
+                this.webApiHeaders
             )
             if (comicData.status !== 200) {
                 throw `Invalid status code: ${comicData.status}`
@@ -1456,10 +1394,10 @@ class CopyManga extends ComicSource {
             let res = await Network.post(
                 `${this.apiUrl}/api/v3/member/collect/comic`,
                 {
-                    ...this.headers,
+                    ...this.webApiHeaders,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
                 },
-                `comic_id=${comic_id}&is_collect=${is_collect}&authorization=Token+${token}`
+                `comic_id=${comic_id}&is_collect=${is_collect}`
             )
             if (res.status === 401) {
                 throw `Login expired`;
@@ -1473,7 +1411,7 @@ class CopyManga extends ComicSource {
             let ordering = this.loadSetting('favorites_ordering') || '-datetime_updated';
             var res = await Network.get(
                 `${this.apiUrl}/api/v3/member/collect/comics?limit=30&offset=${(page - 1) * 30}&free_type=1&ordering=${ordering}`,
-                this.headers
+                this.webApiHeaders
             )
 
             if (res.status === 401) {
@@ -1964,7 +1902,7 @@ class CopyManga extends ComicSource {
             let res = await Network.post(
                 `${this.apiUrl}/api/v3/member/roast`,
                 {
-                    ...this.headers,
+                    ...this.webApiHeaders,
                     "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
                 },
                 `chapter_id=${epId}&roast=${encodeURIComponent(content)}`,
@@ -2144,8 +2082,8 @@ class CopyManga extends ComicSource {
     }
 
     async refreshAppApi() {
-        const url = "https://api.copy-manga.com/api/v3/system/network2?platform=3"
-        const res = await fetch(url, { headers: this.headers });
+        const url = "https://api.copy-manga.com/api/v3/system/network2?platform=2"
+        const res = await fetch(url, { headers: this.webApiHeaders });
         if (res.status === 200) {
             let data = await res.json();
             this.settings.base_url = data.results.api[0][0];
