@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "3.0.0"
+    version = "3.1.0"
 
     minAppVersion = "1.6.0"
 
