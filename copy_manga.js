@@ -84,8 +84,8 @@ class CopyManga extends ComicSource {
     }
 
     init() {
-        // 用于储存 { 作者名 : 英文参数 }
         this.author_path_word_dict = {}
+        this.account.loginWithWebview.url = `${this.apiUrl}/web/login`
         this.refreshSearchApi()
         this.refreshAppApi()
     }
@@ -180,6 +180,28 @@ class CopyManga extends ComicSource {
             }
 
             throw lastError || '登录失败'
+        },
+        loginWithWebview: {
+            url: "https://www.2026copy.com/web/login",
+            checkStatus: (url, title) => {
+                let cookies = Network.getCookies(this.apiUrl)
+                for (let cookie of cookies) {
+                    if (cookie.name === 'token' && cookie.value) {
+                        this.saveData('token', cookie.value)
+                        return true
+                    }
+                }
+                return false
+            },
+            onLoginSuccess: () => {
+                let cookies = Network.getCookies(this.apiUrl)
+                for (let cookie of cookies) {
+                    if (cookie.name === 'token' && cookie.value) {
+                        this.saveData('token', cookie.value)
+                        break
+                    }
+                }
+            },
         },
         logout: () => {
             this.deleteData('token')
