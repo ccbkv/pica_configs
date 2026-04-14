@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "3.1.0"
+    version = "3.3.0"
 
     minAppVersion = "1.6.0"
 
@@ -36,7 +36,7 @@ class CopyManga extends ComicSource {
 
     static defaultImageQuality = "1500"
 
-    static defaultApiUrl = 'api.copy2000.online'
+    static defaultApiUrl = 'www.2026copy.com'
 
     static searchApi = "/api/kb/web/searchb/comics"
 
