@@ -8,7 +8,7 @@ class Goda extends ComicSource {
   // unique id of the source
   key = "goda"
 
-  version = "1.0.0"
+  version = "1.1.0"
 
   minAppVersion = "1.4.0"
 
@@ -29,7 +29,7 @@ class Goda extends ComicSource {
     image: {
       title: "图片域名",
       type: "input",
-      default: "t40-1-4.g-mh.online"
+      default: "f40-1-4.g-mh.online"
     }
   }
 
@@ -38,7 +38,7 @@ class Goda extends ComicSource {
   }
 
   get apiUrl() {
-    return `https://${this.loadSetting("api")}/api`;
+    return `https://${this.loadSetting("api")}/api/v2`;
   }
 
   get imageUrl() {
@@ -61,6 +61,76 @@ class Goda extends ComicSource {
         title: item.querySelector("h3").text,
         cover: item.querySelector("img").attributes["src"]
       }))
+    }
+    return result;
+  }
+
+  decodeImages(input) {
+    const STD = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const CUSTOM = '_-9876543210abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const PREFIX = 'J7r';
+    const MARKER1 = 'kD';
+    const MARKER2 = 'W4s';
+    const SUFFIX = 'nQ';
+    const GROUP = 7;
+    const text = String(input || '');
+    if (!text.startsWith(PREFIX) || !text.endsWith(SUFFIX)) return text;
+    const body = text.substring(PREFIX.length, text.length - SUFFIX.length);
+    const payloadLen = body.length - MARKER1.length - MARKER2.length;
+    if (payloadLen <= 0) return '[]';
+    const aLen = Math.floor(payloadLen / 3);
+    const bLen = Math.floor((payloadLen - aLen) / 2);
+    const cLen = payloadLen - aLen - bLen;
+    const part1 = body.substring(0, bLen);
+    const marker1 = body.substring(bLen, bLen + MARKER1.length);
+    const part2 = body.substring(bLen + MARKER1.length, bLen + MARKER1.length + cLen);
+    const marker2 = body.substring(bLen + MARKER1.length + cLen, bLen + MARKER1.length + cLen + MARKER2.length);
+    const part3 = body.substring(bLen + MARKER1.length + cLen + MARKER2.length);
+    if (marker1 !== MARKER1 || marker2 !== MARKER2 || part3.length !== aLen) return '[]';
+    const reordered = part3 + part1 + part2;
+    let unzigzag = '';
+    for (let i = 0, block = 0; i < reordered.length; i += GROUP, block++) {
+      const chunk = reordered.substring(i, i + GROUP);
+      unzigzag += block % 2 === 1 ? chunk.split('').reverse().join('') : chunk;
+    }
+    let standard = '';
+    for (let j = 0; j < unzigzag.length; j++) {
+      const idx = CUSTOM.indexOf(unzigzag[j]);
+      if (idx < 0) return '[]';
+      standard += STD[idx];
+    }
+    const b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let padded = standard.replace(/-/g, '+').replace(/_/g, '/');
+    while (padded.length % 4 !== 0) padded += '=';
+    const bytes = [];
+    for (let k = 0; k < padded.length; k += 4) {
+      const c1 = b64chars.indexOf(padded[k]);
+      const c2 = b64chars.indexOf(padded[k + 1]);
+      const c3 = padded[k + 2] === '=' ? -1 : b64chars.indexOf(padded[k + 2]);
+      const c4 = padded[k + 3] === '=' ? -1 : b64chars.indexOf(padded[k + 3]);
+      bytes.push((c1 << 2) | (c2 >> 4));
+      if (c3 >= 0) bytes.push(((c2 & 15) << 4) | (c3 >> 2));
+      if (c4 >= 0) bytes.push(((c3 & 3) << 6) | c4);
+    }
+    let result = '';
+    let m = 0;
+    while (m < bytes.length) {
+      const b1 = bytes[m];
+      if (b1 < 0x80) {
+        result += String.fromCharCode(b1);
+        m += 1;
+      } else if (b1 < 0xE0) {
+        result += String.fromCharCode(((b1 & 0x1F) << 6) | (bytes[m + 1] & 0x3F));
+        m += 2;
+      } else if (b1 < 0xF0) {
+        result += String.fromCharCode(((b1 & 0x0F) << 12) | ((bytes[m + 1] & 0x3F) << 6) | (bytes[m + 2] & 0x3F));
+        m += 3;
+      } else {
+        const cp = ((b1 & 0x07) << 18) | ((bytes[m + 1] & 0x3F) << 12) | ((bytes[m + 2] & 0x3F) << 6) | (bytes[m + 3] & 0x3F);
+        const u = cp - 0x10000;
+        result += String.fromCharCode(0xD800 + (u >> 10), 0xDC00 + (u & 0x3FF));
+        m += 4;
+      }
     }
     return result;
   }
@@ -319,11 +389,15 @@ class Goda extends ComicSource {
         throw `Invalid status code: ${res.status}`;
       }
       const jsonData = JSON.parse(res.body);
-      const images = [];
-      for (let i of jsonData["data"]["info"]["images"]["images"]) {
-        images.push(this.imageUrl + i["url"]);
+      const rawImages = jsonData["data"]["info"]["images"]["images"];
+      const images = Array.isArray(rawImages) ? rawImages : JSON.parse(this.decodeImages(rawImages));
+      const result = [];
+      for (let i of images) {
+        if (i["url"]) {
+          result.push(this.imageUrl + i["url"]);
+        }
       }
-      return { images };
+      return { images: result };
     },
 
     // enable tags translate
