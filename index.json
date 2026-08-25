@@ -96,6 +96,12 @@
         "version": "1.0.0"
     },
     {
+        "name": "花咔漫画",
+        "fileName": "huaka",
+        "key": "huaka",
+        "version": "1.0.0"
+    },
+    {
         "name": "H-Comic",
         "fileName": "hcomic.js",
         "key": "hcomic",
