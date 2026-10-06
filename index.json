@@ -1,5 +1,41 @@
 [
     {
+        "name": "picacg",
+        "fileName": "picacg.js",
+        "key": "picacg",
+        "version": "1.0.0"
+    },
+    {
+        "name": "ehentai",
+        "fileName": "ehentai.js",
+        "key": "ehentai",
+        "version": "1.2.0"
+    },
+    {
+        "name": "禁漫天堂",
+        "fileName": "jm.js",
+        "key": "jm",
+        "version": "1.4.0"
+    },
+    {
+        "name": "hitomi",
+        "fileName": "hitomi.js",
+        "key": "hitomi",
+        "version": "1.0.0"
+    },
+    {
+        "name": "绅士漫画",
+        "fileName": "wnacg.js",
+        "key": "htmanga",
+        "version": "1.0.0"
+    },
+    {
+        "name": "nhentai",
+        "fileName": "nhentai.js",
+        "key": "nhentai",
+        "version": "1.1.2"
+    },
+    {
         "name": "拷贝漫画",
         "fileName": "copy_manga.js",
         "key": "copy_manga",
@@ -106,12 +142,6 @@
         "fileName": "hcomic.js",
         "key": "hcomic",
         "version": "1.0.0"
-    },
-    {
-        "name": "hitomi",
-        "fileName": "hitomi.js",
-        "key": "hitomi_js",
-        "version": "1.1.7"
     },
     {
         "name": "jcomic.net",

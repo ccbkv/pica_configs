@@ -1,408 +1,694 @@
-class HitomiJs extends ComicSource{
-  name="hitomi.la";
-  key="hitomi_js";
-  version="1.1.8";
-  minAppVersion="0.0.0";
-  url="https://raw.githubusercontent.com/ccbkv/pica_configs/master/hitomi.js";
-  galleryCache=[];
-  categoryResultCache=undefined;
-  searchResultCaches=new Map();
-  _mapGalleryBlockInfoToComic(n){
-    // 正确格式化标签以支持翻译
-    const thumbnailHash = n.thumbnail_hashs && n.thumbnail_hashs.length > 0 ? n.thumbnail_hashs[0] : "";
-    const coverUrl = get_thumbnail_url_from_hash(thumbnailHash,true) || "";
-    return {id:n.gid||"",title:n.title||"",subTitle:n.artists && n.artists.length ? n.artists.join(" "):"",cover:coverUrl,tags:[...(n.series||[]).map(m=>"parody:"+m),...(n.females||[]).map(m=>"female:"+m),...(n.males||[]).map(m=>"male:"+m),...(n.others||[]).map(m=>"tag:"+m)],language:n.language||"",description:n.type?n.type+"\n"+formatDate(n.posted_time):formatDate(n.posted_time)};
-  }
-  init(){}
-  explore=[{title:"hitomi.la",type:"multiPageComicList",load:async(page)=>{if(!page) page=1;const result=await getSingleTagSearchPage({state:{area:"all",tag:"index",language:"all",orderby:"date",orderbykey:"added",orderbydirection:"desc"},page:page-1});const comics=(await get_galleryblocks(result.galleryids)).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(result.count/25)};},loadNext(next){}}];
-  category={title:"hitomi_js",parts:[{name:"语言",type:"fixed",categories:["汉语","英语"],itemType:"category",categoryParams:["language:chinese","language:english"]},{name:"类别",type:"fixed",categories:["同人志","漫画","画师CG","游戏CG","图集","动画"],itemType:"category",categoryParams:["type:doujinshi","type:manga","type:artistcg","type:gamecg","type:imageset","type:anime"]}],enableRankingPage:true};
-  categoryComics={load:async(category,param,options,page)=>{const term=param;if(!term.includes(":")) throw new Error("不合法的标签，请使用namespace:tag的格式"); if(page===1){const option=parseInt(options[0]);const searchOptions={term,orderby:"date",orderbykey:"added",orderbydirection:"desc"};switch(option){case 1:searchOptions.orderbykey="published";break;case 2:searchOptions.orderby="popular";searchOptions.orderbykey="today";break;case 3:searchOptions.orderby="popular";searchOptions.orderbykey="week";break;case 4:searchOptions.orderby="popular";searchOptions.orderbykey="month";break;case 5:searchOptions.orderby="popular";searchOptions.orderbykey="year";break;case 6:searchOptions.orderbydirection="random";break;default:break;} const result=await search(searchOptions);if(result.type==="single"){const comics=(await get_galleryblocks(result.gids)).map(n=>this._mapGalleryBlockInfoToComic(n));this.categoryResultCache={type:"single",state:result.state,count:result.count};return {comics,maxPage:Math.ceil(result.count/25)};} else {const comics=(await get_galleryblocks(result.gids.slice(25*page-25,25*page))).map(n=>this._mapGalleryBlockInfoToComic(n));this.categoryResultCache={type:"all",gids:result.gids,count:result.count};return {comics,maxPage:Math.ceil(result.count/25)};}} else {if(this.categoryResultCache.type==="single"){const result=await getSingleTagSearchPage({state:this.categoryResultCache.state,page:page-1});const comics=(await get_galleryblocks(result.galleryids)).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(this.categoryResultCache.count/25)};} else {const comics=(await get_galleryblocks(this.categoryResultCache.gids.slice(25*page-25,25*page))).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(this.categoryResultCache.count/25)};}}},optionList:[{options:["0-添加日期","1-发布日期","2-热门|今天","3-热门|一周","4-热门|本月","5-热门|一年","随机"],notShowWhen:null,showWhen:null}],ranking:{options:["today-今天","week-一周","month-本月","year-一年"],load:async(option,page)=>{if(!page) page=1;const result=await getSingleTagSearchPage({state:{area:"all",tag:"index",language:"all",orderby:"popular",orderbykey:option,orderbydirection:"desc"},page:page-1});const comics=(await get_galleryblocks(result.galleryids)).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(result.count/25)};}}};
-  search={load:async(keyword,options,page)=>{const cacheKey=(keyword||"")+"|"+options.join(",");if(page===1){const option=parseInt(options[0]);const term=keyword;const searchOptions={term,orderby:"date",orderbykey:"added",orderbydirection:"desc"};switch(option){case 1:searchOptions.orderbykey="published";break;case 2:searchOptions.orderby="popular";searchOptions.orderbykey="today";break;case 3:searchOptions.orderby="popular";searchOptions.orderbykey="week";break;case 4:searchOptions.orderby="popular";searchOptions.orderbykey="month";break;case 5:searchOptions.orderby="popular";searchOptions.orderbykey="year";break;case 6:searchOptions.orderbydirection="random";break;default:break;} const result=await search(searchOptions);if(result.type==="single"){const comics=(await get_galleryblocks(result.gids)).map(n=>this._mapGalleryBlockInfoToComic(n));this.searchResultCaches.set(cacheKey,{type:"single",state:result.state,count:result.count});return {comics,maxPage:Math.ceil(result.count/25)};} else {const comics=(await get_galleryblocks(result.gids.slice(25*page-25,25*page))).map(n=>this._mapGalleryBlockInfoToComic(n));this.searchResultCaches.set(cacheKey,{type:"all",gids:result.gids,count:result.count});return {comics,maxPage:Math.ceil(result.count/25)};}} else {const searchResultCache=this.searchResultCaches.get(cacheKey);if(searchResultCache.type==="single"){const result=await getSingleTagSearchPage({state:searchResultCache.state,page:page-1});const comics=(await get_galleryblocks(result.galleryids)).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(searchResultCache.count/25)};} else {const comics=(await get_galleryblocks(searchResultCache.gids.slice(25*page-25,25*page))).map(n=>this._mapGalleryBlockInfoToComic(n));return {comics,maxPage:Math.ceil(searchResultCache.count/25)};}}},loadNext:async(keyword,options,next)=>{},optionList:[{type:"select",options:["0-添加日期","1-发布日期","2-热门|今天","3-热门|一周","4-热门|本月","5-热门|一年","随机"],label:"sort",default:null}],enableTagsSuggestions:true,onTagSuggestionSelected:(namespace,tag)=>{let fixedNamespace=undefined;switch(namespace){case "reclass":fixedNamespace="reclass";break;case "parody":fixedNamespace="parody";break;case "other":fixedNamespace="tag";break;case "mixed":fixedNamespace="tag";break;case "temp":fixedNamespace="tag";break;case "cosplayer":fixedNamespace="tag";break;default:fixedNamespace=namespace;break;} return fixedNamespace+":"+tag.replaceAll(" ","_");}};
-  enableTagsTranslate=true;
-  comic={loadInfo:async(id)=>{if(!id||id==="0"||id===0){throw new Error("Invalid comic ID: "+id);}const data=await get_gallery_detail(id);const tagsObj={};if("type" in data&&data.type) tagsObj["reclass"]=[data.type];if(data.groups.length) tagsObj["group"]=data.groups;if(data.artists.length) tagsObj["artist"]=data.artists;if("language" in data&&data.language) tagsObj["language"]= [data.language];if(data.series.length) tagsObj["parody"]=data.series;if(data.characters.length) tagsObj["character"]=data.characters;if(data.females.length) tagsObj["female"]=data.females;if(data.males.length) tagsObj["male"]=data.males;if(data.others.length) tagsObj["tag"]=data.others;let recommend=undefined;if(data.related_gids.length){recommend=(await get_galleryblocks(data.related_gids)).map(n=>this._mapGalleryBlockInfoToComic(n));}
-    this.galleryCache=data;
-    return {title:data.title||"",cover:data.thumbnail_hash?get_thumbnail_url_from_hash(data.thumbnail_hash,true):"",tags:tagsObj,chapters:{"1":"1"},maxPage:data.files?data.files.length:0,thumbnails:data.files?data.files.map(n=>n.hash?get_thumbnail_url_from_hash(n.hash):"").filter(url=>url):[],uploadTime:formatDate(data.posted_time),url:data.url||"",recommend};},loadEp:async(comicId,epId)=>{if(!comicId||comicId==="0"||comicId===0){throw new Error("Invalid comic ID: "+comicId);}const data=this.galleryCache;if(data.type==="anime") throw new Error("不支持视频浏览");const images=await get_image_srcs(data.files, data.gid);return {images};},onImageLoad:(url,comicId,epId)=>{const id=(comicId||"").match(/\d+/)?.[0];const ref=id?`https://hitomi.la/reader/${id}.html`:refererUrl;return {url,headers:{referer:ref,"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}};},onThumbnailLoad:(url)=>{return {url,headers:{referer:refererUrl,"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}};},onClickTag:(namespace,tag)=>{let fixedNamespace=undefined;switch(namespace){case "type":fixedNamespace="type";break;case "groups":fixedNamespace="group";break;case "artists":fixedNamespace="artist";break;case "language":fixedNamespace="language";break;case "series":fixedNamespace="parody";break;case "parody":fixedNamespace="parody";break;case "characters":fixedNamespace="character";break;case "females":fixedNamespace="female";break;case "males":fixedNamespace="male";break;case "others":fixedNamespace="tag";break;default:break;} if(!fixedNamespace){throw new Error("不支持的标签命名空间: "+namespace);} const keyword=fixedNamespace+":"+tag.replaceAll(" ","_");return {page:"search",attributes:{keyword}};},link:{domains:["hitomi.la"],linkToId:(url)=>{const reg=/https:\/\/hitomi\.la\/\w+\/[^\/]+-(\d+)\.html/;const r=reg.exec(url);if(r){return r[1];} else {throw new Error("Invalid gallery url of hitomi.la");}}}};
-}
+/** @type {import('./_venera_.js')} */
 
-const domain2 = "gold-usergeneratedcontent.net";
-const domain = "ltn." + domain2;
-const nozomiextension = ".nozomi";
-const extension = ".html";
-const galleriesdir = "galleries";
-const index_dir = "tagindex";
-const galleries_index_dir = "galleriesindex";
-const languages_index_dir = "languagesindex";
-const nozomiurl_index_dir = "nozomiurlindex";
-const max_node_size = 464;
-const B = 16;
-const compressed_nozomi_prefix = "n";
-const tag_index_domain = `tagindex.hitomi.la`;
-const namespaces = ["artist","character","female","group","language","male","series","tag","type"];
-const refererUrl = "https://hitomi.la/";
-let galleries_index_version = "";
-let gg = undefined;
 
-function intersectAll(arrays){
-  if(!arrays.length) return [];
-  if(arrays.length===1) return arrays[0];
-  return arrays.reduce((acc,curr)=>{const set=new Set(curr);return acc.filter(x=>set.has(x));});
-}
+class HitomiComicSource extends ComicSource {
+    name = "hitomi"
+    key = "hitomi"
+    version = "1.0.0"
+    minAppVersion = "4.9.0"
+    url="https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/hitomi.js"
 
-function subtract(arrA,arrB){
-  const setB=new Set(arrB);
-  return arrA.filter(x=>!setB.has(x));
-}
-
-function unionAll(arrays){
-  return Array.from(new Set(arrays.flat()));
-}
-
-function shuffleArray(arr){
-  const array=arr.slice();
-  for(let i=array.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [array[i],array[j]]=[array[j],array[i]];
-  }
-  return array;
-}
-
-function toISO8601(s){
-  return s.replace(" ","T").replace(/([+-]\d{2})$/,"$1:00");
-}
-
-function formatDate(date){
-  if(typeof date==="string"){date=toISO8601(date);date=new Date(date);} 
-  function pad(n){return n<10?"0"+n:n;}
-  const year=date.getFullYear();
-  const month=pad(date.getMonth()+1);
-  const day=pad(date.getDate());
-  const hour=pad(date.getHours());
-  const minute=pad(date.getMinutes());
-  return `${year}-${month}-${day} ${hour}:${minute}`;
-}
-
-function encodeUtf8(str){
-  const s=unescape(encodeURIComponent(str));
-  const buf=new ArrayBuffer(s.length);
-  const arr=new Uint8Array(buf);
-  for(let i=0;i<s.length;i++){arr[i]=s.charCodeAt(i);} 
-  return buf;
-}
-
-const hash_term=function(term){
-  return new Uint8Array(Convert.sha256(encodeUtf8(term))).slice(0,4);
-};
-
-function getUint64(view,byteOffset,littleEndian=false){
-  const left=view.getUint32(byteOffset,littleEndian);
-  const right=view.getUint32(byteOffset+4,littleEndian);
-  const combined=littleEndian?left+2**32*right:2**32*left+right;
-  return combined;
-}
-
-function decode_node(data){
-  let node={keys:[],datas:[],subnode_addresses:[]};
-  let view=new DataView(data.buffer);let pos=0;
-  const number_of_keys=view.getInt32(pos,false);pos+=4;
-  let keys=[];
-  for(let i=0;i<number_of_keys;i++){
-    const key_size=view.getInt32(pos,false);
-    if(!key_size||key_size>32){throw new Error("fatal: !key_size || key_size > 32");}
-    pos+=4;keys.push(data.slice(pos,pos+key_size));pos+=key_size;
-  }
-  const number_of_datas=view.getInt32(pos,false);pos+=4;
-  let datas=[];
-  for(let i=0;i<number_of_datas;i++){
-    const offset=getUint64(view,pos,false);pos+=8;
-    const length=view.getInt32(pos,false);pos+=4;
-    datas.push([offset,length]);
-  }
-  const number_of_subnode_addresses=B+1;let subnode_addresses=[];
-  for(let i=0;i<number_of_subnode_addresses;i++){
-    let subnode_address=getUint64(view,pos,false);pos+=8;subnode_addresses.push(subnode_address);
-  }
-  node.keys=keys;node.datas=datas;node.subnode_addresses=subnode_addresses;return node;
-}
-
-async function get_url_at_range(url,range){
-  const headers={referer:refererUrl};
-  if(range) headers.range=`bytes=${range[0]}-${range[1]}`;
-  const res=await Network.fetchBytes("GET",url,headers);
-  if(res.status!==200&&res.status!==206){throw new Error("get_url_at_range: "+res.status);} 
-  return new Uint8Array(res.body);
-}
-
-async function get_node_at_address(field,address){
-  if(!galleries_index_version) throw new Error("galleries_index_version is not set");
-  const url="https://"+domain+"/"+"galleriesindex/galleries."+galleries_index_version+".index";
-  const data=await get_url_at_range(url,[address,address+max_node_size-1]);
-  return decode_node(data);
-}
-
-async function get_galleryids_from_data(data){
-  let url="https://"+domain+"/"+galleries_index_dir+"/galleries."+galleries_index_version+".data";
-  let [offset,length]=data;
-  if(length>100000000||length<=0){throw new Error("length "+length+" is too long");}
-  const inbuf=await get_url_at_range(url,[offset,offset+length-1]);
-  let galleryids=[];let pos=0;let view=new DataView(inbuf.buffer);
-  let number_of_galleryids=view.getInt32(pos,false);pos+=4;
-  let expected_length=number_of_galleryids*4+4;
-  if(number_of_galleryids>10000000||number_of_galleryids<=0){throw new Error("number_of_galleryids "+number_of_galleryids+" is too long");}
-  else if(inbuf.byteLength!==expected_length){throw new Error("inbuf.byteLength "+inbuf.byteLength+" !== expected_length "+expected_length);} 
-  for(let i=0;i<number_of_galleryids;++i){galleryids.push(view.getInt32(pos,false));pos+=4;}
-  return galleryids;
-}
-
-async function B_search(field,key,node){
-  const compare_arraybuffers=function(dv1,dv2){const top=Math.min(dv1.length,dv2.length);for(let i=0;i<top;i++){if(dv1[i]<dv2[i]){return -1;} else if(dv1[i]>dv2[i]){return 1;}} return 0;};
-  const locate_key=function(key,node){let cmp_result=-1;let i;for(i=0;i<node.keys.length;i++){cmp_result=compare_arraybuffers(key,node.keys[i]);if(cmp_result<=0){break;}} return [!cmp_result,i];};
-  const is_leaf=function(node){for(let i=0;i<node.subnode_addresses.length;i++){if(node.subnode_addresses[i]){return false;}} return true;};
-  if(!node||!node.keys.length){return;} 
-  let [there,where]=locate_key(key,node);
-  if(there){return node.datas[where];} else if(is_leaf(node)){return;} 
-  if(node.subnode_addresses[where]==0){return;} 
-  const subnode=await get_node_at_address(field,node.subnode_addresses[where]);
-  return await B_search(field,key,subnode);
-}
-
-async function get_galleryids_for_query_without_namespace(query){
-  query=query.replace(/_/g," ");
-  const key=hash_term(query);
-  const field="galleries";
-  const node=await get_node_at_address(field,0);
-  const data=await B_search(field,key,node);
-  if(!data){return [];} else {return await get_galleryids_from_data(data);} 
-}
-
-function nozomi_address_from_state(state,with_prefix){
-  if(state.orderby!=="date"||state.orderbykey==="published"){
-    if(state.area==="all") return("https://"+domain+"/"+(with_prefix?compressed_nozomi_prefix+"/":"")+[state.orderby,[state.orderbykey,state.language].join("-")].join("/")+nozomiextension);
-    return("https://"+domain+"/"+(with_prefix?compressed_nozomi_prefix+"/":"")+[state.area,state.orderby,state.orderbykey,[encodeURI(state.tag),state.language].join("-")].join("/")+nozomiextension);
-  }
-  if(state.area==="all") return("https://"+domain+"/"+(with_prefix?compressed_nozomi_prefix+"/":"")+[[encodeURI(state.tag),state.language].join("-")].join("/")+nozomiextension);
-  return("https://"+domain+"/"+(with_prefix?compressed_nozomi_prefix+"/":"")+[state.area,[encodeURI(state.tag),state.language].join("-")].join("/")+nozomiextension);
-}
-
-async function get_galleryids_from_state(state){
-  const url=nozomi_address_from_state(state,true);
-  const data=await get_url_at_range(url);
-  var nozomi=[];var view=new DataView(data.buffer);var total=view.byteLength/4;for(var i=0;i<total;i++){nozomi.push(view.getInt32(i*4,false));} 
-  return nozomi;
-}
-
-async function get_galleryids_and_count({range,state}){
-  const headers={referer:refererUrl};
-  if(range) headers.range=range;
-  const resp=await Network.fetchBytes("GET",nozomi_address_from_state(state,false),headers);
-  if(resp.status!==200&&resp.status!==206){throw `failed fetch: ${resp.status}`;} 
-  let itemCount=0;
-  const cr=resp.headers["content-range"]||resp.headers["Content-Range"];
-  const temp=parseInt(cr?.replace(/^[Bb]ytes \d+-\d+\//,""));
-  if(!isNaN(temp)&&temp>0){itemCount=temp/4;} 
-  const arrayBuffer=resp.body;const nozomi=[];
-  if(arrayBuffer){const view=new DataView(arrayBuffer);const total=view.byteLength/4;for(let i=0;i<total;i++){nozomi.push(view.getInt32(i*4,false));}}
-  return {galleryids:nozomi,count:itemCount};
-}
-
-async function get_single_galleryblock(gid){
-  if(!gid||gid==="0"||gid===0){throw new Error("Invalid gallery block ID: "+gid);}
-  const url="https://"+domain+"/"+`galleryblock/${gid}.html`;
-  const res=await Network.get(url,{referer:refererUrl});
-  try{
-    return parseGalleryBlockInfo(res.body);
-  }catch(e){
-    // 有时页面结构或中间层会导致缺少预期的 h1.lillie > a，降级返回最小数据以避免整页失败
-    const doc=new HtmlDocument(res.body);
-    const titleEl=doc.querySelector("h1")||doc.querySelector(".lillie")||doc.querySelector("title");
-    const title=titleEl && titleEl.text ? titleEl.text.trim() : "";
-    const thumbnail_hashs=[];
-    try{
-      const srcs=Array.from(doc.querySelectorAll("img")).map(a=>a.attributes && a.attributes["data-src"] ? a.attributes["data-src"].trim() : "").filter(src=>src);
-      srcs.forEach(src=>{const r=/\/(\w{64})\./.exec(src);if(r){thumbnail_hashs.push(r[1]);}});
-    }catch(_){/* ignore */}
-    return {gid:String(gid),title:title||"",type:"",language:"",artists:[],series:[],females:[],males:[],others:[],thumbnail_hashs:thumbnail_hashs,posted_time:new Date()};
-  }
-}
-
-async function get_galleryblocks(gids){
-  if(gids.length>25) throw new Error("Be careful: too many blocks");
-  return await Promise.all(gids.map(n=>get_single_galleryblock(n)));
-}
-
-async function get_index_version(name="galleriesindex"){
-  const url="https://"+domain+"/"+name+"/version?_="+new Date().getTime();
-  const resp=await Network.get(url,{referer:refererUrl});
-  if(resp.status===200){return resp.body;} else {throw new Error(resp.status);} 
-}
-
-async function update_galleries_index_version(){
-  galleries_index_version=await get_index_version();
-}
-
-async function get_image_srcs(files, galleryId){
-  const referer = galleryId ? `https://hitomi.la/reader/${galleryId}.html` : refererUrl;
-  const resp=await Network.get("https://"+domain+"/"+"gg.js?_="+new Date().getTime(),{referer});
-  if(resp.status>=400){throw new Error(resp.status);} 
-  const js = resp.body;
-  const caseMatches = Array.from(js.matchAll(/(?<=case )\d+/g)).map(m=>m[0]);
-  const initialMatch = /(?<=var o = )[0-9]+/.exec(js);
-  const bMatch = /(?<=b: ')\d+/.exec(js);
-  const initialG = initialMatch ? parseInt(initialMatch[0]) : 1;
-  const bVal = bMatch ? bMatch[0] : "1763208001";
-  const mm = (g)=> caseMatches.includes(String(g)) ? ((~initialG)&1) : initialG;
-  const GG_s = (h)=>{const m=/(..)(.)$/.exec(h);return m?parseInt(m[2]+m[1],16):0;};
-  const full_path_from_hash=(hash)=>{return bVal+"/"+GG_s(hash)+"/"+hash;};
-  const subdomain_from_url=(url,base)=>{
-    let retval = base ?? 'b';
-    const m = /\/[0-9a-f]{61}([0-9a-f]{2})([0-9a-f])/.exec(url);
-    if(!m) return 'a';
-    const g = parseInt(m[2]+m[1],16);
-    const char = String.fromCharCode(97 + mm(g));
-    if(retval === 'tn') return char + retval;
-    if(retval === 'w') return char === 'a' ? 'w1' : 'w2';
-    return char;
-  };
-  const url_from_hash=(image)=>{
-    const ext = "webp";
-    const path = full_path_from_hash(image.hash)+`.${ext}`;
-    const raw = `https://${domain2}/${path}`;
-    const sub = subdomain_from_url(raw,'w');
-    return `https://${sub}.${domain2}/${path}`;
-  };
-  return files.map((image)=>url_from_hash(image));
-}
-
-function get_thumbnail_url_from_hash(hash,bigTn){
-  if(!hash || typeof hash !== 'string'){
-    return "";
-  }
-  return("https://atn."+domain2+"/"+`${bigTn?"webpbigtn":"webpsmalltn"}/${hash.slice(-1)}/${hash.slice(-3,-1)}/${hash}.webp`);
-}
-
-async function get_gallery_detail(gid){
-  if(!gid||gid==="0"||gid===0){throw new Error("Invalid gallery ID: "+gid);}
-  const resp=await Network.get("https://"+domain+"/"+`galleries/${gid}.js`,{referer:refererUrl});
-  if(resp.status!==200){throw new Error(resp.status);} 
-  return parseGalleryDetail(resp.body);
-}
-
-function parseQuery(query){
-  const positive_terms=[];const negative_terms=[];let or_terms=[[]];const terms=query.toLowerCase().trim().split(/\s+/);
-  terms.forEach((term,i)=>{
-    if(term==="or") return;
-    let namespace=undefined;let value="";
-    if(term.split("").filter(n=>n===":").length>1){throw new Error("不合法的标签，请使用namespace:tag的格式");}
-    if(term.includes(":")){
-      const splits=term.split(":");const left=splits[0].replace(/^-/,"");
-      if(namespaces.includes(left)){namespace=left;} else {throw new Error("不合法的namespace");}
-      if(!splits[1]) throw new Error("不合法，标签为空");
-      value=splits[1].replace(/_/g," ");
-    } else {value=term.replace(/_/g," ");}
-    const or_previous=i>0&&terms[i-1]==="or";const or_next=i+1<terms.length&&terms[i+1]==="or";
-    if(or_previous||or_next){
-      if(term.match(/^-/)) throw new Error("不合法，或搜索中只能使用正向关键词");
-      or_terms[or_terms.length-1].push({namespace,value});
-      if(!or_next){or_terms.push([]);} 
-      return;
+    get baseDomain() {
+        return 'gold-usergeneratedcontent.net'
     }
-    if(term.match(/^-/)){negative_terms.push({namespace,value});} else {positive_terms.push({namespace,value});}
-  });
-  or_terms.filter(n=>n.length===1).forEach(n=>{positive_terms.push(n[0]);});
-  or_terms=or_terms.filter(n=>n.length>1);
-  if((or_terms.length>0||negative_terms.length>0)&&positive_terms.length===0){positive_terms.push({value:""});}
-  return {positive_terms,negative_terms,or_terms};
+
+    get ltn() {
+        return 'https://ltn.' + this.baseDomain
+    }
+
+    get headers() {
+        return {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+            'Referer': 'https://hitomi.la/',
+        }
+    }
+
+    async get(url, headers = {}) {
+        const res = await Network.get(url, { ...this.headers, ...headers })
+        if (res.status !== 200) {
+            const error = new Error('HTTP ' + res.status + ': ' + url)
+            error.status = res.status
+            throw error
+        }
+        return res.body
+    }
+
+    bytes(body) {
+        if (Array.isArray(body) || body instanceof ArrayBuffer) {
+            return new Uint8Array(body)
+        }
+        if (ArrayBuffer.isView(body)) {
+            return new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
+        }
+        throw new Error('Binary response required. Update the app HTTP byte bridge.')
+    }
+
+    header(headers, name) {
+        const key = Object.keys(headers || {}).find(k => k.toLowerCase() === name)
+        const value = key == null ? '' : headers[key]
+        return Array.isArray(value) ? value[0] : String(value)
+    }
+
+    // Ranges are byte offsets, not gallery offsets: 100 bytes = 25 IDs.
+    async getBytes(url, range = null, headers = {}) {
+        const res = await Network.fetchBytes('GET', url, {
+            ...this.headers,
+            ...headers,
+            ...(range ? { Range: 'bytes=' + range[0] + '-' + range[1] } : {}),
+        }, null)
+        const contentRange = this.header(res.headers, 'content-range')
+        if (res.status === 416 && range) {
+            const match = /^bytes \*\/(\d+)$/.exec(contentRange)
+            if (match && range[0] >= Number(match[1])) {
+                return { bytes: new Uint8Array(0), total: Number(match[1]) }
+            }
+        }
+        if (res.status !== 200 && res.status !== 206) {
+            throw new Error('HTTP ' + res.status + ': ' + url)
+        }
+        let bytes = this.bytes(res.body)
+        if (res.status === 206) {
+            const match = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(contentRange)
+            if (!match || Number(match[2]) - Number(match[1]) + 1 !== bytes.length ||
+                Number(match[2]) >= Number(match[3]) ||
+                (range && (Number(match[1]) !== range[0] ||
+                    Number(match[2]) !== Math.min(range[1], Number(match[3]) - 1)))) {
+                throw new Error('Invalid Content-Range: ' + contentRange)
+            }
+            return { bytes, total: Number(match[3]) }
+        }
+        const total = bytes.length
+        // Some servers ignore Range and return the entire file.
+        if (range) bytes = bytes.slice(range[0], range[1] + 1)
+        return { bytes, total }
+    }
+
+    decodeIds(bytes) {
+        if (bytes.length % 4 !== 0) throw new Error('Invalid nozomi length')
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+        const ids = []
+        for (let i = 0; i < bytes.length; i += 4) {
+            ids.push(view.getInt32(i, false))
+        }
+        return ids
+    }
+
+    async fetchComicData(url, page) {
+        const start = (page - 1) * 100
+        const data = await this.getBytes(url, [start, start + 99])
+        if (data.total % 4 !== 0) throw new Error('Invalid nozomi total length')
+        return {
+            comics: await this.comicsFromIds(this.decodeIds(data.bytes)),
+            maxPage: Math.max(1, Math.ceil(data.total / 100)),
+        }
+    }
+
+    async comicsFromIds(ids) {
+        const comics = []
+        for (let i = 0; i < ids.length; i += 5) {
+            const batch = await Promise.all(ids.slice(i, i + 5).map(async id => {
+                try {
+                    return await this.getComicInfoBrief(String(id))
+                } catch (e) {
+                    // An index can still contain a gallery whose card returns 404.
+                    if (e.status === 404) return null
+                    throw e
+                }
+            }))
+            comics.push(...batch.filter(comic => comic !== null))
+        }
+        return comics
+    }
+
+    async getComicInfoBrief(id) {
+        const html = await this.get(this.ltn + '/galleryblock/' + id + '.html')
+        const doc = new HtmlDocument(html)
+        try {
+            const title = doc.querySelector('h1.lillie > a')
+            if (!title) throw new Error('Missing gallery title: ' + id)
+            const href = title.attributes.href
+            const link = href.startsWith('https://') ? href : 'https://hitomi.la' + href
+            const artist = (doc.querySelector('div.artist-list a')?.text || 'N/A').trim()
+            let cover = ''
+            const source = doc.querySelector('div.dj-img1 > picture > source') ||
+                doc.querySelector('div.cg-img1 > picture > source')
+            const srcset = source?.attributes['data-srcset']
+            if (srcset) {
+                let path = srcset.replace(/^https?:/, '').substring(2)
+                path = path.substring(path.indexOf('/'))
+                cover = ('https://atn.' + this.baseDomain + path)
+                    .replace(/2x.*/, '').replace(/\s/g, '')
+                    .replace('avifbigtn', 'webpbigtn').replace('.avif', '.webp')
+            }
+            let type = '', language = ''
+            const tags = []
+            const table = doc.querySelector('div.dj-content > table.dj-desc > tbody')
+            if (!table) throw new Error('Missing gallery description: ' + id)
+            for (const row of table.children) {
+                const cells = row.children
+                const label = cells[0]?.text.trim()
+                if (label === 'Type') type = cells[1].text.trim()
+                if (label === 'Language') language = cells[1].text.trim()
+                if (label === 'Series') {
+                    for (const a of row.querySelectorAll('td.series-list > ul > li > a')) {
+                        if (a.text !== 'N/A') tags.push(a.text)
+                    }
+                }
+                if (label === 'Tags') {
+                    for (const a of row.querySelectorAll('td.relatedtags > ul > li > a')) {
+                        tags.push(a.text)
+                    }
+                }
+            }
+            const subtitle = ['', 'N/A', 'Unknown', '未知'].includes(artist) ? '' : artist
+            return new Comic({
+                id: link,
+                title: title.text,
+                subtitle,
+                subTitle: subtitle,
+                cover,
+                tags,
+                description: type + '    ' + language,
+                language,
+            })
+        } finally {
+            doc.dispose()
+        }
+    }
+
+    galleryId(target) {
+        const value = String(target)
+        if (/^\d+$/.test(value)) return value
+        const match = /(\d+)\.html(?:[?#].*)?$/.exec(value)
+        if (!match) throw new Error('Invalid gallery ID: ' + value)
+        return match[1]
+    }
+
+    async getGallery(target) {
+        const id = this.galleryId(target)
+        const body = await this.get(this.ltn + '/galleries/' + id + '.js')
+        return JSON.parse(body.slice(body.indexOf('{')).trim().replace(/;\s*$/, ''))
+    }
+
+    explore = [{
+        title: 'hitomi',
+        // App bridge reuses the original Dart bar, including order and language.
+        // type: index / popular/today / popular/week / popular/month / popular/year
+        // lang: -all / -chinese / -japanese / -english
+        type: 'hitomi',
+        load: async (page, type = 'index', lang = '-all') => {
+            return this.fetchComicData(this.ltn + '/' + type + lang + '.nozomi', page)
+        },
+    }]
+
+    category = {
+        title: 'hitomi',
+        parts: [
+            {
+                name: '语言',
+                type: 'fixed',
+                categories: ['汉语', '英语'],
+                itemType: 'category',
+                categoryParams: ['language:chinese', 'language:english'],
+            },
+            {
+                name: '类别',
+                type: 'fixed',
+                categories: ['同人志', '漫画', '画师CG', '游戏CG', '图集', '动画'],
+                itemType: 'category',
+                categoryParams: [
+                    'type:doujinshi', 'type:manga', 'type:artistcg',
+                    'type:gamecg', 'type:imageset', 'type:anime',
+                ],
+            },
+        ],
+        enableRankingPage: true,
+    }
+
+    _categoryRandom = new Map()
+
+    categoryComics = {
+        load: async (category, param, options, page) => {
+            const term = String(param || '').toLowerCase().trim()
+            const match = /^([a-z]+):([^:]+)$/.exec(term)
+            if (!match) throw new Error('不合法的标签，请使用namespace:tag的格式')
+            const namespace = match[1]
+            const value = match[2].replace(/_/g, ' ')
+            const area = namespace === 'language' ? 'all' :
+                (namespace === 'female' || namespace === 'male' ? 'tag' : namespace)
+            const tag = namespace === 'language' ? 'index' :
+                (area === 'tag' && namespace !== 'tag' ? namespace + ':' + value : value)
+            const language = namespace === 'language' ? value : 'all'
+            const option = parseInt(options?.[0] || '0')
+            const orderby = option >= 2 && option <= 5 ? 'popular' : 'date'
+            const orderbykey = ['', 'published', 'today', 'week', 'month', 'year'][option]
+            let path
+            if (orderby === 'popular' || option === 1) {
+                path = area === 'all'
+                    ? orderby + '/' + orderbykey + '-' + language
+                    : area + '/' + orderby + '/' + orderbykey + '/' + encodeURI(tag) + '-' + language
+            } else {
+                path = (area === 'all' ? '' : area + '/') + encodeURI(tag) + '-' + language
+            }
+            if (option !== 6) {
+                return this.fetchComicData(this.ltn + '/' + path + '.nozomi', page)
+            }
+
+            // Shuffle once per category visit so subsequent pages keep the same order.
+            const url = this.ltn + '/n/' + path + '.nozomi'
+            if (page === 1 || !this._categoryRandom.has(url)) {
+                const result = (async () => {
+                    const ids = this.decodeIds((await this.getBytes(url)).bytes)
+                    for (let i = ids.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1))
+                        ;[ids[i], ids[j]] = [ids[j], ids[i]]
+                    }
+                    return ids
+                })()
+                this._categoryRandom.delete(url)
+                this._categoryRandom.set(url, result)
+                if (this._categoryRandom.size > 8) {
+                    this._categoryRandom.delete(this._categoryRandom.keys().next().value)
+                }
+            }
+            const pending = this._categoryRandom.get(url)
+            let ids
+            try {
+                ids = await pending
+            } catch (e) {
+                if (this._categoryRandom.get(url) === pending) this._categoryRandom.delete(url)
+                throw e
+            }
+            return {
+                comics: await this.comicsFromIds(ids.slice((page - 1) * 25, page * 25)),
+                maxPage: Math.max(1, Math.ceil(ids.length / 25)),
+            }
+        },
+        optionList: [{
+            options: [
+                '0-上传日期', '1-发布日期', '2-热门 | 今天',
+                '3-热门 | 一周', '4-热门 | 一个月', '5-热门 | 一年', '6-随机',
+            ],
+            notShowWhen: null,
+            showWhen: null,
+        }],
+        ranking: {
+            options: ['today-今天', 'week-一周', 'month-一个月', 'year-一年'],
+            load: async (option, page) => this.fetchComicData(
+                this.ltn + '/popular/' + option + '-all.nozomi', page || 1),
+        },
+    }
+
+    _search = null
+
+    search = {
+        load: async (keyword, options, page) => {
+            const language = options?.[0] || 'all'
+            const query = (keyword || '').trim() +
+                (language === 'all' ? '' : ' language:' + language)
+            const key = this.baseDomain + '\n' + query
+            if (page === 1 || this._search?.key !== key) {
+                this._search = { key, result: new HitomiSearch(this, query).search() }
+            }
+            const search = this._search
+            let ids
+            try {
+                ids = await search.result
+            } catch (e) {
+                if (this._search === search) this._search = null
+                throw e
+            }
+            return {
+                comics: await this.comicsFromIds(ids.slice((page - 1) * 25, page * 25)),
+                maxPage: Math.max(1, Math.ceil(ids.length / 25)),
+            }
+        },
+        optionList: [{
+            type: 'select',
+            label: '语言',
+            options: ['all-All', 'chinese-中文', 'japanese-日本語', 'english-English'],
+            default: 'all',
+        }],
+        enableTagsSuggestions: false,
+    }
+
+    comic = {
+        loadInfo: async (target) => {
+            const id = this.galleryId(target)
+            const brief = await this.getComicInfoBrief(id)
+            const g = await this.getGallery(id)
+            const files = g.files || []
+            const artists = (g.artists || []).map(a => a.artist)
+            const groups = (g.groups || []).map(a => a.group)
+            const tags = {
+                Artists: artists.length ? artists : ['N/A'],
+                Groups: groups.length ? groups : ['N/A'],
+                Categories: [g.type || ''],
+                Time: [g.date || ''],
+                Languages: [g.language || ''],
+                Tags: (g.tags || []).map(t => t.tag +
+                    (t.female == '1' ? ' ♀' : '') + (t.male == '1' ? ' ♂' : '')),
+                Series: (g.parodys || []).map(p => p.parody),
+                Characters: (g.characters || []).map(c => c.character),
+            }
+            if (!tags.Series.length) tags.Series.push('N/A')
+            const gg = new GG(this)
+            await gg.getGg(id)
+            const details = new ComicDetails({
+                title: g.title,
+                subtitle: brief.subTitle,
+                cover: brief.cover,
+                tags,
+                chapters: null,
+                thumbnails: files.map(file => gg.urlFromHash(file, 'webpsmallsmalltn', 'webp')),
+                recommend: await this.comicsFromIds(g.related || []),
+                updateTime: g.date,
+                url: brief.id,
+                maxPage: files.length,
+            })
+            // PicaComic's parser reads subTitle; Venera's constructor uses subtitle.
+            details.subTitle = brief.subTitle
+            return details
+        },
+        loadEp: async (target, epId) => {
+            const id = this.galleryId(target)
+            const g = await this.getGallery(id)
+            const gg = new GG(this)
+            await gg.getGg(id)
+            return { images: (g.files || []).map(file => gg.urlFromHash(file, 'webp', null)) }
+        },
+        onImageLoad: (url, comicId, epId) => ({ headers: this.headers }),
+        onThumbnailLoad: (url) => ({ headers: this.headers }),
+        onClickTag: (namespace, tag) => {
+            if (tag === 'N/A' || namespace === 'Time') return null
+            let keyword
+            if (namespace === 'Tags') {
+                if (tag.endsWith(' ♀')) keyword = 'female:' + tag.slice(0, -2)
+                else if (tag.endsWith(' ♂')) keyword = 'male:' + tag.slice(0, -2)
+                else keyword = 'tag:' + tag
+            } else {
+                const ns = {
+                    Artists: 'artist', Groups: 'group', Categories: 'type',
+                    Languages: 'language', Series: 'series', Characters: 'character',
+                }[namespace]
+                if (!ns) return null
+                keyword = ns + ':' + tag
+            }
+            return { page: 'search', attributes: { keyword: keyword.replace(/ /g, '_') } }
+        },
+        idMatch: '^\\d+$',
+        enableTagsTranslate: true,
+        link: {
+            domains: ['hitomi.la'],
+            linkToId: (url) => {
+                const match = /(\d+)\.html(?:[?#].*)?$/.exec(url)
+                return match ? match[1] : null
+            },
+        },
+    }
+
 }
 
-async function getSingleTagSearchPage({state,page}){
-  return await get_galleryids_and_count({state,range:"bytes="+`${page*100}-${(page+1)*100-1}`});
+class HitomiSearch {
+    constructor(source, keyword) {
+        this.source = source
+        this.keyword = keyword
+        this.tagIndexVersion = null
+        this.nozomiExtension = '.nozomi'
+        this.indexDir = 'galleriesindex'
+        this.galleriesIndexDir = 'galleriesindex'
+        this.languagesIndexDir = 'languagesindex'
+        this.nozomiUrlIndexDir = 'nozomiurlindex'
+        this.rangeCache = new Map()
+    }
+
+    async search() {
+        await this.getTagIndexVersion()
+        const positive = [], negative = [], languages = []
+        for (let term of this.keyword.toLowerCase().trim().split(/\s+/).filter(Boolean)) {
+            term = term.replace(/_/g, ' ')
+            if (term.startsWith('-')) negative.push(term.slice(1))
+            else if (term.startsWith('language:')) languages.push(term)
+            else positive.push(term)
+        }
+        let results
+        if (languages.length === 1 && positive.length === 1 && positive[0].includes(':')) {
+            results = await this.getGalleryIdsForTermAndLanguage(
+                positive.shift(), languages.shift().slice('language:'.length))
+        } else {
+            const first = positive.shift() || languages.shift()
+            results = first ? await this.getGalleryIdsForQuery(first) :
+                await this.getGalleryIdsFromNozomi(null, 'index', 'all')
+        }
+        for (const term of [...positive, ...languages]) {
+            const ids = await this.getGalleryIdsForQuery(term)
+            const next = []
+            let p1 = 0, p2 = 0
+            while (p1 < ids.length && p2 < results.length) {
+                if (ids[p1] > results[p2]) p1++
+                else if (ids[p1] < results[p2]) p2++
+                else {
+                    next.push(results[p2])
+                    p1++
+                    p2++
+                }
+            }
+            results = next
+        }
+        for (const term of negative) {
+            const ids = await this.getGalleryIdsForQuery(term)
+            const next = []
+            let p1 = 0
+            // Preserve unmatched IDs and the tail; never read after advancing past the end.
+            for (const id of results) {
+                while (p1 < ids.length && ids[p1] > id) p1++
+                if (p1 === ids.length || ids[p1] !== id) next.push(id)
+            }
+            results = next
+        }
+        return results
+    }
+
+    async getTagIndexVersion() {
+        this.tagIndexVersion = String(await this.source.get(this.source.ltn +
+            '/galleriesindex/version?_=' + Math.floor(Date.now() / 1000))).trim()
+        if (!/^\d+$/.test(this.tagIndexVersion)) throw new Error('Invalid index version')
+    }
+
+    async getGalleryIdsFromNozomi(area, tag, language) {
+        const url = this.source.ltn + '/n/' +
+            (area == null ? '' : encodeURIComponent(area) + '/') +
+            encodeURIComponent(tag) + '-' + encodeURIComponent(language) + this.nozomiExtension
+        return this.source.decodeIds((await this.source.getBytes(url)).bytes)
+    }
+
+    async getGalleryIdsForQuery(query) {
+        query = query.replace(/_/g, ' ')
+        if (query.includes(':')) return this.getGalleryIdsForTermAndLanguage(query, 'all')
+        const key = this.hashTerm(query)
+        const node = await this.getNodeAtAddress('galleries', 0)
+        const data = await this.bSearch('galleries', key, node)
+        return data == null ? [] : this.getGalleryIdsFromData(data)
+    }
+
+    getGalleryIdsForTermAndLanguage(term, language) {
+        const colon = term.indexOf(':')
+        const ns = term.slice(0, colon)
+        let tag = term.slice(colon + 1)
+        let area = ns
+        if (ns === 'female' || ns === 'male') {
+            area = 'tag'
+            tag = term
+        } else if (ns === 'language') {
+            area = null
+            language = tag
+            tag = 'index'
+        }
+        return this.getGalleryIdsFromNozomi(area, tag, language)
+    }
+
+    hashTerm(term) {
+        return this.source.bytes(Convert.sha256(Convert.encodeUtf8(term))).slice(0, 4)
+    }
+
+    async getUrlAtRange(url, range) {
+        const key = url + ':' + range.join('-')
+        if (this.rangeCache.has(key)) return this.rangeCache.get(key)
+        const result = await this.source.getBytes(url, range, {
+            'Referer': 'https://hitomi.la/search.html',
+            'Origin': 'https://hitomi.la',
+        })
+        if (result.bytes.length !== range[1] - range[0] + 1) {
+            throw new Error('Truncated index data')
+        }
+        this.rangeCache.set(key, result.bytes)
+        return result.bytes
+    }
+
+    async getNodeAtAddress(field, address) {
+        const url = this.source.ltn + '/' + this.indexDir + '/' +
+            field + '.' + this.tagIndexVersion + '.index'
+        return this.decodeNodeData(await this.getUrlAtRange(url, [address, address + 463]))
+    }
+
+    decodeNodeData(bytes) {
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+        let pos = 0
+        const int32 = () => {
+            const value = view.getInt32(pos, false)
+            pos += 4
+            return value
+        }
+        const uint64 = () => {
+            const value = view.getUint32(pos, false) * 0x100000000 +
+                view.getUint32(pos + 4, false)
+            pos += 8
+            if (!Number.isSafeInteger(value)) throw new Error('Index offset exceeds JS precision')
+            return value
+        }
+        const numberOfKeys = int32()
+        if (numberOfKeys < 0 || numberOfKeys > 16) throw new Error('Invalid key count')
+        const keys = []
+        for (let i = 0; i < numberOfKeys; i++) {
+            const size = int32()
+            if (size <= 0 || size > 32 || pos + size > bytes.length) {
+                throw new Error('Invalid index key')
+            }
+            keys.push(bytes.slice(pos, pos + size))
+            pos += size
+        }
+        const numberOfDatas = int32()
+        if (numberOfDatas !== numberOfKeys) throw new Error('Invalid index data count')
+        const data = []
+        for (let i = 0; i < numberOfDatas; i++) data.push([uint64(), int32()])
+        const subNodeAddresses = []
+        // Keep all 17 child slots, including zeroes; their positions match the keys.
+        for (let i = 0; i < 17; i++) subNodeAddresses.push(uint64())
+        return { keys, data, subNodeAddresses }
+    }
+
+    async bSearch(field, key, node) {
+        const visited = new Set()
+        while (node && node.keys.length) {
+            let where = 0
+            for (; where < node.keys.length; where++) {
+                const other = node.keys[where]
+                let cmp = 0
+                for (let i = 0; i < Math.min(key.length, other.length); i++) {
+                    if (key[i] !== other[i]) {
+                        cmp = key[i] < other[i] ? -1 : 1
+                        break
+                    }
+                }
+                if (cmp === 0) cmp = key.length - other.length
+                if (cmp === 0) return node.data[where]
+                if (cmp < 0) break
+            }
+            const address = node.subNodeAddresses[where]
+            if (!address) return null
+            if (visited.has(address)) throw new Error('Cyclic index node')
+            visited.add(address)
+            node = await this.getNodeAtAddress(field, address)
+        }
+        return null
+    }
+
+    async getGalleryIdsFromData(data) {
+        const [offset, length] = data
+        if (length <= 0 || length > 100000000) throw new Error('Invalid index data length')
+        const url = this.source.ltn + '/' + this.galleriesIndexDir +
+            '/galleries.' + this.tagIndexVersion + '.data'
+        const bytes = await this.getUrlAtRange(url, [offset, offset + length - 1])
+        if (bytes.length < 4) throw new Error('Missing gallery count')
+        const count = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getInt32(0, false)
+        if (count < 0 || count > 10000000 || bytes.length !== count * 4 + 4) {
+            throw new Error('Invalid gallery data')
+        }
+        return this.source.decodeIds(bytes.subarray(4))
+    }
 }
 
-async function multiTagSearch(options){
-  const getPromise=(n)=>{
-    if(!n.value){const state={area:"all",tag:"index",language:"all",orderby:options.orderby,orderbykey:options.orderbykey,orderbydirection:options.orderbydirection};return get_galleryids_from_state(state);} 
-    else if(!n.namespace){return get_galleryids_for_query_without_namespace(n.value);} 
-    else if(n.namespace==="language"){const state={area:"all",tag:"index",language:n.value,orderby:options.orderby,orderbykey:options.orderbykey,orderbydirection:options.orderbydirection};return get_galleryids_from_state(state);} 
-    else {const state={area:n.namespace==="female"||n.namespace==="male"?"tag":n.namespace,tag:n.namespace==="female"?"female:"+n.value:n.namespace==="male"?"male:"+n.value:n.value,language:"all",orderby:options.orderby,orderbykey:options.orderbykey,orderbydirection:options.orderbydirection};return get_galleryids_from_state(state);} 
-  };
-  const parsed=parseQuery(options.term);
-  const promises=[...parsed.positive_terms.map(n=>getPromise(n)),...parsed.negative_terms.map(n=>getPromise(n)),...parsed.or_terms.flat().map(n=>getPromise(n))];
-  const result=await Promise.all(promises);
-  const lp=parsed.positive_terms.length;const ln=parsed.negative_terms.length;let r=intersectAll(result.slice(0,lp));
-  for(let i=lp;i<lp+ln;i++){r=subtract(r,result[i]);}
-  let i=lp+ln;for(const or_term of parsed.or_terms){const length=or_term.length;r=intersectAll([r,unionAll(result.slice(i,i+length))]);i+=length;}
-  return r;
-}
+class GG {
+    constructor(source) {
+        this.source = source
+        this.numbers = []
+        this.initialG = 1
+        this.b = null
+    }
 
-async function search(options){
-  const parsed=parseQuery(options.term);
-  if(!options.term.trim()&&options.orderbydirection==="desc"){
-    const state={area:"all",tag:"index",language:"all",orderby:options.orderby,orderbykey:options.orderbykey,orderbydirection:options.orderbydirection};
-    const {galleryids,count}=await getSingleTagSearchPage({state,page:0});
-    return {type:"single",gids:galleryids,count,state};
-  } else if(parsed.negative_terms.length===0&&parsed.or_terms.length===0&&parsed.positive_terms.length===1&&parsed.positive_terms[0].namespace&&options.orderbydirection==="desc"){
-    const state={area:"all",tag:"index",language:"all",orderby:options.orderby,orderbykey:options.orderbykey,orderbydirection:options.orderbydirection};
-    const n=parsed.positive_terms[0];
-    if(!n.namespace) throw new Error("");
-    if(n.namespace==="language"){state.language=n.value;} else {state.area=n.namespace==="female"||n.namespace==="male"?"tag":n.namespace;state.tag=n.namespace==="female"?"female:"+n.value:n.namespace==="male"?"male:"+n.value:n.value;}
-    const {galleryids,count}=await getSingleTagSearchPage({state,page:0});
-    return {type:"single",gids:galleryids,count,state};
-  } else {
-    await update_galleries_index_version();
-    const gids=await multiTagSearch(options);
-    const rgids=options.orderbydirection==="random"?shuffleArray(gids):options.orderbydirection==="asc"?gids.slice().reverse():gids;
-    return {type:"all",gids:rgids,count:rgids.length};
-  }
-}
+    static cache = null
 
-function parseGalleryBlockInfo(body){
-  const mangaEl=new HtmlDocument(body);
-  const titleLink=mangaEl.querySelector("h1.lillie > a");
-  if(!titleLink){
-    throw new Error("Invalid gallery block: no title link found");
-  }
-  const m = titleLink.attributes && titleLink.attributes["href"] ? /-(\d+)\.html$/.exec(titleLink.attributes["href"]) : null;
-  const gid = m ? m[1] : null;
-  if(!gid||gid==="0"){
-    throw new Error("Invalid gallery block: no valid ID found");
-  }
-  const title=titleLink.text || "";
-  const thumbnail_hashs=[];
-  const srcs=Array.from(mangaEl.querySelectorAll("img")).map(a=>a.attributes && a.attributes["data-src"] ? a.attributes["data-src"].trim() : "").filter(src=>src);
-  srcs.forEach(src=>{const r=/\/(\w{64})\./.exec(src);if(r){const hash=r[1];thumbnail_hashs.push(hash);}});
-  const artists=Array.from(mangaEl.querySelectorAll(".artist-list li a")).map(a=>a.text ? a.text.trim() : "").filter(text=>text);
-  let language=undefined;let series=[];let type=undefined;
-  const rows=mangaEl.querySelectorAll(".dj-desc tr");
-  rows.forEach(row=>{const key=row.children[0] && row.children[0].text ? row.children[0].text.trim().toLowerCase() : "";const valueCell=row.children[1];if(!valueCell)return;switch(key){case "series":{const text=valueCell.text ? valueCell.text.trim() : "";if(text!=="N/A"){const as=valueCell.querySelectorAll("a");as.forEach(a=>{if(a.text)series.push(a.text.trim());});} break;} case "type":{type=valueCell.text ? valueCell.text.trim() : "";break;} case "language":{const link=valueCell.querySelector("a");if(link && link.attributes && link.attributes["href"]){const href=link.attributes["href"];const r=/\/index-(\w+)\.html/.exec(href);if(r){language=r[1];}} break;}}});
-  const females=[];const males=[];const others=[];
-  // 使用正确的标签格式以支持翻译
-  Array.from(mangaEl.querySelectorAll(".relatedtags li a")).map(a=>{const text=a.text ? a.text.trim() : "";if(text.endsWith(" ♀")){females.push(text.slice(0,-2));} else if(text.endsWith(" ♂")){males.push(text.slice(0,-2));} else if(text){others.push(text);} });
-  const postedElement=mangaEl.querySelector(".date");
-  const postedRaw=postedElement && postedElement.text ? postedElement.text.trim() : "";
-  const posted_time=postedRaw ? new Date(toISO8601(postedRaw)) : new Date();
-  return {gid:gid,title:title||"",type:type||"",language:language||"",artists:artists||[],series:series||[],females:females||[],males:males||[],others:others||[],thumbnail_hashs:thumbnail_hashs||[],posted_time:posted_time||new Date()};
-}
+    mm(g) {
+        return this.numbers.includes(String(g)) ? (~this.initialG & 1) : this.initialG
+    }
 
-function parseGalleryDetail(text){
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  const json = start >= 0 && end > start ? text.slice(start, end + 1) : '{}';
-  let data;
-  try{
-    data=JSON.parse(json);
-  }catch(e){
-    throw new Error("Invalid gallery detail JSON: "+e.message);
-  }
-  if(!data.id||data.id==="0"||data.id===0){
-    throw new Error("Invalid gallery detail: missing or invalid ID");
-  }
-  const artists=[];const groups=[];const series=[];const characters=[];const females=[];const males=[];const others=[];const translations=[];const related_gids=[];
-  if("artists" in data&&Array.isArray(data.artists)&&data.artists.length>0){data.artists.forEach(n=>artists.push(n.artist));}
-  if("groups" in data&&Array.isArray(data.groups)&&data.groups.length>0){data.groups.forEach(n=>groups.push(n.group));}
-  if("parodys" in data&&Array.isArray(data.parodys)&&data.parodys.length>0){data.parodys.forEach(n=>series.push(n.parody));}
-  if("characters" in data&&Array.isArray(data.characters)&&data.characters.length>0){data.characters.forEach(n=>characters.push(n.character));}
-  // 确保标签正确分类以支持翻译
-  if("tags" in data&&Array.isArray(data.tags)&&data.tags.length>0){data.tags.filter(n=>n.female==="1").forEach(n=>females.push(n.tag));data.tags.filter(n=>n.male==="1").forEach(n=>males.push(n.tag));data.tags.filter(n=>!n.male&&!n.female).forEach(n=>others.push(n.tag));}
-  if("languages" in data&&Array.isArray(data.languages)&&data.languages.length>0){data.languages.forEach(n=>{translations.push({gid:n.galleryid,language:n.name});});}
-  if("related" in data&&Array.isArray(data.related)&&data.related.length>0){data.related.forEach(n=>related_gids.push(n));}
-  return {gid:parseInt(data.id),title:data.title||"",url:"https://hitomi.la"+(data.galleryurl||""),type:data.type||"",length:data.files?data.files.length:0,language:("language" in data&&data.language)?data.language:"",artists:artists||[],groups:groups||[],series:series||[],characters:characters||[],females:females||[],males:males||[],others:others||[],thumbnail_hash:data.files&&data.files[0]&&data.files[0].hash?data.files[0].hash:"",files:data.files||[],posted_time:new Date(toISO8601(data.date||"")),translations:translations||[],related_gids:related_gids||[]};
+    static s(hash) {
+        const match = /(..)(.)$/.exec(hash)
+        return match ? parseInt(match[2] + match[1], 16).toString() : ''
+    }
+
+    async getGg(galleryId) {
+        const domain = this.source.baseDomain
+        if (GG.cache && GG.cache.domain === domain && Date.now() - GG.cache.time < 100) {
+            this.numbers = GG.cache.numbers
+            this.initialG = GG.cache.initialG
+            this.b = GG.cache.b
+            return
+        }
+        const body = await this.source.get(this.source.ltn + '/gg.js?_=1683939645979', {
+            'Referer': 'https://hitomi.la/reader/' + galleryId + '.html',
+        })
+        const b = /b:\s*'(\d+)/.exec(body)
+        const initial = /var o = (\d+)/.exec(body)
+        if (!b || !initial) throw new Error('Invalid gg.js')
+        this.numbers = Array.from(body.matchAll(/case (\d+)/g), m => m[1])
+        this.b = b[1]
+        this.initialG = Number(initial[1])
+        GG.cache = {
+            domain, time: Date.now(), numbers: this.numbers,
+            b: this.b, initialG: this.initialG,
+        }
+    }
+
+    subdomainFromUrl(url, base) {
+        let retval = base == null ? 'b' : base
+        const match = /\/[0-9a-f]{61}([0-9a-f]{2})([0-9a-f])/.exec(url)
+        if (!match) return 'a'
+        const g = parseInt(match[2] + match[1], 16)
+        const char = String.fromCharCode(97 + this.mm(g))
+        if (retval === 'tn') retval = char + retval
+        else if (retval === 'w') {
+            if (char === 'a') retval += '1'
+            else if (char === 'b') retval += '2'
+        }
+        return retval
+    }
+
+    fullPathFromHash(hash) {
+        return this.b + '/' + GG.s(hash) + '/' + hash
+    }
+
+    realFullPathFromHash(hash) {
+        const match = /(..)(.)$/.exec(hash)
+        if (!match) throw new Error('Invalid image hash')
+        return match[2] + '/' + match[1] + '/' + hash
+    }
+
+    urlFromUrl(url, base) {
+        return url.replace('https://', 'https://' + this.subdomainFromUrl(url, base) + '.')
+    }
+
+    urlFromHash(image, dir, ext) {
+        if (ext == null) {
+            if (dir == null) dir = image.name.split('.').pop()
+            ext = dir
+        }
+        if (dir == null) dir = 'images'
+        if (dir.includes('small')) {
+            return this.urlFromUrl('https://' + this.source.baseDomain + '/' + dir +
+                '/' + this.realFullPathFromHash(image.hash) + '.' + ext, 'tn')
+        }
+        return this.urlFromUrl('https://' + this.source.baseDomain + '/' +
+            this.fullPathFromHash(image.hash) + '.' + ext, 'w')
+    }
 }
