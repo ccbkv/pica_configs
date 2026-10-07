@@ -82,21 +82,15 @@ class WnacgComicSource extends ComicSource {
         const image = element.querySelector('div.pic_box > a > img').attributes.src
         const title = element.querySelector('div.info > div.title > a')
         const info = element.querySelector('div.info > div.info_col').text
-        const parts = info.split(home ? ',' : '，')
-        if (parts.length < 2) throw new Error('Invalid comic metadata')
-        const digits = parts[home ? 1 : 0].replace(/\D/g, '')
-        if (home && !digits) throw new Error('Invalid page count')
-        const pages = Number(digits || 0)
         return {
             id: this.comicId(link),
             title: (home ? title.text : (title.attributes.title ?? title.text)
                 .replace(/<\/?em>/g, '')).trim(),
             subTitle: '',
             cover: this.absoluteUrl(image),
-            description: (home ? parts[0] : this.compact(parts[1])).trim(),
+            // Preserve count units: the host adds "P" to numeric pages.
+            description: info.trim().replace(/[\n\t]/g, ''),
             tags: [],
-            pages,
-            maxPage: pages,
         }
     }
 
