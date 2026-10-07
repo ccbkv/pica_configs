@@ -392,7 +392,7 @@ class Ehentai extends ComicSource {
         {
             // title of the page.
             // title is used to identify the page, it should be unique
-            title: "eh latest",
+            title: "Eh最新",
 
             /// multiPartPage or multiPageComicList or mixed
             type: "multiPageComicList",
@@ -404,7 +404,7 @@ class Ehentai extends ComicSource {
         {
             // title of the page.
             // title is used to identify the page, it should be unique
-            title: "eh popular",
+            title: "Eh热门",
 
             /// multiPartPage or multiPageComicList or mixed
             type: "multiPageComicList",
@@ -416,7 +416,7 @@ class Ehentai extends ComicSource {
         {
             // title of the page.
             // title is used to identify the page, it should be unique
-            title: "eh watched",
+            title: "Eh观看",
 
             /// multiPartPage or multiPageComicList or mixed
             type: "multiPageComicList",
