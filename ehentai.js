@@ -528,7 +528,7 @@ class Ehentai extends ComicSource {
                     "9-Western",
                 ],
                 // option label
-                label: "Category",
+                label: "分类",
                 // default selected options
                 default: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
             },
@@ -549,7 +549,7 @@ class Ehentai extends ComicSource {
                     "5-5",
                 ],
                 // option label
-                label: "Min Stars",
+                label: "最少星星",
             },
             {
                 // type: select, multi-select, dropdown
@@ -562,7 +562,7 @@ class Ehentai extends ComicSource {
                     "japanese-Japanese",
                 ],
                 // option label
-                label: "Language",
+                label: "语言",
             },
         ],
 
