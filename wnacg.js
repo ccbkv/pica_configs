@@ -4,7 +4,7 @@
 class WnacgComicSource extends ComicSource {
     name = '绅士漫画'
     key = 'htmanga'
-    version = '1.0.0'
+    version = '1.3.0'
     minAppVersion = '4.9.0'
     url = 'https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/wnacg.js'
 
@@ -32,8 +32,9 @@ class WnacgComicSource extends ComicSource {
     }
 
     absoluteUrl(path) {
-        if (/^https?:\/\//i.test(path)) return path
-        if (path.startsWith('//')) return 'https:' + path
+        path = path.trim()
+        if (/^https?:\/\//i.test(path)) return path.replace(/^(https?:)\/{2,}/i, '$1//')
+        if (path.startsWith('//')) return 'https://' + path.replace(/^\/+/, '')
         return this.baseUrl + '/' + path.replace(/^\/+/, '')
     }
 
@@ -306,7 +307,7 @@ class WnacgComicSource extends ComicSource {
             const images = []
             const pattern = /\/\/([\w./\[\]()?&=%+-]+)/g
             let match
-            while ((match = pattern.exec(body)) !== null) images.push('https://' + match[1])
+            while ((match = pattern.exec(body)) !== null) images.push(this.absoluteUrl('//' + match[1]))
             return { images }
         },
         onImageLoad: () => ({ headers: this.headers }),

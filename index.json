@@ -3,7 +3,7 @@
         "name": "picacg",
         "fileName": "picacg.js",
         "key": "picacg",
-        "version": "1.0.0"
+        "version": "1.3.0"
     },
     {
         "name": "ehentai",
@@ -27,7 +27,7 @@
         "name": "绅士漫画",
         "fileName": "wnacg.js",
         "key": "htmanga",
-        "version": "1.0.0"
+        "version": "1.3.0"
     },
     {
         "name": "nhentai",
@@ -70,12 +70,6 @@
         "fileName": "noyacg.js",
         "key": "noyacg",
         "version": "1.0.0"
-    },
-    {
-        "name": "嗨皮漫画",
-        "fileName": "happy.js",
-        "key": "happy",
-        "version": "1.0.9"
     },
     {
         "name": "优酷漫画",

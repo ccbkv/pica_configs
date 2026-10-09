@@ -18,7 +18,7 @@ class PicacgComicSource extends ComicSource {
     // 唯一标识
     key = "picacg"
 
-    version = "1.0.0"
+    version = "1.3.0"
 
     minAppVersion = "1.0.0"
 
@@ -491,6 +491,7 @@ class PicacgComicSource extends ComicSource {
                 'POST', 'comics/advanced-search?page=' + page, {
                 keyword: keyword,
                 sort: options[0] ?? 'dd',
+                ...(options[1] ? { categories: JSON.parse(options[1]) } : {}),
             })
             return this.parseComicsResponse(res.data.comics)
         },
