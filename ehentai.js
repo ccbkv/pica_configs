@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.3.0"
+    version = "1.5.0"
 
     minAppVersion = "1.5.3"
 
@@ -1390,6 +1390,20 @@ class Ehentai extends ComicSource {
                 // {string?} only for category action
                 param: null,
             }
+        },
+        /**
+         * [Optional] Search similar comics
+         * @param title {string} - comic title
+         * @param subTitle {string?} - comic subtitle
+         * @returns {string?} - search keyword, return null to hide the button
+         */
+        searchSimilar: (title, subTitle) => {
+            let t = subTitle || title;
+            t = t.replace(/\[.*?\]/g, "").replace(/\(.*?\)/g, "");
+            if (t.trim() === "") {
+                return null;
+            }
+            return `"${t.trim()}"`;
         },
         /**
          * [Optional] Handle links
