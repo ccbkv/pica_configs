@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.2.0"
+    version = "1.3.0"
 
     minAppVersion = "1.5.3"
 
@@ -129,8 +129,11 @@ class Ehentai extends ComicSource {
                         domain: ".exhentai.org"
                     }))
                 }
+                // Keep browser verification cookies when retrying cookie login.
+                const preservedCookies = (await Network.getCookies('https://e-hentai.org/'))
+                    .filter(cookie => !this.account.loginWithCookies.fields.includes(cookie.name))
                 Network.deleteCookies('https://e-hentai.org')
-                Network.setCookies('https://e-hentai.org', cookies)
+                Network.setCookies('https://e-hentai.org', [...preservedCookies, ...cookies])
                 let res = await Network.get(
                     "https://forums.e-hentai.org/",
                     {
@@ -145,8 +148,10 @@ class Ehentai extends ComicSource {
                 }
                 let document = new HtmlDocument(res.body)
                 let name = document.querySelector("div#userlinks > p.home > b > a");
+                // Some forum skins omit #userlinks but still show the logout action.
+                const logout = document.querySelector('a[href*="act=Login"][href*="CODE=03"]')
                 document.dispose()
-                return name != null
+                return name != null || logout != null
             }
         },
 
