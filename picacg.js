@@ -18,7 +18,7 @@ class PicacgComicSource extends ComicSource {
     // 唯一标识
     key = "picacg"
 
-    version = "1.3.0"
+    version = "1.7.0"
 
     minAppVersion = "1.0.0"
 
@@ -462,7 +462,7 @@ class PicacgComicSource extends ComicSource {
                             subTitle: subtitle,
                             cover: this.buildImageUrl(user.avatar),
                             tags: [...(user.characters ?? [])],
-                            description: (user.exp ?? 0) + ' exp',
+                            description: (user.exp ?? 0) + ' likes',
                         })
                     })
                     return { comics: comics, maxPage: 1 }
@@ -553,6 +553,7 @@ class PicacgComicSource extends ComicSource {
                 isFavorite: comic.isFavourite ?? false,
                 likesCount: comic.likesCount ?? 0,
                 isLiked: comic.isLiked ?? false,
+                commentsCount: comic.commentsCount ?? 0,
                 uploader: this.parseUploader(comic._creator, comic.updated_at),
                 updateTime: comic.updated_at,
                 maxPage: comic.pagesCount,
@@ -647,6 +648,15 @@ class PicacgComicSource extends ComicSource {
          */
         likeComment: async (comicId, subId, commentId, isLike) => {
             await this.request('POST', 'comments/' + commentId + '/like', {})
+        },
+
+        /**
+         * 点赞 / 取消点赞漫画
+         * @param id {string}
+         * @param isLike {boolean} - true for like, false for unlike
+         */
+        likeComic: async (id, isLike) => {
+            await this.request('POST', 'comics/' + id + '/like', {})
         },
 
         /**

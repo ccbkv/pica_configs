@@ -7,7 +7,7 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.5.0"
+    version = "1.7.0"
 
     minAppVersion = "1.5.3"
 
@@ -230,6 +230,17 @@ class Ehentai extends ComicSource {
         try {
             this.checkEHEvent();
         } catch (_) {}
+        // 强制 Extended 模式
+
+        try {
+            Network.setCookies(this.baseUrl, [{name: 'sl', value: 'dm_2'}]);
+        } catch (_) {}
+        // 已登录: 账号设置优先于 cookie, 在 URL 附加 inline_set=dm_e 修改账号设置;
+        // 服务器处理后 302 跳回原地址(保留其余参数), 跳转后的响应即为 Extended 布局.
+        // 排行榜页(toplist)不支持该参数(直接 200), 无需附加.
+        if (!isLeaderBoard) {
+            url += (url.includes('?') ? '&' : '?') + 'inline_set=dm_e';
+        }
         let t = isLeaderBoard ? 1 : 0;
         let res
         try {
@@ -295,7 +306,7 @@ class Ehentai extends ComicSource {
                     subTitle: uploader,
                     cover: cover,
                     tags: tags,
-                    description: time,
+                    description: `${time}  ${type ?? ""}`,
                     stars: stars,
                     maxPage: pages,
                     language: language
@@ -315,13 +326,17 @@ class Ehentai extends ComicSource {
                 let stars = this.getStarsFromPosition(item.querySelector("div.gl5t > div > div.ir")?.attributes["style"] ?? "");
                 let link = item.querySelector("a")?.attributes["href"] ?? "";
                 let pages = Number(item.querySelectorAll("div.gl5t > div > div").find((element) => element.text.includes("page"))?.text.match(/\d+/)[0] ?? "0");
+                let tags = item.querySelectorAll('div.gt, div.gtl').map((e) => e.attributes["title"] ?? "");
+                let language = tags.find((e) => e.startsWith("language:") && !e.includes('translated'))?.split(":")[1].trim() ?? null;
                 galleries.push(new Comic({
                     id: link,
                     title: title,
                     cover: coverPath,
-                    description: time,
+                    tags: tags,
+                    description: `${time}  ${type ?? ""}`,
                     stars: stars,
                     maxPage: pages,
+                    language: language
                 }));
             } catch (e) {
                 //忽视
@@ -347,7 +362,7 @@ class Ehentai extends ComicSource {
                     subTitle: uploader,
                     cover: coverPath,
                     tags: tags,
-                    description: time,
+                    description: `${time}  ${type ?? ""}`,
                     stars: stars,
                     maxPage: pages,
                     language: language
@@ -370,13 +385,17 @@ class Ehentai extends ComicSource {
                 }
                 let stars = this.getStarsFromPosition(item.querySelector("td.gl4m > div.ir")?.attributes["style"] ?? "");
                 let link = item.querySelector("td.gl3m > a")?.attributes["href"] ?? "";
+                let tags = item.querySelectorAll('div.gt, div.gtl').map((e) => e.attributes["title"] ?? "");
+                let language = tags.find((e) => e.startsWith("language:") && !e.includes('translated'))?.split(":")[1].trim() ?? null;
                 galleries.push(new Comic({
                     id: link,
                     title: title,
                     subTitle: uploader,
                     cover: coverPath,
-                    description: time,
+                    tags: tags,
+                    description: `${time}  ${type ?? ""}`,
                     stars: stars,
+                    language: language
                 }))
             } catch (e) {
                 //忽视

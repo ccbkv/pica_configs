@@ -3,12 +3,13 @@
 class NhentaiComicSource extends ComicSource {
     name = 'nhentai'
     key = 'nhentai'
-    version = '1.1.2'
+    version = '1.7.0'
     minAppVersion = '4.9.0'
     url = 'https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/nhentai.js'
     baseUrl = 'https://nhentai.net'
     apiUrl = 'https://nhentai.net/api/v2'
     enableTagsTranslate = true
+    idMatcher = '^(\\d+|nh\\d+|nhentai\\d+)$'
     _refreshing = null
     _loginSessions = new Map()
     _authGeneration = 0
@@ -286,7 +287,13 @@ class NhentaiComicSource extends ComicSource {
                 })),
             })
         }
-        return { title: 'nhentai', key: 'nhentai', parts, enableRankingPage: false }
+        return {
+            title: 'nhentai',
+            key: 'nhentai',
+            parts,
+            enableRankingPage: false,
+            buttons: [{ label: '推荐', action: { page: 'comic', id: '' } }],
+        }
     }
 
     categoryComics = {
@@ -442,6 +449,20 @@ class NhentaiComicSource extends ComicSource {
             return type ? { page: 'category', attributes: {
                 category: tag, param: '/' + type + '/' + tag,
             } } : { page: 'search', attributes: { keyword: tag } }
+        },
+        /**
+         * [Optional] Search similar comics
+         * @param title {string} - comic title
+         * @param subTitle {string?} - comic subtitle
+         * @returns {string?} - search keyword, return null to hide the button
+         */
+        searchSimilar: (title, subTitle) => {
+            let t = subTitle || title;
+            t = t.replace(/\[.*?\]/g, "").replace(/\(.*?\)/g, "");
+            if (t.trim() === "") {
+                return null;
+            }
+            return `"${t.trim()}"`;
         },
         idMatch: '^(\\d+|nh\\d+|nhentai\\d+)$',
         enableTagsTranslate: true,

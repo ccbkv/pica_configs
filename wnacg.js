@@ -4,7 +4,7 @@
 class WnacgComicSource extends ComicSource {
     name = '绅士漫画'
     key = 'htmanga'
-    version = '1.3.0'
+    version = '1.7.0'
     minAppVersion = '4.9.0'
     url = 'https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/wnacg.js'
 
@@ -15,6 +15,8 @@ class WnacgComicSource extends ComicSource {
 
     _favoriteIds = new Map()
     _thumbnailPages = new Map()
+    // 用户投稿列表快照 URL 缓存: 首页路径 -> (页码 -> 带 c 参数的搜索 URL)
+    _userSearchUrls = new Map()
 
     get baseUrl() {
         if (this.apiOverride.trim()) return this.normalizeApi(this.apiOverride)
@@ -128,10 +130,62 @@ class WnacgComicSource extends ComicSource {
             } else {
                 maxPage = this.lastPage(document, 1)
             }
-            return { comics, maxPage }
+            // 当前页码标记(用于检测服务器回落)与分页器中的快照链接
+            // (搜索页翻页需带 c 参数以固定结果快照, 否则结果集会被新上传挤动)
+            let thisPage = null
+            const thisPageEl = document.querySelector('div.f_left.paginator span.thispage')
+            if (thisPageEl) thisPage = Number(thisPageEl.text)
+            const pageUrls = {}
+            for (const a of document.querySelectorAll('div.f_left.paginator a')) {
+                const href = a.attributes.href
+                if (!href || !href.includes('/search/index.php')) continue
+                const pm = /[?&]p=(\d+)/.exec(href)
+                if (pm) pageUrls[Number(pm[1])] = href
+            }
+            return { comics, maxPage, thisPage, pageUrls }
         } finally {
             document.dispose()
         }
+    }
+
+    /**
+     * 用户投稿页列表.
+     * 用户页本身是 cursor 链式分页(下一页 URL 依赖上一页末条 aid, 无法按页码请求),
+     * 但搜索接口 /search/index.php?q=*&u={uid} 与用户投稿页内容一致且支持数字分页(&p=N),
+     * 故转换为搜索接口实现.
+     * 搜索结果的分页器链接带 c 参数(结果快照 ID), 用其翻页可保证同一快照内内容稳定
+     * (与浏览器行为一致); 不带 c 每次重新执行搜索, 深页内容会被新上传挤动.
+     * 用户作品量巨大(可能上百万), 无法得知总页数, maxPage 返回 null (UI 显示 "1/?",
+     * 翻出空页即视为到达末页).
+     * @param firstUrl {string} 首页路径 (/albums-user-uid-X.html)
+     * @param page {number} 页码 (1-based)
+     */
+    async getUserComics(firstUrl, page) {
+        const m = /albums-user-uid-(\d+)/.exec(firstUrl)
+        if (!m) return { comics: [], maxPage: null }
+        // 回到第一页时清除快照缓存(开启新快照)
+        if (page === 1) this._userSearchUrls.delete(firstUrl)
+        let urls = this._userSearchUrls.get(firstUrl)
+        if (!urls) {
+            urls = new Map()
+            this._userSearchUrls.set(firstUrl, urls)
+        }
+        const base = '/search/index.php?q=%2A&m=&syn=yes&f=_all&s=create_time_DESC&u=' + m[1]
+        const plainUrl = base + (page > 1 ? '&p=' + page : '')
+        // 优先使用之前分页器里缓存的快照链接(带 c 参数)
+        let url = urls.get(page) ?? plainUrl
+        let res = await this.getComicList(url, 1)
+        // 快照过期时服务器会静默回落(返回第 1 页内容), 检测到则改用普通 URL 重取
+        if (res.thisPage != null && res.thisPage !== page) {
+            res = await this.getComicList(plainUrl, 1)
+        }
+        // 缓存本次响应分页器中的快照链接(覆盖当前页附近约 10 页)
+        if (res.thisPage == null || res.thisPage === page) {
+            for (const k of Object.keys(res.pageUrls)) {
+                urls.set(Number(k), res.pageUrls[k])
+            }
+        }
+        return { comics: res.comics, maxPage: null }
     }
 
     account = {
@@ -202,7 +256,13 @@ class WnacgComicSource extends ComicSource {
     }
 
     categoryComics = {
-        load: async (category, param, options, page) => this.getComicList(param || '/albums.html', page),
+        load: async (category, param, options, page) => {
+            // 上传者卡片点击: param 为 "ca", category 为用户投稿页路径 (/albums-user-uid-X.html)
+            if (param === 'ca') {
+                return this.getUserComics(category, page)
+            }
+            return this.getComicList(param || '/albums.html', page)
+        },
         ranking: {
             // The host splits options at the first "-", so use these short keys.
             options: ['day-今日', 'week-本週', 'month-本月'],
@@ -237,6 +297,8 @@ class WnacgComicSource extends ComicSource {
                 }
                 const uploader = document.querySelector('div.asTBcell.uwuinfo > a > p').text
                 const avatar = document.querySelector('div.asTBcell.uwuinfo > a > img').attributes.src
+                // 上传者用户投稿页链接 (/albums-user-uid-X.html), 供点击上传者卡片跳转
+                const uploaderLink = document.querySelector('div.asTBcell.uwuinfo > a').attributes.href ?? ''
                 const uploadNum = Number(document.querySelector('div.asTBcell.uwuinfo > p > font').text)
                 const thumbnailMaxPage = isSeries ? 0 : Math.ceil(pages / 12)
                 this._thumbnailPages.set(id, thumbnailMaxPage)
@@ -246,7 +308,7 @@ class WnacgComicSource extends ComicSource {
                     description: document.querySelector('div.asTBcell.uwconn > p').text,
                     tags: { ...(isSeries ? { '章节': [count] } : {}),
                         '分类': [category], '标签': Object.keys(tags) },
-                    uploader: { id: uploader, name: uploader, avatarUrl: this.absoluteUrl(avatar),
+                    uploader: { id: uploaderLink, name: uploader, avatarUrl: this.absoluteUrl(avatar),
                         slogan: '投稿作品' + uploadNum + '部',
                         // PicaComic renders updateTime as the uploader card's second line.
                         updateTime: '投稿作品' + uploadNum + '部' },

@@ -7,7 +7,7 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.4.0"
+    version = "1.7.0"
 
     minAppVersion = "1.5.0"
 
@@ -17,6 +17,8 @@ class JM extends ComicSource {
 
     // update url
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/jm.js"
+
+    idMatcher = '^(\\d+|jm\\d+)$'
 
     dailyCheckInInProgress = false
 
@@ -28,6 +30,9 @@ class JM extends ComicSource {
     ];
 
     static imageUrl = "https://cdn-msp.jmapinodeudzn.net"
+
+    // cache parsed comment replies, format: comicId -> { commentId: [Comment] }
+    static commentReplies = {}
 
     static ua = "Mozilla/5.0 (Linux; Android 10; K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.0.0 Mobile Safari/537.36"
 
@@ -825,6 +830,7 @@ class JM extends ComicSource {
                 likesCount: Number(data.likes),
                 chapters: chapters,
                 tags: {
+                    "ID": [`JM${id}`],
                     "作者": author,
                     "标签": tags,
                     "作品": works,
@@ -956,16 +962,51 @@ class JM extends ComicSource {
          * @returns {Promise<{comments: Comment[], maxPage: number?}>}
          */
         loadComments: async (comicId, subId, page, replyTo) => {
+            if (replyTo != null) {
+                let replies = JM.commentReplies[comicId]?.[replyTo] ?? []
+                return {
+                    comments: replies,
+                    maxPage: 1
+                }
+            }
             let res = await this.get(`${this.baseUrl}/forum?mode=manhua&aid=${comicId}&page=${page}`)
             let json = JSON.parse(res)
             const pageSize = 6
+            if (page === 1) {
+                JM.commentReplies[comicId] = {}
+            }
+            if (JM.commentReplies[comicId] == null) {
+                JM.commentReplies[comicId] = {}
+            }
+            let comicReplies = JM.commentReplies[comicId]
+            let parseContent = (content) => {
+                if (content == null) return ''
+                let start = content.indexOf('>')
+                let end = content.lastIndexOf('<')
+                if (start === -1 || end === -1 || end <= start) return content
+                return content.substring(start + 1, end)
+            }
             return {
-                comments: json.list.map((e) => new Comment({
-                    avatar: this.getAvatarUrl(e.photo),
-                    userName: e.username,
-                    time: e.addtime,
-                    content: e.content.substring(e.content.indexOf('>') + 1, e.content.lastIndexOf('<')),
-                })),
+                comments: json.list.map((e) => {
+                    let replys = (e.replys ?? []).map((r) => new Comment({
+                        avatar: this.getAvatarUrl(r.photo),
+                        userName: r.username,
+                        time: r.addtime,
+                        content: parseContent(r.content),
+                    }))
+                    let comment = {
+                        avatar: this.getAvatarUrl(e.photo),
+                        userName: e.username,
+                        time: e.addtime,
+                        content: parseContent(e.content),
+                    }
+                    if (replys.length > 0) {
+                        comment.id = e.CID.toString()
+                        comment.replyCount = replys.length
+                        comicReplies[comment.id] = replys
+                    }
+                    return new Comment(comment)
+                }),
                 maxPage: Math.floor(json.total / pageSize) + 1
             }
         },
