@@ -3,8 +3,8 @@
 class NhentaiComicSource extends ComicSource {
     name = 'nhentai'
     key = 'nhentai'
-    version = '1.7.0'
-    minAppVersion = '4.9.0'
+    version = '1.8.0'
+    minAppVersion = '4.9.6'
     url = 'https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/nhentai.js'
     baseUrl = 'https://nhentai.net'
     apiUrl = 'https://nhentai.net/api/v2'

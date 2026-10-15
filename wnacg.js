@@ -4,8 +4,8 @@
 class WnacgComicSource extends ComicSource {
     name = '绅士漫画'
     key = 'htmanga'
-    version = '1.7.0'
-    minAppVersion = '4.9.0'
+    version = '1.8.0'
+    minAppVersion = '4.9.6'
     url = 'https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/wnacg.js'
 
     // Set a URL here to override the native API selection; leave empty to use it.

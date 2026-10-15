@@ -3,19 +3,19 @@
         "name": "picacg",
         "fileName": "picacg.js",
         "key": "picacg",
-        "version": "1.7.0"
+        "version": "1.8.0"
     },
     {
         "name": "ehentai",
         "fileName": "ehentai.js",
         "key": "ehentai",
-        "version": "1.7.0"
+        "version": "1.8.0"
     },
     {
         "name": "禁漫天堂",
         "fileName": "jm.js",
         "key": "jm",
-        "version": "1.7.0"
+        "version": "1.8.0"
     },
     {
         "name": "hitomi",
@@ -27,13 +27,13 @@
         "name": "绅士漫画",
         "fileName": "wnacg.js",
         "key": "htmanga",
-        "version": "1.7.0"
+        "version": "1.8.0"
     },
     {
         "name": "nhentai",
         "fileName": "nhentai.js",
         "key": "nhentai",
-        "version": "1.7.0"
+        "version": "1.8.0"
     },
     {
         "name": "拷贝漫画",

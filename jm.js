@@ -7,9 +7,9 @@ class JM extends ComicSource {
     // unique id of the source
     key = "jm"
 
-    version = "1.7.0"
+    version = "1.8.0"
 
-    minAppVersion = "1.5.0"
+    minAppVersion = "4.9.6"
 
     static jmVersion = "2.0.16"
 

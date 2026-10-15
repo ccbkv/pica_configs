@@ -18,9 +18,9 @@ class PicacgComicSource extends ComicSource {
     // 唯一标识
     key = "picacg"
 
-    version = "1.7.0"
+    version = "1.8.0"
 
-    minAppVersion = "1.0.0"
+    minAppVersion = "4.9.6"
 
     // 更新链接
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/picacg.js"
