@@ -7,9 +7,9 @@ class Ehentai extends ComicSource {
     // unique id of the source
     key = "ehentai"
 
-    version = "1.8.0"
+    version = "2.0.0"
 
-    minAppVersion = "4.9.6"
+    minAppVersion = "4.9.3"
 
     // update url
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/ehentai.js"
@@ -165,7 +165,15 @@ class Ehentai extends ComicSource {
         },
 
         // {string?} - register url
-        registerWebsite: null
+        registerWebsite: null,
+
+        // 账号信息项 (与内置 infoItems 一致)
+        infoItems: [
+            {
+                title: 'cookies',
+                action: 'ehentai_cookie_management',
+            },
+        ],
     }
 
     get baseUrl() {
@@ -230,10 +238,10 @@ class Ehentai extends ComicSource {
         try {
             this.checkEHEvent();
         } catch (_) {}
-        // 强制 Extended 模式
+        // 清理错误写入的 cookie, 会导致卡死.
 
         try {
-            Network.setCookies(this.baseUrl, [{name: 'sl', value: 'dm_2'}]);
+            Network.deleteCookies(this.baseUrl, ['sl']);
         } catch (_) {}
         // 已登录: 账号设置优先于 cookie, 在 URL 附加 inline_set=dm_e 修改账号设置;
         // 服务器处理后 302 跳回原地址(保留其余参数), 跳转后的响应即为 Extended 布局.
