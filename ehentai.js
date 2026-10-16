@@ -9,7 +9,7 @@ class Ehentai extends ComicSource {
 
     version = "1.8.0"
 
-    minAppVersion = "4.9.6"
+    minAppVersion = "4.9.3"
 
     // update url
     url = "https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/ehentai.js"
