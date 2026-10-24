@@ -3,7 +3,7 @@
 class NhentaiComicSource extends ComicSource {
     name = 'nhentai'
     key = 'nhentai'
-    version = '2.0.0'
+    version = '2.2.0'
     minAppVersion = '4.9.3'
     url = 'https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/nhentai.js'
     baseUrl = 'https://nhentai.net'
@@ -158,11 +158,17 @@ class NhentaiComicSource extends ComicSource {
     }
 
     get sortOptions() {
-        return {
+        return [{
             label: '排序',
             options: ['0-最近', '1-热门 | 今天', '2-热门 | 一周',
                 '3-热门 | 本月', '4-热门 | 所有时间'],
-        }
+        }, {
+            type: 'select',
+            label: '语言',
+            options: ['all-All', 'chinese-中文', 'japanese-日本語', 'english-English'],
+            default: 'all',
+            notShowWhen: ['中文', '日本語', 'english'],
+        }]
     }
 
     async searchApi(query, page, sort) {
@@ -210,9 +216,16 @@ class NhentaiComicSource extends ComicSource {
                 }
             }
         }
-        const fragments = terms.map(term => term.namespace === 'search' ? term.value :
-            term.namespace === 'language' ? 'language:' + term.value :
-                term.namespace + ':"' + term.value + '"')
+        const fragments = []
+        const languageValues = []
+        for (const term of terms) {
+            if (term.namespace === 'language') {
+                languageValues.push(term.value)
+            } else {
+                fragments.push(term.namespace === 'search' ? term.value :
+                    term.namespace + ':"' + term.value + '"')
+            }
+        }
         for (const field of ['pages', 'favorites', 'uploaded']) {
             let conditions = []
             for (const condition of numeric[field]) {
@@ -229,9 +242,14 @@ class NhentaiComicSource extends ComicSource {
             }
             fragments.push(...conditions.map(c => field + ':' + c.comparison + c.value + c.suffix))
         }
-        const explicitLanguage = terms.some(t => t.namespace === 'language' ||
-            (t.namespace === 'search' && /(^|\s)language:/i.test(t.value)))
-        if (!explicitLanguage && preferredLanguage) fragments.push('language:' + preferredLanguage)
+        // 下拉选中具体语言时覆盖 param 内已有语言；否则保留 param 中的 language 项
+        const searchTermHasLanguage = terms.some(t =>
+            t.namespace === 'search' && /(^|\s)language:/i.test(t.value))
+        if (preferredLanguage && !searchTermHasLanguage) {
+            fragments.push('language:' + preferredLanguage)
+        } else if (!preferredLanguage) {
+            fragments.push(...languageValues.map(v => 'language:' + v))
+        }
         return fragments.join(' ')
     }
 
@@ -298,22 +316,23 @@ class NhentaiComicSource extends ComicSource {
 
     categoryComics = {
         load: async (category, param, options, page) => {
-            const language = {
-                1: 'chinese', 2: 'english', 3: 'japanese',
-            }[this.nativeState.language] || null
+            const value = options?.[1] || 'all'
+            const language = value === 'all' ? null : value
             const query = this.buildCategoryQuery(param, language)
             return this.parseList(await this.searchApi(query, page, options?.[0]))
         },
-        optionList: [this.sortOptions],
+        optionList: this.sortOptions,
     }
 
     search = {
         load: async (keyword, options, page) => {
             // The native search dialog already expands its @@@ parameter to query text.
-            return this.parseList(await this.searchApi(
-                (keyword || '').trim(), page, options?.[0]))
+            const language = options?.[1] || 'all'
+            const query = (keyword || '').trim() +
+                (language === 'all' ? '' : ' language:' + language)
+            return this.parseList(await this.searchApi(query, page, options?.[0]))
         },
-        optionList: [this.sortOptions],
+        optionList: this.sortOptions,
         enableTagsSuggestions: true,
     }
 
