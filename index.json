@@ -33,13 +33,13 @@
         "name": "nhentai",
         "fileName": "nhentai.js",
         "key": "nhentai",
-        "version": "2.2.0"
+        "version": "2.3.0"
     },
     {
         "name": "拷贝漫画",
         "fileName": "copy_manga.js",
         "key": "copy_manga",
-        "version": "3.3.0"
+        "version": "3.5.0"
     },
     {
         "name": "Komiic",

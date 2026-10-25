@@ -1,4 +1,19 @@
 /** @type {import('./_venera_.js')} */
+
+/**
+ * @typedef {Object} PageJumpTarget
+ * @Property {string} page - The page name (search, category)
+ * @Property {Object} attributes - The attributes of the page
+ *
+ * @example
+ * {
+ *     page: "search",
+ *     attributes: {
+ *         keyword: "example",
+ *     },
+ * }
+ */
+
 class NewComicSource extends ComicSource {
     // Note: The fields which are marked as [Optional] should be removed if not used
 
@@ -10,7 +25,7 @@ class NewComicSource extends ComicSource {
 
     version = "1.0.0"
 
-    minAppVersion = "1.4.0"
+    minAppVersion = "1.6.0"
 
     // update url
     url = ""
@@ -58,7 +73,8 @@ class NewComicSource extends ComicSource {
         loginWithWebview: {
             url: "",
             /**
-             * check login status
+             * check login status.
+             * After successful login, the cookie will be automatically saved, and the localstorage can be retrieved using this.loadData("_localStorage").
              * @param url {string} - current url
              * @param title {string} - current title
              * @returns {boolean} - return true if login success
@@ -256,20 +272,42 @@ class NewComicSource extends ComicSource {
             ```
             */
         },
-        // provide options for category comic loading
+        // [Optional] provide options for category comic loading
         optionList: [
             {
+                // [Optional] The label will not be displayed if it is empty.
+                label: "",
                 // For a single option, use `-` to separate the value and text, left for value, right for text
                 options: [
                     "newToOld-New to Old",
                     "oldToNew-Old to New"
                 ],
-                // [Optional] {string[]} - show this option only when the value not in the list
+                // [Optional] {string[]} - show this option only when the category not in the list
                 notShowWhen: null,
-                // [Optional] {string[]} - show this option only when the value in the list
+                // [Optional] {string[]} - show this option only when the category in the list
                 showWhen: null
             }
         ],
+        /**
+         * [Optional] load options dynamically. If `optionList` is provided, this will be ignored.
+         * @since 1.5.0
+         * @param category {string}
+         * @param param {string?}
+         * @return {Promise<{options: string[], label?: string}[]>} - return a list of option group, each group contains a list of options
+         */
+        optionLoader: async (category, param) => {
+            return [
+                {
+                    // [Optional] The label will not be displayed if it is empty.
+                    label: "",
+                    // For a single option, use `-` to separate the value and text, left for value, right for text
+                    options: [
+                        "newToOld-New to Old",
+                        "oldToNew-Old to New"
+                    ],
+                }
+            ]
+        },
         ranking: {
             // For a single option, use `-` to separate the value and text, left for value, right for text
             options: [
@@ -379,6 +417,8 @@ class NewComicSource extends ComicSource {
                 default: null,
             }
         ],
+
+        enableLanguageFilter: false,
 
         // enable tags suggestions
         enableTagsSuggestions: false,

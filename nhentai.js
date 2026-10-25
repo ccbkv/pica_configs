@@ -3,7 +3,7 @@
 class NhentaiComicSource extends ComicSource {
     name = 'nhentai'
     key = 'nhentai'
-    version = '2.2.0'
+    version = '2.3.0'
     minAppVersion = '4.9.3'
     url = 'https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/nhentai.js'
     baseUrl = 'https://nhentai.net'
@@ -316,8 +316,13 @@ class NhentaiComicSource extends ComicSource {
 
     categoryComics = {
         load: async (category, param, options, page) => {
-            const value = options?.[1] || 'all'
-            const language = value === 'all' ? null : value
+            const selectedLanguage = options?.[1]
+            const automaticLanguage = [null, 'chinese', 'english', 'japanese'][
+                Number(this.nativeState.language) || 0
+            ] || null
+            const language = selectedLanguage && selectedLanguage !== 'all'
+                ? selectedLanguage
+                : automaticLanguage
             const query = this.buildCategoryQuery(param, language)
             return this.parseList(await this.searchApi(query, page, options?.[0]))
         },
@@ -328,8 +333,9 @@ class NhentaiComicSource extends ComicSource {
         load: async (keyword, options, page) => {
             // The native search dialog already expands its @@@ parameter to query text.
             const language = options?.[1] || 'all'
+            const keywordHasLanguage = /(^|\s)language:/i.test(keyword || '')
             const query = (keyword || '').trim() +
-                (language === 'all' ? '' : ' language:' + language)
+                (language === 'all' || keywordHasLanguage ? '' : ' language:' + language)
             return this.parseList(await this.searchApi(query, page, options?.[0]))
         },
         optionList: this.sortOptions,
