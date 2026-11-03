@@ -4,7 +4,7 @@
 class WnacgComicSource extends ComicSource {
     name = '绅士漫画'
     key = 'htmanga'
-    version = '2.0.0'
+    version = '2.0.1'
     minAppVersion = '4.9.3'
     url = 'https://raw.githubusercontent.com/ccbkv/pica_configs/refs/heads/master/wnacg.js'
 
@@ -14,6 +14,7 @@ class WnacgComicSource extends ComicSource {
     fallbackApi = 'https://www.wnacg.com'
 
     _favoriteIds = new Map()
+    _loginSessions = new Map()
     _thumbnailPages = new Map()
     // 用户投稿列表快照 URL 缓存: 首页路径 -> (页码 -> 带 c 参数的搜索 URL)
     _userSearchUrls = new Map()
@@ -67,6 +68,49 @@ class WnacgComicSource extends ComicSource {
         }, data)
         if (res.status !== 200) throw new Error('HTTP ' + res.status)
         return res.body
+    }
+
+    loginSession(id) {
+        const session = this._loginSessions.get(id)
+        if (!session) throw new Error('Login cancelled')
+        return session
+    }
+
+    loginWebviewScript() {
+        // Runs in the website. The native login WebView polls this value and
+        // appends the WebView cookies before sending it back to this source.
+        return `(() => {
+            const state = window.__wnacgScriptLogin ||
+                (window.__wnacgScriptLogin = { opened: false, sliderPass: '', cancelled: false });
+            if (!state.opened && window.SliderCaptcha &&
+                typeof window.SliderCaptcha.open === 'function') {
+                state.opened = true;
+                window.SliderCaptcha.open(
+                    pass => { state.sliderPass = String(pass || ''); },
+                    () => { state.cancelled = true; }
+                );
+            }
+            return {
+                url: location.href,
+                userAgent: navigator.userAgent,
+                sliderPass: state.sliderPass,
+                cancelled: state.cancelled
+            };
+        })()`
+    }
+
+    async attemptLogin(username, password, sliderPass, userAgent) {
+        const headers = {
+            ...this.headers,
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        }
+        if (userAgent) headers['User-Agent'] = userAgent
+        const body = 'login_name=' + encodeURIComponent(username) +
+            '&login_pass=' + encodeURIComponent(password) +
+            '&slider_pass=' + encodeURIComponent(sliderPass)
+        const res = await Network.post(this.absoluteUrl('/users-check_login.html'), headers, body)
+        if (res.status !== 200) throw new Error('HTTP ' + res.status)
+        return typeof res.body === 'string' ? JSON.parse(res.body) : res.body
     }
 
     compact(value) {
@@ -189,19 +233,81 @@ class WnacgComicSource extends ComicSource {
     }
 
     account = {
-        registerWebsite: 'https://www.wnacg.com/albums.html',
-        login: async (account, pwd) => {
-            const body = await this.post('/users-check_login.html',
-                'login_name=' + encodeURIComponent(account) + '&login_pass=' + encodeURIComponent(pwd))
-            const data = typeof body === 'string' ? JSON.parse(body) : body
-            if (!String(data?.html || '').includes('登錄成功')) {
-                throw new Error(data?.html || 'Login failed')
+        type: 'script',
+        begin: (id) => {
+            this._loginSessions.set(id, { sliderPass: '', userAgent: '' })
+            return {
+                title: '登录绅士漫画',
+                usernameLabel: '用户名',
+                passwordLabel: '密码',
+                verificationRequired: true,
+                verificationPrompt: '需要先完成滑块验证',
+                verifiedLabel: '滑块验证已完成',
+                verifyLabel: '继续',
+                submitLabel: '登录',
+                registerLabel: '创建账号',
+                registerUrl: 'https://www.wnacg.com/albums.html',
             }
-            this._favoriteIds.clear()
-            this.saveData('name', account)
-            return true
+        },
+        webview: (id, mode) => {
+            const session = this.loginSession(id)
+            session.sliderPass = ''
+            session.userAgent = ''
+            return {
+                title: '滑块验证',
+                url: this.baseUrl + '/users-login.html',
+                cookieUrl: this.baseUrl + '/',
+                pollScript: this.loginWebviewScript(),
+                pollIntervalMs: 750,
+            }
+        },
+        onWebviewEvent: (id, mode, event) => {
+            const session = this.loginSession(id)
+            const url = String(event.url || '')
+            if (url !== this.baseUrl && !url.startsWith(this.baseUrl + '/')) return {}
+            if (event.cancelled) return { close: true, message: '已取消滑块验证' }
+            if (!event.sliderPass) return {}
+            Network.setCookies(this.baseUrl, event.cookies || [])
+            session.sliderPass = String(event.sliderPass)
+            session.userAgent = String(event.userAgent || '')
+            return { verified: true, close: true }
+        },
+        submit: async (id, username, password) => {
+            const session = this.loginSession(id)
+            if (!session.sliderPass) {
+                return { verificationRequired: true, message: '请先完成滑块验证' }
+            }
+            // The server consumes slider_pass on every login attempt.
+            const sliderPass = session.sliderPass
+            session.sliderPass = ''
+            try {
+                const data = await this.attemptLogin(
+                    username, password, sliderPass, session.userAgent)
+                this.loginSession(id)
+                const message = String(data?.html || '')
+                if (!message.includes('登錄成功')) {
+                    return {
+                        verificationRequired: true,
+                        message: message || 'Login failed',
+                    }
+                }
+                this._favoriteIds.clear()
+                this.saveData('name', username)
+                return { success: true }
+            } catch (e) {
+                this.loginSession(id)
+                return {
+                    verificationRequired: true,
+                    message: '登录失败: ' + (e?.message || String(e)),
+                }
+            }
+        },
+        end: (id) => {
+            this._loginSessions.delete(id)
+            return {}
         },
         logout: () => {
+            this._loginSessions.clear()
             Network.deleteCookies(this.baseUrl)
             this._favoriteIds.clear()
             this.saveData('name', null)
