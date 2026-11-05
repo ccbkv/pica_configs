@@ -4,7 +4,7 @@ class CopyManga extends ComicSource {
 
     key = "copy_manga"
 
-    version = "3.5.0"
+    version = "3.5.1"
 
     minAppVersion = "1.6.0"
 
@@ -13,6 +13,7 @@ class CopyManga extends ComicSource {
     static defaultImageQuality = "1500"
 
     static defaultApiHost = 'api.copy202601.com'
+    static defaultWebHost = 'www.copy4000.com'
     static defaultContentHost = 'mapi.hotmangasg.com'
     static get defaultContentRoutes() {
         return [
@@ -89,9 +90,9 @@ class CopyManga extends ComicSource {
         }
     }
 
-    // 线路节点公开漫画接口头（首页/搜索/列表/详情/章节），无需登录。
+    // 线路节点漫画接口头；已有登录 token 时与 Kira 一样附带 Authorization。
     get contentHeaders() {
-        return {
+        let headers = {
             "Accept": "application/json",
             "platform": "3",
             "User-Agent": "Mozilla/5.0 (Linux; Android 15; 23113RKC6C Build/AQ3A.240812.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.6778.200 Mobile Safari/537.36",
@@ -99,6 +100,11 @@ class CopyManga extends ComicSource {
             "version": "2024.04.28",
             "X-Requested-With": "com.manga2020.app",
         }
+        let token = this.loadData("token") || ""
+        if (token) {
+            headers["Authorization"] = `Token ${token}`
+        }
+        return headers
     }
 
     get deviceinfo() {
@@ -765,6 +771,108 @@ class CopyManga extends ComicSource {
         }
     }
 
+    // App 章节接口限流时，立即使用旧版网页 AES 路径，不等待重试。
+    async _loadEpFromWeb(comicId, epId) {
+        let res = await this.networkGet(
+            `https://${CopyManga.defaultWebHost}/comic/${comicId}/chapter/${epId}`,
+            this.webHeaders
+        );
+        if (res.status !== 200) {
+            throw `Invalid status code: ${res.status}`;
+        }
+
+        let html = res.body;
+        let doc = new HtmlDocument(html);
+        let images = [];
+        let contentKey = '';
+        let contentKeyPatterns = [
+            /(?:var|let|const)\s+contentKey\s*=\s*['"]([^'"]+)['"]/,
+            /window\.contentKey\s*=\s*['"]([^'"]+)['"]/,
+            /contentKey\s*=\s*['"]([^'"]+)['"]/
+        ];
+        for (let pattern of contentKeyPatterns) {
+            let match = html.match(pattern);
+            if (match && match[1]) {
+                contentKey = match[1];
+                break;
+            }
+        }
+
+        let cct = '';
+        let cctPatterns = [
+            /(?:var|let|const)\s+cct\s*=\s*['"]([^'"]+)['"]/,
+            /window\.cct\s*=\s*['"]([^'"]+)['"]/,
+            /cct\s*=\s*['"]([^'"]+)['"]/
+        ];
+        for (let pattern of cctPatterns) {
+            let match = html.match(pattern);
+            if (match && match[1]) {
+                cct = match[1];
+                break;
+            }
+        }
+
+        if (contentKey && cct && contentKey.length > 16) {
+            try {
+                let ivStr = contentKey.substring(0, 16);
+                let cipherStr = contentKey.substring(16);
+                let keyBytes = Convert.encodeUtf8(cct);
+                let ivBytes = Convert.encodeUtf8(ivStr);
+                let cipherBytes;
+                if (/^[0-9a-fA-F]+$/.test(cipherStr) && cipherStr.length % 2 === 0) {
+                    let hexBytes = new Uint8Array(cipherStr.length / 2);
+                    for (let i = 0; i < cipherStr.length; i += 2) {
+                        hexBytes[i / 2] = parseInt(cipherStr.substring(i, i + 2), 16);
+                    }
+                    cipherBytes = hexBytes.buffer;
+                } else {
+                    cipherBytes = Convert.decodeBase64(cipherStr);
+                }
+                let plainBytes = Convert.decryptAesCbc(cipherBytes, keyBytes, ivBytes);
+                let plainText = Convert.decodeUtf8(plainBytes);
+                let parsed = JSON.parse(plainText);
+                if (Array.isArray(parsed)) {
+                    for (let item of parsed) {
+                        let url = typeof item === 'string' ? item : (item && item.url ? item.url : '');
+                        if (url) {
+                            if (url.startsWith('//')) {
+                                url = 'https:' + url;
+                            }
+                            url = url.replace(/([./])c\d+x\.[a-zA-Z]+$/, `$1c${this.imageQuality}x.webp`);
+                            images.push(url);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('Image decryption failed: ' + e);
+            }
+        }
+
+        if (images.length === 0) {
+            let imgEls = doc.querySelectorAll('.comicContent-list img');
+            for (let i = 0; i < imgEls.length; i++) {
+                let img = imgEls[i];
+                let src = '';
+                if (img.attributes) {
+                    src = img.attributes['src'] || img.attributes['data-src'] || img.attributes['data-original'] || '';
+                }
+                if (src) {
+                    if (src.startsWith('//')) {
+                        src = 'https:' + src;
+                    }
+                    src = src.replace(/([./])c\d+x\.[a-zA-Z]+$/, `$1c${this.imageQuality}x.webp`);
+                    images.push(src);
+                }
+            }
+        }
+        if (images.length === 0) {
+            throw 'No images found in chapter';
+        }
+        return {
+            images: images,
+        };
+    }
+
     comic = {
         loadInfo: async (id) => {
             let res = await this.networkGet(`${this.contentUrl}/api/v3/comic2/${id}?platform=3`, this.contentHeaders);
@@ -855,16 +963,32 @@ class CopyManga extends ComicSource {
             }
         },
         loadEp: async (comicId, epId) => {
+            const now = new Date().getTime();
+            if (this._webFallback && this._lastEpTime != null && now - this._lastEpTime > 10000) {
+                // 距上次章节请求超过 10 秒，视为下载批次已结束，恢复 App API
+                this._webFallback = false;
+            }
+            this._lastEpTime = now;
+            if (this._webFallback) {
+                return this._loadEpFromWeb(comicId, epId);
+            }
             let res = await this.networkGet(
                 `${this.contentUrl}/api/v3/comic/${comicId}/chapter/${epId}?platform=3`,
                 this.contentHeaders
             );
-
+            if (res.status === 210) {
+                this._webFallback = true;
+                return this._loadEpFromWeb(comicId, epId);
+            }
             if (res.status !== 200) {
                 throw `Invalid status code: ${res.status}`;
             }
 
             let data = JSON.parse(res.body);
+            if (Number(data.code) === 210) {
+                this._webFallback = true;
+                return this._loadEpFromWeb(comicId, epId);
+            }
             let chapter = data.results && data.results.chapter ? data.results.chapter : null;
             let contents = chapter && Array.isArray(chapter.contents) ? chapter.contents : [];
             let images = [];
@@ -887,6 +1011,10 @@ class CopyManga extends ComicSource {
             return {
                 images: images,
             };
+        },
+        resetWebFallback: () => {
+            this._webFallback = false;
+            this._lastEpTime = null;
         },
         loadComments: async (comicId, subId, page, replyTo) => {
             let url = `https://api.mangacopy.com/api/v3/comments?comic_id=${subId}&limit=20&offset=${(page - 1) * 20}`;
